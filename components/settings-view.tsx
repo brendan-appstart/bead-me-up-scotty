@@ -3,6 +3,7 @@ import * as React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Icon } from "@/components/icons";
+import { Switch } from "@/components/ui/switch";
 import { useTheme } from "@/components/theme-provider";
 import { api, type DoctorResponse } from "@/lib/api-client";
 
@@ -36,9 +37,10 @@ function SettingsForm({ data }: { data: DoctorResponse }) {
   const [actor, setActor] = React.useState(data.config.humanActor);
   const [allowlist, setAllowlist] = React.useState<string[]>(data.config.humanAllowlist);
   const [newName, setNewName] = React.useState("");
+  const [demo, setDemo] = React.useState(data.config.demo);
 
   const save = useMutation({
-    mutationFn: () => api.saveConfig({ repoPath, humanActor: actor, humanAllowlist: allowlist }),
+    mutationFn: () => api.saveConfig({ repoPath, humanActor: actor, humanAllowlist: allowlist, demo }),
     onSuccess: () => {
       toast.success("Settings saved");
       qc.invalidateQueries({ queryKey: ["doctor"] });
@@ -101,6 +103,24 @@ function SettingsForm({ data }: { data: DoctorResponse }) {
               className="w-[120px] rounded-lg border border-dashed border-[var(--border-strong)] bg-transparent px-[9px] py-1 text-[12px] text-[var(--text)] outline-none"
             />
           </div>
+        </div>
+      </Card>
+
+      <Card title="Data source">
+        <div className="flex items-center justify-between">
+          <div className="pr-4">
+            <div className="text-[13px]">Demo mode</div>
+            <div className="text-[11.5px] text-[var(--text-3)]">
+              Use the built-in sample dataset instead of <span className="font-mono">bd</span>.
+              Also forced by the <span className="font-mono">BEADS_DEMO=1</span> env var. Save to
+              apply.
+            </div>
+          </div>
+          <Switch checked={demo} onCheckedChange={setDemo} />
+        </div>
+        <div className="text-[11.5px] text-[var(--text-2)]">
+          Currently serving:{" "}
+          <span className="font-mono">{data.kind === "demo" ? "demo (in-memory)" : "bd (live)"}</span>
         </div>
       </Card>
 
