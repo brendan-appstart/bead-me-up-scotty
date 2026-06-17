@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f6f6f8; --surface:#ffffff; --surface-2:#f1f1f4; --surface-3:#ebebef;
+    --border:#e7e7ec; --border-strong:#d6d6dd;
+    --text:#16161a; --text-2:#62626d; --text-3:#9a9aa5;
+    --accent:#6d5ef0; --accent-2:#5546e0; --accent-weak:#efedfd;
+    --shadow:0 1px 2px rgba(20,20,30,.05),0 1px 1px rgba(20,20,30,.04);
+    --shadow-lg:0 12px 32px -8px rgba(20,20,40,.18),0 4px 12px -4px rgba(20,20,40,.10);
+    --drawer:#ffffff;
+  }
+  [data-theme="dark"]{
+    --bg:#0c0c0f; --surface:#161619; --surface-2:#1d1d22; --surface-3:#26262d;
+    --border:#26262d; --border-strong:#34343d;
+    --text:#f2f2f5; --text-2:#a2a2ad; --text-3:#6c6c77;
+    --accent:#8b7cf8; --accent-2:#9c8ffa; --accent-weak:#211d3a;
+    --shadow:0 1px 2px rgba(0,0,0,.4); --shadow-lg:0 16px 40px -8px rgba(0,0,0,.6);
+    --drawer:#141417;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;height:100%}
+  body{font-family:'Geist',system-ui,sans-serif;-webkit-font-smoothing:antialiased;background:var(--bg);color:var(--text)}
+  ::selection{background:var(--accent-weak)}
+  .bd-scroll::-webkit-scrollbar{width:10px;height:10px}
+  .bd-scroll::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:8px;border:3px solid transparent;background-clip:content-box}
+  .bd-scroll::-webkit-scrollbar-thumb:hover{background:var(--text-3);background-clip:content-box}
+  .bd-scroll::-webkit-scrollbar-track{background:transparent}
+  input,select,textarea,button{font-family:inherit}
+  @keyframes bdFade{from{opacity:0}to{opacity:1}}
+  @keyframes bdDrawer{from{transform:translateX(24px);opacity:0}to{transform:translateX(0);opacity:1}}
+  @keyframes bdModal{from{transform:translateY(12px) scale(.985);opacity:0}to{transform:translateY(0) scale(1);opacity:1}}
+  @keyframes bdToast{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}
+  @keyframes bdPop{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
+</style>
+</helmet>
+
+<div data-theme="{{ theme }}" style="height:100vh;display:flex;background:var(--bg);color:var(--text);font-size:14px;overflow:hidden">
+
+  <!-- SIDEBAR -->
+  <aside style="width:228px;flex-shrink:0;border-right:1px solid var(--border);background:var(--surface);display:flex;flex-direction:column;padding:18px 14px">
+    <div style="display:flex;align-items:center;gap:10px;padding:4px 8px 18px">
+      <div style="width:30px;height:30px;border-radius:9px;background:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 8px -2px var(--accent)">
+        <span style="display:flex;width:17px;height:17px;color:#fff" dangerouslySetInnerHTML="{{ logoIcon }}"></span>
+      </div>
+      <div style="line-height:1.1">
+        <div style="font-weight:650;font-size:14px;letter-spacing:-.01em">Bead Me Up</div>
+        <div style="font-size:11px;color:var(--text-3);font-family:'Geist Mono',monospace">scotty · bd</div>
+      </div>
+    </div>
+
+    <nav style="display:flex;flex-direction:column;gap:2px">
+      <sc-for list="{{ nav }}" as="n" hint-placeholder-count="4">
+        <button onClick="{{ n.onClick }}" style="{{ n.style }}" style-hover="{{ n.hoverStyle }}">
+          <span style="display:flex;width:17px;height:17px;flex-shrink:0" dangerouslySetInnerHTML="{{ n.icon }}"></span>
+          <span style="flex:1;text-align:left">{{ n.label }}</span>
+          <sc-if value="{{ n.badge }}" hint-placeholder-val="0">
+            <span style="font-size:11px;font-family:'Geist Mono',monospace;color:var(--text-3)">{{ n.badge }}</span>
+          </sc-if>
+        </button>
+      </sc-for>
+    </nav>
+
+    <div style="margin-top:auto;display:flex;flex-direction:column;gap:10px">
+      <div style="padding:12px;border:1px solid var(--border);border-radius:11px;background:var(--surface-2);display:flex;flex-direction:column;gap:8px">
+        <div style="font-size:11px;color:var(--text-3);font-weight:550;letter-spacing:.02em;text-transform:uppercase">Repo</div>
+        <div style="display:flex;align-items:center;gap:7px">
+          <span style="width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 3px #22c55e22"></span>
+          <span style="font-family:'Geist Mono',monospace;font-size:12px;color:var(--text-2)">~/dev/beads-ui/.beads</span>
+        </div>
+        <div style="font-size:11px;color:var(--text-3)">bd v0.14.2 · embedded · Dolt</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;padding:0 4px">
+        <div style="width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600">ST</div>
+        <div style="line-height:1.15;flex:1">
+          <div style="font-size:12.5px;font-weight:550">stevey</div>
+          <div style="font-size:11px;color:var(--text-3)">human actor</div>
+        </div>
+        <button onClick="{{ onToggleTheme }}" title="Toggle theme" style="width:30px;height:30px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:var(--surface-2);color:var(--text)">
+          <span style="display:flex;width:15px;height:15px" dangerouslySetInnerHTML="{{ themeIcon }}"></span>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main style="flex:1;min-width:0;display:flex;flex-direction:column;position:relative">
+
+    <!-- BOARD -->
+    <sc-if value="{{ isBoard }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;flex-direction:column;height:100%;min-height:0">
+        <!-- toolbar -->
+        <header style="flex-shrink:0;border-bottom:1px solid var(--border);background:var(--surface);padding:14px 22px;display:flex;align-items:center;gap:12px">
+          <div style="display:flex;flex-direction:column;gap:1px;margin-right:4px">
+            <h1 style="margin:0;font-size:16px;font-weight:650;letter-spacing:-.01em">Board</h1>
+            <span style="font-size:11.5px;color:var(--text-3)">{{ boardCount }} beads · live from <span style="font-family:'Geist Mono',monospace">bd list</span></span>
+          </div>
+          <div style="display:flex;align-items:center;gap:7px;flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:0 11px;max-width:300px;height:36px">
+            <span style="display:flex;width:15px;height:15px;color:var(--text-3);flex-shrink:0" dangerouslySetInnerHTML="{{ searchIcon }}"></span>
+            <input value="{{ search }}" onInput="{{ onSearch }}" placeholder="Search beads…  (/)" style="border:none;background:transparent;outline:none;color:var(--text);font-size:13px;width:100%" />
+          </div>
+          <div style="display:flex;align-items:center;gap:7px">
+            <select value="{{ filters.type }}" onChange="{{ onFilterType }}" style="height:36px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-2);border-radius:9px;padding:0 8px;font-size:12.5px;cursor:pointer;outline:none">
+              <sc-for list="{{ typeFilterOptions }}" as="o" hint-placeholder-count="3"><option value="{{ o.value }}">{{ o.label }}</option></sc-for>
+            </select>
+            <select value="{{ filters.prio }}" onChange="{{ onFilterPrio }}" style="height:36px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-2);border-radius:9px;padding:0 8px;font-size:12.5px;cursor:pointer;outline:none">
+              <sc-for list="{{ prioFilterOptions }}" as="o" hint-placeholder-count="3"><option value="{{ o.value }}">{{ o.label }}</option></sc-for>
+            </select>
+            <select value="{{ filters.origin }}" onChange="{{ onFilterOrigin }}" style="height:36px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-2);border-radius:9px;padding:0 8px;font-size:12.5px;cursor:pointer;outline:none">
+              <sc-for list="{{ originFilterOptions }}" as="o" hint-placeholder-count="3"><option value="{{ o.value }}">{{ o.label }}</option></sc-for>
+            </select>
+            <button onClick="{{ onToggleArchived }}" title="Toggle archived" style="{{ archivedBtnStyle }}">
+              <span style="display:flex;width:14px;height:14px" dangerouslySetInnerHTML="{{ archiveIcon }}"></span>
+              <span>Archived</span>
+            </button>
+            <button onClick="{{ onNew }}" style="height:36px;display:flex;align-items:center;gap:6px;padding:0 14px;border:none;border-radius:9px;background:var(--accent);color:#fff;font-size:13px;font-weight:550;cursor:pointer;box-shadow:0 2px 8px -2px var(--accent)" style-hover="background:var(--accent-2)">
+              <span style="display:flex;width:15px;height:15px" dangerouslySetInnerHTML="{{ plusIcon }}"></span>
+              <span>New</span>
+            </button>
+          </div>
+        </header>
+
+        <!-- columns -->
+        <div class="bd-scroll" style="flex:1;min-height:0;overflow-x:auto;overflow-y:hidden;padding:18px 22px">
+          <div style="display:flex;gap:16px;height:100%;min-height:0">
+            <sc-for list="{{ columns }}" as="col" hint-placeholder-count="5">
+              <section style="width:296px;flex-shrink:0;display:flex;flex-direction:column;min-height:0">
+                <div style="display:flex;align-items:center;gap:8px;padding:0 4px 12px;flex-shrink:0">
+                  <span style="width:9px;height:9px;border-radius:3px;background:{{ col.color }}"></span>
+                  <span style="font-weight:600;font-size:13px;letter-spacing:-.005em">{{ col.name }}</span>
+                  <span style="font-size:11.5px;font-family:'Geist Mono',monospace;color:var(--text-3);background:var(--surface-2);border:1px solid var(--border);border-radius:20px;padding:1px 8px">{{ col.count }}</span>
+                  <span style="flex:1"></span>
+                  <span style="font-size:10.5px;color:var(--text-3);font-family:'Geist Mono',monospace">{{ col.cmd }}</span>
+                </div>
+                <div class="bd-scroll" data-col="{{ col.id }}" onDragOver="{{ onColDragOver }}" onDrop="{{ onColDrop }}" onDragLeave="{{ onColDragLeave }}" style="{{ col.dropStyle }}">
+                  <sc-for list="{{ col.cards }}" as="c" hint-placeholder-count="3">
+                    <article data-id="{{ c.id }}" draggable="{{ c.draggable }}" onDragStart="{{ onCardDragStart }}" onDragEnd="{{ onCardDragEnd }}" onClick="{{ onCardClick }}" style="position:relative;display:flex;flex-direction:column;gap:9px;padding:12px 13px;background:var(--surface);border:1px solid var(--border);border-radius:11px;box-shadow:var(--shadow);cursor:pointer;transition:border-color .12s,box-shadow .12s,transform .08s" style-hover="border-color:var(--border-strong);box-shadow:var(--shadow-lg)">
+                      <div style="display:flex;align-items:center;gap:8px">
+                        <span style="width:8px;height:8px;border-radius:50%;flex-shrink:0;background:{{ c.catColor }}" title="{{ c.statusLabel }}"></span>
+                        <span style="font-family:'Geist Mono',monospace;font-size:11.5px;color:var(--text-3);letter-spacing:-.01em">{{ c.id }}</span>
+                        <span style="flex:1"></span>
+                        <span style="{{ c.prioStyle }}">{{ c.prioLabel }}</span>
+                        <sc-if value="{{ showOrigin }}" hint-placeholder-val="{{ true }}">
+                          <span title="{{ c.originTitle }}" style="{{ c.originStyle }}">
+                            <span style="display:flex;width:12px;height:12px" dangerouslySetInnerHTML="{{ c.originIcon }}"></span>
+                          </span>
+                        </sc-if>
+                      </div>
+                      <div style="font-size:13.5px;font-weight:550;line-height:1.35;color:var(--text);letter-spacing:-.006em;text-wrap:pretty">{{ c.title }}</div>
+                      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                        <span style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text-2)">
+                          <span style="display:flex;width:13px;height:13px;color:{{ c.typeColor }}" dangerouslySetInnerHTML="{{ c.typeIcon }}"></span>
+                          <span>{{ c.typeLabel }}</span>
+                        </span>
+                        <sc-for list="{{ c.labels }}" as="l" hint-placeholder-count="0">
+                          <span style="font-size:10.5px;color:var(--text-3);background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:1px 6px;font-family:'Geist Mono',monospace">{{ l.text }}</span>
+                        </sc-for>
+                      </div>
+                      <div style="display:flex;align-items:center;gap:10px;padding-top:2px;border-top:1px solid var(--border);margin-top:1px;padding-top:9px">
+                        <span style="display:inline-flex;align-items:center;gap:6px;min-width:0">
+                          <span style="width:19px;height:19px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:600;color:#fff;flex-shrink:0;background:{{ c.assigneeColor }}">{{ c.assigneeInitials }}</span>
+                          <span style="font-size:11.5px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.assignee }}</span>
+                        </span>
+                        <span style="flex:1"></span>
+                        <sc-if value="{{ c.hasDeps }}" hint-placeholder-val="{{ true }}">
+                          <span title="dependencies" style="display:inline-flex;align-items:center;gap:3px;font-size:11px;color:{{ c.depColor }};font-family:'Geist Mono',monospace">
+                            <span style="display:flex;width:13px;height:13px" dangerouslySetInnerHTML="{{ linkIcon }}"></span>{{ c.depCount }}
+                          </span>
+                        </sc-if>
+                        <sc-if value="{{ c.hasComments }}" hint-placeholder-val="{{ true }}">
+                          <span title="comments" style="display:inline-flex;align-items:center;gap:3px;font-size:11px;color:var(--text-3);font-family:'Geist Mono',monospace">
+                            <span style="display:flex;width:13px;height:13px" dangerouslySetInnerHTML="{{ commentIcon }}"></span>{{ c.commentCount }}
+                          </span>
+                        </sc-if>
+                        <sc-if value="{{ c.hasEpic }}" hint-placeholder-val="{{ true }}">
+                          <span title="{{ c.epicTitle }}" style="display:inline-flex;align-items:center;gap:4px;font-size:10.5px;color:var(--accent);background:var(--accent-weak);border-radius:6px;padding:1px 6px;font-weight:550;max-width:96px">
+                            <span style="display:flex;width:11px;height:11px;flex-shrink:0" dangerouslySetInnerHTML="{{ epicIcon }}"></span>
+                            <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.epicTag }}</span>
+                          </span>
+                        </sc-if>
+                      </div>
+                    </article>
+                  </sc-for>
+                  <sc-if value="{{ col.empty }}" hint-placeholder-val="0">
+                    <div style="border:1.5px dashed var(--border);border-radius:11px;padding:22px 12px;text-align:center;color:var(--text-3);font-size:12px">No beads</div>
+                  </sc-if>
+                </div>
+              </section>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- EPICS -->
+    <sc-if value="{{ isEpics }}" hint-placeholder-val="0">
+      <div style="display:flex;flex-direction:column;height:100%;min-height:0">
+        <header style="flex-shrink:0;border-bottom:1px solid var(--border);background:var(--surface);padding:14px 22px;display:flex;align-items:center;gap:12px">
+          <div style="flex:1">
+            <h1 style="margin:0;font-size:16px;font-weight:650;letter-spacing:-.01em">Epics</h1>
+            <span style="font-size:11.5px;color:var(--text-3)">{{ epicsCount }} epics · progress = closed ÷ children</span>
+          </div>
+          <button onClick="{{ onNew }}" style="height:36px;display:flex;align-items:center;gap:6px;padding:0 14px;border:none;border-radius:9px;background:var(--accent);color:#fff;font-size:13px;font-weight:550;cursor:pointer" style-hover="background:var(--accent-2)">
+            <span style="display:flex;width:15px;height:15px" dangerouslySetInnerHTML="{{ plusIcon }}"></span><span>New epic</span>
+          </button>
+        </header>
+        <div class="bd-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:20px 22px">
+          <div style="max-width:880px;margin:0 auto;display:flex;flex-direction:column;gap:14px">
+            <sc-for list="{{ epics }}" as="e" hint-placeholder-count="4">
+              <section style="border:1px solid var(--border);border-radius:14px;background:var(--surface);box-shadow:var(--shadow);overflow:hidden">
+                <div onClick="{{ e.onToggle }}" style="display:flex;align-items:center;gap:14px;padding:16px 18px;cursor:pointer">
+                  <div style="width:36px;height:36px;border-radius:10px;background:var(--accent-weak);color:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                    <span style="display:flex;width:19px;height:19px" dangerouslySetInnerHTML="{{ epicIcon }}"></span>
+                  </div>
+                  <div style="flex:1;min-width:0">
+                    <div style="display:flex;align-items:center;gap:9px">
+                      <span style="font-family:'Geist Mono',monospace;font-size:11.5px;color:var(--text-3)">{{ e.id }}</span>
+                      <span style="{{ e.statusStyle }}">{{ e.statusLabel }}</span>
+                    </div>
+                    <div style="font-size:15px;font-weight:600;letter-spacing:-.01em;margin-top:3px">{{ e.title }}</div>
+                  </div>
+                  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:7px;width:200px;flex-shrink:0">
+                    <div style="display:flex;align-items:baseline;gap:6px">
+                      <span style="font-size:17px;font-weight:650;font-family:'Geist Mono',monospace;letter-spacing:-.02em">{{ e.pct }}%</span>
+                      <span style="font-size:11.5px;color:var(--text-3)">{{ e.closed }}/{{ e.total }} done</span>
+                    </div>
+                    <div style="width:100%;height:7px;border-radius:20px;background:var(--surface-3);overflow:hidden">
+                      <div style="{{ e.barStyle }}"></div>
+                    </div>
+                  </div>
+                  <span style="display:flex;width:18px;height:18px;color:var(--text-3);transition:transform .15s;transform:{{ e.chevron }}" dangerouslySetInnerHTML="{{ chevronIcon }}"></span>
+                </div>
+                <sc-if value="{{ e.expanded }}" hint-placeholder-val="0">
+                  <div style="border-top:1px solid var(--border);background:var(--surface-2);padding:6px">
+                    <sc-for list="{{ e.children }}" as="ch" hint-placeholder-count="3">
+                      <div data-id="{{ ch.id }}" onClick="{{ onCardClick }}" style="display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:9px;cursor:pointer" style-hover="background:var(--surface)">
+                        <span style="width:8px;height:8px;border-radius:50%;flex-shrink:0;background:{{ ch.catColor }}"></span>
+                        <span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--text-3);width:74px;flex-shrink:0">{{ ch.id }}</span>
+                        <span style="display:flex;width:14px;height:14px;color:{{ ch.typeColor }};flex-shrink:0" dangerouslySetInnerHTML="{{ ch.typeIcon }}"></span>
+                        <span style="flex:1;font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ ch.title }}</span>
+                        <span style="{{ ch.prioStyle }}">{{ ch.prioLabel }}</span>
+                        <span title="{{ ch.originTitle }}" style="{{ ch.originStyle }}"><span style="display:flex;width:12px;height:12px" dangerouslySetInnerHTML="{{ ch.originIcon }}"></span></span>
+                        <span style="width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:600;color:#fff;flex-shrink:0;background:{{ ch.assigneeColor }}">{{ ch.assigneeInitials }}</span>
+                      </div>
+                    </sc-for>
+                    <button onClick="{{ e.onAddChild }}" style="display:flex;align-items:center;gap:7px;padding:9px 12px;margin:2px;border:none;background:transparent;color:var(--accent);font-size:12.5px;font-weight:550;cursor:pointer;border-radius:9px;width:calc(100% - 4px)" style-hover="background:var(--surface)">
+                      <span style="display:flex;width:14px;height:14px" dangerouslySetInnerHTML="{{ plusIcon }}"></span><span>Add child to this epic</span>
+                    </button>
+                  </div>
+                </sc-if>
+              </section>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- GRAPH -->
+    <sc-if value="{{ isGraph }}" hint-placeholder-val="0">
+      <div style="display:flex;flex-direction:column;height:100%;min-height:0">
+        <header style="flex-shrink:0;border-bottom:1px solid var(--border);background:var(--surface);padding:14px 22px">
+          <h1 style="margin:0;font-size:16px;font-weight:650;letter-spacing:-.01em">Dependency graph</h1>
+          <span style="font-size:11.5px;color:var(--text-3)">M1 neighborhood · <span style="font-family:'Geist Mono',monospace">bd dep tree</span> · drag a node onto another to link (cycle-checked)</span>
+        </header>
+        <div class="bd-scroll" style="flex:1;min-height:0;overflow:auto;background:var(--bg);position:relative;background-image:radial-gradient(var(--border) 1px,transparent 1px);background-size:22px 22px">
+          <div style="position:relative;width:940px;height:560px;margin:20px auto">
+            <svg width="940" height="560" style="position:absolute;inset:0;overflow:visible">
+              <defs>
+                <marker id="bdArrow" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="var(--text-3)"></path></marker>
+                <marker id="bdArrowR" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#ef4444"></path></marker>
+              </defs>
+              <sc-for list="{{ graph.edges }}" as="ed" hint-placeholder-count="6">
+                <line x1="{{ ed.x1 }}" y1="{{ ed.y1 }}" x2="{{ ed.x2 }}" y2="{{ ed.y2 }}" stroke="{{ ed.stroke }}" stroke-width="{{ ed.width }}" stroke-dasharray="{{ ed.dash }}" marker-end="{{ ed.marker }}" opacity="{{ ed.opacity }}"></line>
+              </sc-for>
+            </svg>
+            <sc-for list="{{ graph.nodes }}" as="nd" hint-placeholder-count="8">
+              <div data-id="{{ nd.id }}" onClick="{{ onCardClick }}" style="{{ nd.style }}" style-hover="box-shadow:var(--shadow-lg);border-color:var(--border-strong)">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+                  <span style="width:8px;height:8px;border-radius:50%;background:{{ nd.catColor }}"></span>
+                  <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--text-3)">{{ nd.id }}</span>
+                  <span style="flex:1"></span>
+                  <span style="display:flex;width:12px;height:12px;color:{{ nd.typeColor }}" dangerouslySetInnerHTML="{{ nd.typeIcon }}"></span>
+                </div>
+                <div style="font-size:12px;font-weight:550;line-height:1.3;color:var(--text);text-wrap:pretty">{{ nd.title }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="position:absolute;bottom:18px;left:50%;transform:translateX(-50%);display:flex;gap:18px;background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:9px 16px;box-shadow:var(--shadow);font-size:11.5px;color:var(--text-2)">
+            <span style="display:flex;align-items:center;gap:6px"><span style="width:18px;height:2px;background:#ef4444"></span>blocks</span>
+            <span style="display:flex;align-items:center;gap:6px"><span style="width:18px;height:2px;background:var(--text-3)"></span>parent-child</span>
+            <span style="display:flex;align-items:center;gap:6px"><span style="width:18px;height:0;border-top:2px dashed var(--accent)"></span>related</span>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- SETTINGS -->
+    <sc-if value="{{ isSettings }}" hint-placeholder-val="0">
+      <div style="display:flex;flex-direction:column;height:100%;min-height:0">
+        <header style="flex-shrink:0;border-bottom:1px solid var(--border);background:var(--surface);padding:14px 22px">
+          <h1 style="margin:0;font-size:16px;font-weight:650;letter-spacing:-.01em">Settings</h1>
+          <span style="font-size:11.5px;color:var(--text-3)">Local config · stored under the OS config dir, not in beads</span>
+        </header>
+        <div class="bd-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:24px 22px">
+          <div style="max-width:620px;margin:0 auto;display:flex;flex-direction:column;gap:18px">
+            <section style="border:1px solid var(--border);border-radius:13px;background:var(--surface);padding:18px 20px;display:flex;flex-direction:column;gap:14px">
+              <div style="font-weight:600;font-size:13.5px">Repository</div>
+              <label style="display:flex;flex-direction:column;gap:6px">
+                <span style="font-size:12px;color:var(--text-2)">.beads repo path</span>
+                <input value="~/dev/beads-ui/.beads" readOnly style="height:38px;border:1px solid var(--border);background:var(--surface-2);border-radius:9px;padding:0 12px;font-family:'Geist Mono',monospace;font-size:12.5px;color:var(--text);outline:none" />
+              </label>
+              <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-2)">
+                <span style="display:flex;width:14px;height:14px;color:#22c55e" dangerouslySetInnerHTML="{{ checkIcon }}"></span>
+                <span><span style="font-family:'Geist Mono',monospace">bd doctor</span> passed · bd v0.14.2 · schema_version 4</span>
+              </div>
+            </section>
+            <section style="border:1px solid var(--border);border-radius:13px;background:var(--surface);padding:18px 20px;display:flex;flex-direction:column;gap:14px">
+              <div style="font-weight:600;font-size:13.5px">Attribution</div>
+              <label style="display:flex;flex-direction:column;gap:6px">
+                <span style="font-size:12px;color:var(--text-2)">Human actor (stamps <span style="font-family:'Geist Mono',monospace">BEADS_ACTOR</span>)</span>
+                <input value="stevey" readOnly style="height:38px;border:1px solid var(--border);background:var(--surface-2);border-radius:9px;padding:0 12px;font-size:13px;color:var(--text);outline:none" />
+              </label>
+              <div style="display:flex;flex-direction:column;gap:7px">
+                <span style="font-size:12px;color:var(--text-2)">Human allowlist · others render as agent</span>
+                <div style="display:flex;flex-wrap:wrap;gap:7px">
+                  <span style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:4px 9px;font-size:12px">stevey<span style="color:var(--text-3);cursor:pointer">×</span></span>
+                  <span style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:4px 9px;font-size:12px">dana<span style="color:var(--text-3);cursor:pointer">×</span></span>
+                  <span style="display:inline-flex;align-items:center;gap:6px;border:1px dashed var(--border-strong);border-radius:8px;padding:4px 9px;font-size:12px;color:var(--text-3);cursor:pointer">+ add</span>
+                </div>
+              </div>
+            </section>
+            <section style="border:1px solid var(--border);border-radius:13px;background:var(--surface);padding:18px 20px;display:flex;flex-direction:column;gap:16px">
+              <div style="font-weight:600;font-size:13.5px">Freshness &amp; theme</div>
+              <div style="display:flex;align-items:center;justify-content:space-between">
+                <div><div style="font-size:13px">Poll interval</div><div style="font-size:11.5px;color:var(--text-3)">TanStack Query background refetch</div></div>
+                <span style="font-family:'Geist Mono',monospace;font-size:13px;color:var(--text-2);background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:4px 10px">5s</span>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between">
+                <div><div style="font-size:13px">Theme</div><div style="font-size:11.5px;color:var(--text-3)">Currently {{ themeLabel }}</div></div>
+                <button onClick="{{ onToggleTheme }}" style="height:34px;display:flex;align-items:center;gap:7px;padding:0 13px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);border-radius:9px;font-size:12.5px;cursor:pointer" style-hover="background:var(--surface-3)">
+                  <span style="display:flex;width:14px;height:14px" dangerouslySetInnerHTML="{{ themeIcon }}"></span><span>Switch theme</span>
+                </button>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- DRAWER -->
+    <sc-if value="{{ hasOpen }}" hint-placeholder-val="0">
+      <div onClick="{{ onCloseDrawer }}" style="position:absolute;inset:0;background:rgba(10,10,16,.34);animation:bdFade .15s ease;z-index:40"></div>
+      <aside class="bd-scroll" style="position:absolute;top:0;right:0;bottom:0;width:480px;max-width:92%;background:var(--drawer);border-left:1px solid var(--border);box-shadow:var(--shadow-lg);z-index:41;overflow-y:auto;animation:bdDrawer .22s cubic-bezier(.22,1,.36,1)">
+        <div style="position:sticky;top:0;background:var(--drawer);border-bottom:1px solid var(--border);padding:15px 20px;display:flex;align-items:center;gap:10px;z-index:2">
+          <span style="width:9px;height:9px;border-radius:50%;background:{{ open.catColor }}"></span>
+          <span style="font-family:'Geist Mono',monospace;font-size:13px;color:var(--text-2)">{{ open.id }}</span>
+          <span style="{{ open.statusStyle }}">{{ open.statusLabel }}</span>
+          <span style="flex:1"></span>
+          <button onClick="{{ onArchive }}" title="Archive (close + label)" style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text-2);display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:var(--surface-2);color:var(--text)"><span style="display:flex;width:15px;height:15px" dangerouslySetInnerHTML="{{ archiveIcon }}"></span></button>
+          <button onClick="{{ onDelete }}" title="Delete" style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text-2);display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:#ef444415;color:#ef4444;border-color:#ef444433"><span style="display:flex;width:15px;height:15px" dangerouslySetInnerHTML="{{ trashIcon }}"></span></button>
+          <button onClick="{{ onCloseDrawer }}" style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text-2);display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:var(--surface-2);color:var(--text)"><span style="display:flex;width:15px;height:15px" dangerouslySetInnerHTML="{{ closeIcon }}"></span></button>
+        </div>
+
+        <div style="padding:20px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-2);background:var(--surface-2);border:1px solid var(--border);border-radius:7px;padding:3px 9px">
+              <span style="display:flex;width:13px;height:13px;color:{{ open.typeColor }}" dangerouslySetInnerHTML="{{ open.typeIcon }}"></span>{{ open.typeLabel }}
+            </span>
+            <span title="{{ open.originTitle }}" style="{{ open.originBadgeStyle }}">
+              <span style="display:flex;width:13px;height:13px" dangerouslySetInnerHTML="{{ open.originIcon }}"></span>{{ open.originLabel }}
+            </span>
+          </div>
+          <h2 style="margin:0 0 14px;font-size:20px;font-weight:650;line-height:1.25;letter-spacing:-.02em;text-wrap:pretty">{{ open.title }}</h2>
+
+          <!-- controls -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+            <label style="display:flex;flex-direction:column;gap:5px">
+              <span style="font-size:11px;color:var(--text-3);font-weight:550;text-transform:uppercase;letter-spacing:.03em">Status</span>
+              <select value="{{ open.status }}" onChange="{{ onStatusChange }}" style="height:36px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);border-radius:9px;padding:0 9px;font-size:13px;cursor:pointer;outline:none">
+                <sc-for list="{{ statusOptions }}" as="o" hint-placeholder-count="5"><option value="{{ o.value }}">{{ o.label }}</option></sc-for>
+              </select>
+            </label>
+            <label style="display:flex;flex-direction:column;gap:5px">
+              <span style="font-size:11px;color:var(--text-3);font-weight:550;text-transform:uppercase;letter-spacing:.03em">Priority</span>
+              <select value="{{ open.priority }}" onChange="{{ onPrioChange }}" style="height:36px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);border-radius:9px;padding:0 9px;font-size:13px;cursor:pointer;outline:none">
+                <sc-for list="{{ prioOptions }}" as="o" hint-placeholder-count="5"><option value="{{ o.value }}">{{ o.label }}</option></sc-for>
+              </select>
+            </label>
+            <label style="display:flex;flex-direction:column;gap:5px">
+              <span style="font-size:11px;color:var(--text-3);font-weight:550;text-transform:uppercase;letter-spacing:.03em">Assignee</span>
+              <div style="height:36px;border:1px solid var(--border);background:var(--surface-2);border-radius:9px;padding:0 10px;display:flex;align-items:center;gap:7px">
+                <span style="width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:#fff;background:{{ open.assigneeColor }}">{{ open.assigneeInitials }}</span>
+                <span style="font-size:13px">{{ open.assignee }}</span>
+              </div>
+            </label>
+            <label style="display:flex;flex-direction:column;gap:5px">
+              <span style="font-size:11px;color:var(--text-3);font-weight:550;text-transform:uppercase;letter-spacing:.03em">Epic</span>
+              <div style="height:36px;border:1px solid var(--border);background:var(--surface-2);border-radius:9px;padding:0 10px;display:flex;align-items:center;gap:7px;color:var(--accent)">
+                <span style="display:flex;width:14px;height:14px" dangerouslySetInnerHTML="{{ epicIcon }}"></span>
+                <span style="font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ open.epicLabel }}</span>
+              </div>
+            </label>
+          </div>
+
+          <!-- description -->
+          <div style="margin-bottom:18px">
+            <div style="font-size:11px;color:var(--text-3);font-weight:550;text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px">Description</div>
+            <div style="font-size:13.5px;line-height:1.55;color:var(--text-2);background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:12px 13px;text-wrap:pretty">{{ open.description }}</div>
+          </div>
+
+          <!-- dependencies -->
+          <div style="margin-bottom:18px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px">
+              <span style="display:flex;width:15px;height:15px;color:var(--text-2)" dangerouslySetInnerHTML="{{ linkIcon }}"></span>
+              <span style="font-size:13px;font-weight:600">Dependencies</span>
+              <span style="font-size:11px;color:var(--text-3);font-family:'Geist Mono',monospace">{{ open.depTotal }}</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <sc-for list="{{ open.deps }}" as="d" hint-placeholder-count="2">
+                <div data-id="{{ d.targetId }}" style="display:flex;align-items:center;gap:9px;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--surface)">
+                  <span style="{{ d.tagStyle }}">{{ d.typeLabel }}</span>
+                  <span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--text-3);flex-shrink:0">{{ d.targetId }}</span>
+                  <span style="flex:1;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ d.targetTitle }}</span>
+                  <span style="width:7px;height:7px;border-radius:50%;flex-shrink:0;background:{{ d.targetColor }}" title="{{ d.targetStatus }}"></span>
+                  <button onClick="{{ d.onRemove }}" title="remove" style="width:22px;height:22px;border-radius:6px;border:none;background:transparent;color:var(--text-3);cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="background:#ef444415;color:#ef4444"><span style="display:flex;width:12px;height:12px" dangerouslySetInnerHTML="{{ closeIcon }}"></span></button>
+                </div>
+              </sc-for>
+              <sc-if value="{{ open.noDeps }}" hint-placeholder-val="0">
+                <div style="font-size:12px;color:var(--text-3);padding:4px 2px">No dependencies. This bead is unblocked.</div>
+              </sc-if>
+              <button onClick="{{ onAddDepDemo }}" style="display:flex;align-items:center;gap:7px;padding:8px 11px;border:1px dashed var(--border-strong);border-radius:9px;background:transparent;color:var(--text-2);font-size:12.5px;cursor:pointer;font-weight:500" style-hover="border-color:var(--accent);color:var(--accent)">
+                <span style="display:flex;width:14px;height:14px" dangerouslySetInnerHTML="{{ plusIcon }}"></span><span>Add dependency</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- comments -->
+          <div style="margin-bottom:18px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:11px">
+              <span style="display:flex;width:15px;height:15px;color:var(--text-2)" dangerouslySetInnerHTML="{{ commentIcon }}"></span>
+              <span style="font-size:13px;font-weight:600">Comments</span>
+              <span style="font-size:11px;color:var(--text-3);font-family:'Geist Mono',monospace">{{ open.commentCount }}</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:12px">
+              <sc-for list="{{ open.comments }}" as="cm" hint-placeholder-count="2">
+                <div style="display:flex;gap:10px">
+                  <span style="width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:#fff;flex-shrink:0;background:{{ cm.color }}">{{ cm.initials }}</span>
+                  <div style="flex:1;min-width:0">
+                    <div style="display:flex;align-items:center;gap:7px;margin-bottom:3px">
+                      <span style="font-size:12.5px;font-weight:600">{{ cm.author }}</span>
+                      <span title="{{ cm.originTitle }}" style="{{ cm.originStyle }}"><span style="display:flex;width:11px;height:11px" dangerouslySetInnerHTML="{{ cm.originIcon }}"></span></span>
+                      <span style="font-size:11px;color:var(--text-3)">{{ cm.time }}</span>
+                    </div>
+                    <div style="font-size:13px;line-height:1.5;color:var(--text-2);text-wrap:pretty">{{ cm.text }}</div>
+                  </div>
+                </div>
+              </sc-for>
+              <sc-if value="{{ open.noComments }}" hint-placeholder-val="0">
+                <div style="font-size:12px;color:var(--text-3)">No comments yet.</div>
+              </sc-if>
+            </div>
+            <div style="display:flex;gap:9px;align-items:flex-start">
+              <span style="width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:#fff;flex-shrink:0;background:var(--accent)">ST</span>
+              <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+                <textarea value="{{ commentDraft }}" onInput="{{ onCommentInput }}" placeholder="Comment as stevey…" rows="2" style="width:100%;resize:vertical;border:1px solid var(--border);background:var(--surface-2);border-radius:10px;padding:9px 11px;font-size:13px;color:var(--text);outline:none;line-height:1.5"></textarea>
+                <div style="display:flex;justify-content:flex-end">
+                  <button onClick="{{ onAddComment }}" style="height:32px;padding:0 14px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:12.5px;font-weight:550;cursor:pointer" style-hover="background:var(--accent-2)">Comment</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- activity -->
+          <div>
+            <div style="font-size:11px;color:var(--text-3);font-weight:550;text-transform:uppercase;letter-spacing:.03em;margin-bottom:9px">Activity</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <sc-for list="{{ open.activity }}" as="a" hint-placeholder-count="2">
+                <div style="display:flex;align-items:center;gap:9px;font-size:12px;color:var(--text-2)">
+                  <span style="width:6px;height:6px;border-radius:50%;background:var(--text-3);flex-shrink:0"></span>
+                  <span style="flex:1">{{ a.label }}</span>
+                  <span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--text-3)">{{ a.time }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </sc-if>
+
+    <!-- CREATE MODAL -->
+    <sc-if value="{{ createOpen }}" hint-placeholder-val="0">
+      <div onClick="{{ onCreateClose }}" style="position:absolute;inset:0;background:rgba(10,10,16,.4);display:flex;align-items:flex-start;justify-content:center;padding:48px 20px;animation:bdFade .15s ease;z-index:50;overflow-y:auto">
+        <div onClick="{{ stop }}" class="bd-scroll" style="width:540px;max-width:100%;background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-lg);animation:bdModal .2s cubic-bezier(.22,1,.36,1)">
+          <div style="display:flex;align-items:center;gap:10px;padding:17px 20px;border-bottom:1px solid var(--border)">
+            <div style="width:30px;height:30px;border-radius:9px;background:var(--accent-weak);color:var(--accent);display:flex;align-items:center;justify-content:center"><span style="display:flex;width:16px;height:16px" dangerouslySetInnerHTML="{{ plusIcon }}"></span></div>
+            <div style="flex:1"><div style="font-size:15px;font-weight:650">{{ createTitle }}</div><div style="font-size:11.5px;color:var(--text-3);font-family:'Geist Mono',monospace">bd create … --json</div></div>
+            <button onClick="{{ onCreateClose }}" style="width:30px;height:30px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text-2);display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:var(--surface-2);color:var(--text)"><span style="display:flex;width:14px;height:14px" dangerouslySetInnerHTML="{{ closeIcon }}"></span></button>
+          </div>
+          <div style="padding:20px;display:flex;flex-direction:column;gap:14px">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <label style="display:flex;flex-direction:column;gap:6px">
+                <span style="font-size:12px;color:var(--text-2);font-weight:550">Type</span>
+                <select value="{{ form.type }}" onChange="{{ onFormType }}" style="height:38px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);border-radius:9px;padding:0 10px;font-size:13px;cursor:pointer;outline:none">
+                  <sc-for list="{{ typeCreateOptions }}" as="o" hint-placeholder-count="5"><option value="{{ o.value }}">{{ o.label }}</option></sc-for>
+                </select>
+              </label>
+              <label style="display:flex;flex-direction:column;gap:6px">
+                <span style="font-size:12px;color:var(--text-2);font-weight:550">Priority</span>
+                <select value="{{ form.priority }}" onChange="{{ onFormPrio }}" style="height:38px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);border-radius:9px;padding:0 10px;font-size:13px;cursor:pointer;outline:none">
+                  <sc-for list="{{ prioOptions }}" as="o" hint-placeholder-count="5"><option value="{{ o.value }}">{{ o.label }}</option></sc-for>
+                </select>
+              </label>
+            </div>
+            <label style="display:flex;flex-direction:column;gap:6px">
+              <span style="font-size:12px;color:var(--text-2);font-weight:550">Title</span>
+              <input value="{{ form.title }}" onInput="{{ onFormTitle }}" placeholder="What needs doing?" style="height:38px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);border-radius:9px;padding:0 12px;font-size:13.5px;outline:none" style-focus="border-color:var(--accent)" />
+            </label>
+            <label style="display:flex;flex-direction:column;gap:6px">
+              <span style="font-size:12px;color:var(--text-2);font-weight:550">Description</span>
+              <textarea value="{{ form.description }}" onInput="{{ onFormDesc }}" rows="3" placeholder="Optional details, acceptance criteria…" style="resize:vertical;border:1px solid var(--border);background:var(--surface-2);color:var(--text);border-radius:9px;padding:10px 12px;font-size:13px;outline:none;line-height:1.5"></textarea>
+            </label>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <label style="display:flex;flex-direction:column;gap:6px">
+                <span style="font-size:12px;color:var(--text-2);font-weight:550">Assignee</span>
+                <select value="{{ form.assignee }}" onChange="{{ onFormAssignee }}" style="height:38px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);border-radius:9px;padding:0 10px;font-size:13px;cursor:pointer;outline:none">
+                  <sc-for list="{{ assigneeOptions }}" as="o" hint-placeholder-count="4"><option value="{{ o.value }}">{{ o.label }}</option></sc-for>
+                </select>
+              </label>
+              <label style="display:flex;flex-direction:column;gap:6px">
+                <span style="font-size:12px;color:var(--text-2);font-weight:550">Parent epic</span>
+                <select value="{{ form.parent }}" onChange="{{ onFormParent }}" style="height:38px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);border-radius:9px;padding:0 10px;font-size:13px;cursor:pointer;outline:none">
+                  <sc-for list="{{ epicSelectOptions }}" as="o" hint-placeholder-count="4"><option value="{{ o.value }}">{{ o.label }}</option></sc-for>
+                </select>
+              </label>
+            </div>
+            <label style="display:flex;flex-direction:column;gap:6px">
+              <span style="font-size:12px;color:var(--text-2);font-weight:550">Labels <span style="color:var(--text-3);font-weight:400">· comma separated</span></span>
+              <input value="{{ form.labels }}" onInput="{{ onFormLabels }}" placeholder="ui, dnd, m3" style="height:38px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);border-radius:9px;padding:0 12px;font-size:13px;outline:none;font-family:'Geist Mono',monospace" />
+            </label>
+            <label style="display:flex;align-items:center;gap:9px;cursor:pointer;user-select:none">
+              <input type="checkbox" checked="{{ form.backlog }}" onChange="{{ onFormBacklog }}" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer" />
+              <span style="font-size:13px;color:var(--text-2)">Start in Backlog (<span style="font-family:'Geist Mono',monospace">deferred</span>) instead of Ready</span>
+            </label>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;padding:15px 20px;border-top:1px solid var(--border)">
+            <div style="flex:1;display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--text-3)">
+              <span style="display:flex;width:13px;height:13px;color:var(--text-2)" dangerouslySetInnerHTML="{{ userIcon }}"></span>
+              <span>Stamped <span style="font-family:'Geist Mono',monospace;color:var(--text-2)">created_by=stevey</span></span>
+            </div>
+            <button onClick="{{ onCreateClose }}" style="height:38px;padding:0 16px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);border-radius:9px;font-size:13px;font-weight:550;cursor:pointer" style-hover="background:var(--surface-3)">Cancel</button>
+            <button onClick="{{ onCreateSubmit }}" style="{{ createBtnStyle }}">
+              <span style="display:flex;width:15px;height:15px" dangerouslySetInnerHTML="{{ checkIcon }}"></span><span>Create bead</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- TOAST -->
+    <sc-if value="{{ hasToast }}" hint-placeholder-val="0">
+      <div style="position:absolute;bottom:24px;left:50%;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:10px;background:var(--text);color:var(--bg);padding:11px 16px;border-radius:11px;box-shadow:var(--shadow-lg);font-size:13px;font-weight:500;animation:bdToast .2s cubic-bezier(.22,1,.36,1)">
+        <span style="display:flex;width:15px;height:15px;color:var(--accent-2)" dangerouslySetInnerHTML="{{ toastIcon }}"></span>
+        <span>{{ toastMsg }}</span>
+      </div>
+    </sc-if>
+
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1320,&quot;height&quot;:860},&quot;defaultTheme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;showOrigin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  ICONS = {
+    logo: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><circle cx="6" cy="6" r="2.4"/><circle cx="18" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/><circle cx="18" cy="18" r="2.4"/><path d="M8.3 6h7.4M6 8.3v7.4M18 8.3v7.4M8.3 18h7.4"/></svg>`,
+    board: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><rect x="3" y="3" width="18" height="18" rx="2.5"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>`,
+    target: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4"/></svg>`,
+    graph: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><circle cx="5" cy="6" r="2.4"/><circle cx="19" cy="6" r="2.4"/><circle cx="12" cy="18" r="2.4"/><line x1="6.9" y1="7.5" x2="10.4" y2="16.2"/><line x1="17.1" y1="7.5" x2="13.6" y2="16.2"/><line x1="7.4" y1="6" x2="16.6" y2="6"/></svg>`,
+    settings: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><line x1="4" y1="6" x2="20" y2="6"/><circle cx="9" cy="6" r="2.2"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="15" cy="12" r="2.2"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="9" cy="18" r="2.2"/></svg>`,
+    search: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><circle cx="11" cy="11" r="7"/><line x1="20.5" y1="20.5" x2="16.5" y2="16.5"/></svg>`,
+    plus: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
+    x: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+    check: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><polyline points="20 6 9 17 4 12"/></svg>`,
+    chevron: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><polyline points="6 9 12 15 18 9"/></svg>`,
+    comment: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><path d="M21 11.5a8.4 8.4 0 0 1-8.9 8.4 8.6 8.6 0 0 1-3.4-.7L3 21l1.5-5.4A8.4 8.4 0 1 1 21 11.5z"/></svg>`,
+    link: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><path d="M10 13a5 5 0 0 0 7.1 0l2.9-2.9a5 5 0 0 0-7.1-7.1L11.5 4.5"/><path d="M14 11a5 5 0 0 0-7.1 0L4 13.9a5 5 0 0 0 7.1 7.1l1.3-1.3"/></svg>`,
+    sun: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4.5"/><line x1="12" y1="19.5" x2="12" y2="22"/><line x1="2" y1="12" x2="4.5" y2="12"/><line x1="19.5" y1="12" x2="22" y2="12"/><line x1="4.9" y1="4.9" x2="6.6" y2="6.6"/><line x1="17.4" y1="17.4" x2="19.1" y2="19.1"/><line x1="4.9" y1="19.1" x2="6.6" y2="17.4"/><line x1="17.4" y1="6.6" x2="19.1" y2="4.9"/></svg>`,
+    moon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>`,
+    user: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
+    bot: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><rect x="4" y="8" width="16" height="12" rx="3"/><line x1="12" y1="4" x2="12" y2="8"/><circle cx="12" cy="3" r="1.1" fill="currentColor"/><line x1="9" y1="13.5" x2="9" y2="15"/><line x1="15" y1="13.5" x2="15" y2="15"/><line x1="2" y1="13" x2="4" y2="13"/><line x1="20" y1="13" x2="22" y2="13"/></svg>`,
+    archive: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>`,
+    trash: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><polyline points="3 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`,
+    bug: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><rect x="8" y="6" width="8" height="13" rx="4"/><path d="M8 11H4M16 11h4M8 15H4M16 15h4M9 6.5 7.5 4M15 6.5 16.5 4M8.5 18.5 6.5 20.5M15.5 18.5 17.5 20.5"/></svg>`,
+    feature: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><path d="M12 3l1.9 4.8L18.7 9l-4.8 1.2L12 15l-1.9-4.8L5.3 9l4.8-1.2L12 3z"/><path d="M19 14l.7 1.8L21.5 17l-1.8.6L19 19.5l-.7-1.9L16.5 17l1.8-.6L19 14z"/></svg>`,
+    task: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><rect x="3" y="3" width="18" height="18" rx="3.5"/><polyline points="8 12 11 15 16 9"/></svg>`,
+    chore: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><path d="M14.7 6.3a3.7 3.7 0 0 0-4.9 4.7l-6 6a1.6 1.6 0 0 0 2.2 2.2l6-6a3.7 3.7 0 0 0 4.7-4.9l-2.5 2.5-2-.5-.5-2 2.5-2.5z"/></svg>`,
+    decision: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><line x1="12" y1="4" x2="12" y2="20"/><path d="M5 7h14"/><path d="M5 7 2.5 12.5h5L5 7zM19 7l-2.5 5.5h5L19 7z"/><line x1="8" y1="20" x2="16" y2="20"/></svg>`,
+    spike: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><path d="M9 3h6M10 3v5.5l-4.7 8.5A1.5 1.5 0 0 0 6.6 20h10.8a1.5 1.5 0 0 0 1.3-2.3L14 8.5V3"/><line x1="7.5" y1="14" x2="16.5" y2="14"/></svg>`,
+    story: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><path d="M4 5a2 2 0 0 1 2-2h13v15H6a2 2 0 0 0-2 2V5z"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="9" y1="10.5" x2="13" y2="10.5"/></svg>`,
+    milestone: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><line x1="5" y1="21" x2="5" y2="3"/><path d="M5 4h11l-2.2 4L16 12H5"/></svg>`,
+  };
+  HUMANS = ["stevey", "dana"];
+  AVATARS = ["#6d5ef0", "#0ea5e9", "#16a34a", "#d97706", "#db2777", "#0891b2", "#7c3aed"];
+
+  state = {
+    view: "board",
+    theme: null,
+    search: "",
+    filters: { type: "", prio: "", origin: "", archived: true },
+    openId: null,
+    createOpen: false,
+    createTitle: "New bead",
+    commentDraft: "",
+    expanded: { "bd-3c71": true },
+    toast: null,
+    form: this.blankForm(),
+    beads: this.buildBeads(),
+    drag: null,
+    overCol: null,
+  };
+
+  blankForm() {
+    return { type: "task", title: "", description: "", priority: 2, assignee: "", parent: "", labels: "", backlog: false };
+  }
+
+  buildBeads() {
+    const D = (id, title, type, status, prio, by, assignee, parent, extra = {}) => {
+      const deps = [];
+      if (parent) deps.push({ issue_id: id, depends_on_id: parent, type: "parent-child" });
+      (extra.blocks || []).forEach((t) => deps.push({ issue_id: id, depends_on_id: t, type: "blocks" }));
+      (extra.related || []).forEach((t) => deps.push({ issue_id: id, depends_on_id: t, type: "related" }));
+      return {
+        id, title, issue_type: type, status, priority: prio, assignee: assignee || "", created_by: by,
+        description: extra.description || "",
+        created_at: extra.created_at || "2026-06-09T10:00:00Z",
+        updated_at: extra.updated_at || "2026-06-14T15:00:00Z",
+        closed_at: status === "closed" ? extra.closed_at || "2026-06-15T11:00:00Z" : null,
+        labels: extra.labels || [], dependencies: deps, comments: extra.comments || [], parent: parent || null,
+      };
+    };
+    const cm = (author, text, iso) => ({ author, text, created_at: iso });
+    return [
+      // epics
+      D("bd-9f2a", "Adapter & schema (M0)", "epic", "in_progress", 1, "stevey", "stevey", null, { description: "The bd bridge, Zod schemas, config, and a doctor preflight. Everything else builds on this.", created_at: "2026-06-02T09:00:00Z" }),
+      D("bd-3c71", "Board read (M1)", "epic", "open", 1, "stevey", "stevey", null, { description: "Read-only board: columns, filters, search, origin badges and a detail drawer. Powered by bd list/ready/blocked." }),
+      D("bd-7e40", "Write basics (M2)", "epic", "open", 2, "stevey", "dana", null, { description: "Create/edit/close/delete, comments, attribution stamping, optimistic updates + toasts." }),
+      D("bd-b18d", "Flow & epics (M3)", "epic", "deferred", 2, "stevey", "", null, { description: "Backlog↔Ready DnD, Kanban statuses, epics with progress, archive." }),
+      D("bd-c552", "Dependencies & graph (M4)", "epic", "deferred", 3, "claude-agent", "", null, { description: "Dep panel add/remove with cycle checks; React Flow graph with drag-to-link." }),
+      D("bd-1a09", "Polish & ship (M5)", "epic", "deferred", 3, "stevey", "", null, { description: "Keyboard nav, settings, theming, Playwright e2e, docs." }),
+      // M0 children
+      D("bd-9f2a.1", "bd adapter: execFile + JSON envelope", "task", "closed", 0, "claude-agent", "claude-agent", "bd-9f2a", { description: "Spawn bd with BD_JSON_ENVELOPE=1, args as an array, parse {schema_version,data}.", comments: [cm("stevey", "Confirmed args-as-array kills the injection risk. Nice.", "2026-06-05T12:00:00Z")] }),
+      D("bd-9f2a.2", "Zod schemas for Bead / Dependency / Comment", "task", "closed", 1, "stevey", "stevey", "bd-9f2a", { description: "One schema set parses bd --json output and validates form input." }),
+      D("bd-9f2a.3", "Config module (repo path, actor, allowlist)", "task", "in_progress", 2, "stevey", "stevey", "bd-9f2a", { description: "Small JSON config under the OS config dir. No new persisted bead schema.", comments: [cm("dana", "Can we derive the default actor from git config user.email?", "2026-06-14T09:30:00Z"), cm("stevey", "Yep, falling back to whoami if git is unset.", "2026-06-14T10:05:00Z")] }),
+      D("bd-9f2a.4", "bd doctor / version preflight", "chore", "open", 2, "amp-bot", "amp-bot", "bd-9f2a", { description: "Run bd doctor + bd --version on boot; warn on schema_version drift." }),
+      D("bd-9f2a.5", "Serialize writes through a mutex queue", "task", "open", 1, "stevey", "stevey", "bd-9f2a", { description: "Embedded Dolt is single-writer. Queue writes so concurrent UI actions can't collide.", blocks: ["bd-9f2a.1"] }),
+      // M1 children
+      D("bd-3c71.1", "Board columns + card component", "feature", "in_progress", 1, "cursor-agent", "cursor-agent", "bd-3c71", { description: "Five-column board; dense cards with id, type, priority, assignee, origin, counts.", comments: [cm("stevey", "Let's keep cards draggable but open detail on click.", "2026-06-15T14:00:00Z")] }),
+      D("bd-3c71.2", "Top bar filters + text search", "feature", "open", 2, "stevey", "", "bd-3c71", { description: "Status/type/priority/label/assignee filters + fuzzy text search.", blocks: ["bd-3c71.1"] }),
+      D("bd-3c71.3", "Origin badge (human vs agent)", "feature", "open", 2, "stevey", "dana", "bd-3c71", { description: "Derive origin from created_by vs the human allowlist; badge + tooltip." }),
+      D("bd-3c71.4", "Detail drawer (read-only)", "feature", "open", 2, "claude-agent", "claude-agent", "bd-3c71", { description: "Full fields, deps panel, comments thread, activity. From bd show <id>.", blocks: ["bd-3c71.1"] }),
+      D("bd-3c71.5", "Empty / loading / error states", "chore", "deferred", 3, "stevey", "", "bd-3c71", { description: "Skeletons, empty columns, typed BdError surfaces." }),
+      // M2 children
+      D("bd-7e40.1", "Create modal + bd create wiring", "feature", "open", 1, "stevey", "stevey", "bd-7e40", { description: "Type, title, description, priority, assignee, labels, parent epic. Zod-validated." }),
+      D("bd-7e40.2", "Inline edit (send only changed fields)", "feature", "deferred", 2, "amp-bot", "", "bd-7e40", { description: "bd update <id> with only the changed flags." }),
+      D("bd-7e40.3", "Comments thread + composer", "feature", "open", 2, "stevey", "dana", "bd-7e40", { description: "Author-stamped comments; newest-last with relative time." }),
+      D("bd-7e40.4", "Attribution stamping (BEADS_ACTOR)", "task", "open", 1, "stevey", "stevey", "bd-7e40", { description: "Every UI write runs with BEADS_ACTOR=<humanActor>." }),
+      D("bd-7e40.5", "Optimistic updates + toasts", "task", "deferred", 2, "claude-agent", "", "bd-7e40", { description: "TanStack Query optimistic mutations with rollback on adapter error." }),
+      // M3 children
+      D("bd-b18d.1", "Backlog ↔ Ready drag-and-drop", "feature", "deferred", 2, "stevey", "", "bd-b18d", { description: "dnd-kit; de-defer on drop to Ready, land in Blocked if still dep-blocked." }),
+      D("bd-b18d.2", "Kanban status columns", "feature", "deferred", 3, "stevey", "", "bd-b18d", { description: "open → in_progress → closed via columns." }),
+      D("bd-b18d.3", "Archive = close + label archived", "chore", "deferred", 3, "amp-bot", "", "bd-b18d", { description: "No native bd archive; reversible close+label, hidden by a standing filter." }),
+      D("bd-b18d.4", "Epic progress bars", "feature", "deferred", 3, "stevey", "", "bd-b18d", { description: "closed ÷ total children, computed client-side for live render." }),
+      // M4 children
+      D("bd-c552.1", "React Flow graph scaffold", "spike", "deferred", 3, "claude-agent", "", "bd-c552", { description: "Nodes = beads, typed edges; pan/zoom; scope to an epic neighborhood." }),
+      D("bd-c552.2", "Drag-to-link with cycle check", "feature", "deferred", 3, "stevey", "", "bd-c552", { description: "Drag node→node to create a dep; bd dep cycles refuses cycles.", blocks: ["bd-c552.1"] }),
+      D("bd-c552.3", "bd dep cycles validation", "task", "deferred", 3, "cursor-agent", "", "bd-c552", { description: "Server-side cycle guard before committing blocks/parent-child edges." }),
+      // M5 children
+      D("bd-1a09.1", "Keyboard nav (n, /, j, k, e)", "chore", "deferred", 4, "stevey", "", "bd-1a09", { description: "Keyboard-first board: new, search, navigate, edit." }),
+      D("bd-1a09.2", "Playwright e2e flows", "chore", "deferred", 4, "amp-bot", "", "bd-1a09", { description: "End-to-end the create→drag→comment→archive flows." }),
+      D("bd-1a09.3", "README + setup docs", "story", "deferred", 4, "stevey", "", "bd-1a09", { description: "Setup, bd version range, troubleshooting." }),
+      // loose beads
+      D("bd-44b1", "Decision: Backlog = deferred status", "decision", "closed", 1, "stevey", "stevey", null, { description: "Map the Backlog column to beads' built-in deferred status rather than inventing new schema.", comments: [cm("dana", "Agreed — zero new persisted state, stays correct with bd.", "2026-06-08T16:00:00Z")] }),
+      D("bd-8d3e", "Bug: ready queue shows deferred beads", "bug", "open", 0, "claude-agent", "stevey", null, { description: "bd ready should exclude deferred; some deferred beads leak into Ready in the UI cache.", related: ["bd-3c71.1"], comments: [cm("claude-agent", "Repro: defer a bead, it stays in Ready until refetch.", "2026-06-16T08:00:00Z")] }),
+      D("bd-2f9c", "Bug: drag-drop flickers on rollback", "bug", "blocked", 1, "cursor-agent", "cursor-agent", null, { description: "Optimistic move then adapter error causes a visible flicker on rollback.", related: ["bd-b18d.1"] }),
+      D("bd-5a77", "Switch integration to a REST API", "task", "closed", 3, "amp-bot", "amp-bot", null, { description: "Superseded — beads has no HTTP API; we shell out to the CLI.", labels: ["archived"], closed_at: "2026-06-07T10:00:00Z" }),
+    ];
+  }
+
+  // ---------- helpers ----------
+  byId(id) { return this.state.beads.find((b) => b.id === id); }
+  isHuman(name) { return this.HUMANS.includes(name); }
+  origin(b) { return this.isHuman(b.created_by) ? "human" : "agent"; }
+  category(s) {
+    if (s === "closed") return "done";
+    if (s === "in_progress" || s === "hooked") return "wip";
+    if (s === "blocked") return "blocked";
+    if (s === "deferred" || s === "pinned") return "frozen";
+    return "active";
+  }
+  catColor(s) { return { done: "#16a34a", wip: "#d97706", blocked: "#ef4444", frozen: "#64748b", active: "#3b82f6" }[this.category(s)]; }
+  statusLabel(s) { return { open: "Open", in_progress: "In progress", blocked: "Blocked", deferred: "Deferred", closed: "Closed", pinned: "Pinned", hooked: "Hooked" }[s] || s; }
+  prioColor(p) { return ["#ef4444", "#f97316", "#eab308", "#0ea5e9", "#64748b"][p]; }
+  prioLabel(p) { return ["Critical", "High", "Medium", "Low", "Backlog"][p]; }
+  prioStyle(p) {
+    const c = this.prioColor(p);
+    return { display: "inline-flex", alignItems: "center", fontSize: "10.5px", fontWeight: 600, lineHeight: 1, padding: "3px 7px", borderRadius: "6px", color: c, background: c + "1f", border: "1px solid " + c + "33", letterSpacing: ".01em", flexShrink: 0 };
+  }
+  typeColor(t) { return t === "epic" ? "var(--accent)" : t === "bug" ? "#ef4444" : "var(--text-3)"; }
+  typeIcon(t) { return { __html: this.ICONS[t] || this.ICONS.task }; }
+  typeLabel(t) { return t.charAt(0).toUpperCase() + t.slice(1); }
+  avatarColor(name) {
+    if (!name) return "#9aa0aa";
+    let h = 0; for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+    return this.AVATARS[h % this.AVATARS.length];
+  }
+  initials(name) {
+    if (!name) return "?";
+    const parts = name.split(/[-_ .]/).filter(Boolean);
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return name.slice(0, 2).toUpperCase();
+  }
+  originIcon(o) { return { __html: o === "human" ? this.ICONS.user : this.ICONS.bot }; }
+  originBadgeMini(o) {
+    return o === "human"
+      ? { display: "inline-flex", alignItems: "center", justifyContent: "center", width: "20px", height: "20px", borderRadius: "6px", color: "var(--text-2)", background: "var(--surface-2)", border: "1px solid var(--border)", flexShrink: 0 }
+      : { display: "inline-flex", alignItems: "center", justifyContent: "center", width: "20px", height: "20px", borderRadius: "6px", color: "var(--accent)", background: "var(--accent-weak)", border: "1px solid var(--accent-weak)", flexShrink: 0 };
+  }
+  isBlocked(b) {
+    if (b.status === "blocked") return true;
+    if (b.status !== "open") return false;
+    return (b.dependencies || []).some((d) => d.type === "blocks" && (this.byId(d.depends_on_id) || {}).status !== "closed");
+  }
+  epicOf(b) { const d = (b.dependencies || []).find((x) => x.type === "parent-child"); return d ? this.byId(d.depends_on_id) : null; }
+  childrenOf(epicId) { return this.state.beads.filter((b) => (b.dependencies || []).some((d) => d.type === "parent-child" && d.depends_on_id === epicId)); }
+  rel(iso) {
+    if (!iso) return "";
+    const now = new Date("2026-06-16T12:00:00Z");
+    const d = (now - new Date(iso)) / 1000;
+    if (d < 60) return "just now";
+    if (d < 3600) return Math.floor(d / 60) + "m ago";
+    if (d < 86400) return Math.floor(d / 3600) + "h ago";
+    if (d < 2592000) return Math.floor(d / 86400) + "d ago";
+    return Math.floor(d / 2592000) + "mo ago";
+  }
+  fmtDate(iso) { if (!iso) return ""; return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" }); }
+
+  // ---------- card view-model ----------
+  cardVM(b) {
+    const o = this.origin(b);
+    const ep = this.epicOf(b);
+    const visLabels = (b.labels || []).filter((l) => l !== "archived");
+    const depCount = (b.dependencies || []).filter((d) => d.type !== "parent-child").length;
+    const blocked = this.isBlocked(b);
+    return {
+      id: b.id, title: b.title, catColor: this.catColor(b.status), statusLabel: this.statusLabel(b.status),
+      prioLabel: this.prioLabel(b.priority), prioStyle: this.prioStyle(b.priority),
+      typeLabel: this.typeLabel(b.issue_type), typeIcon: this.typeIcon(b.issue_type), typeColor: this.typeColor(b.issue_type),
+      originTitle: (o === "human" ? "Human · " : "Agent · ") + (b.created_by || "unknown"), originIcon: this.originIcon(o), originStyle: this.originBadgeMini(o),
+      assignee: b.assignee || "Unassigned", assigneeInitials: this.initials(b.assignee), assigneeColor: this.avatarColor(b.assignee),
+      depCount, hasDeps: depCount > 0, depColor: blocked ? "#ef4444" : "var(--text-3)",
+      commentCount: (b.comments || []).length, hasComments: (b.comments || []).length > 0,
+      labels: visLabels.slice(0, 2).map((t) => ({ text: t })),
+      hasEpic: !!ep, epicTag: ep ? ep.title.replace(/\s*\([^)]*\)\s*/, "") : "", epicTitle: ep ? ep.title : "",
+      draggable: true,
+    };
+  }
+
+  // ---------- columns ----------
+  matchFilters(b) {
+    const f = this.state.filters;
+    if (b.issue_type === "epic") return false;
+    if (f.archived && (b.labels || []).includes("archived")) return false;
+    if (f.type && b.issue_type !== f.type) return false;
+    if (f.prio !== "" && String(b.priority) !== f.prio) return false;
+    if (f.origin && this.origin(b) !== f.origin) return false;
+    const q = this.state.search.trim().toLowerCase();
+    if (q && !(b.title.toLowerCase().includes(q) || b.id.toLowerCase().includes(q) || (b.assignee || "").toLowerCase().includes(q))) return false;
+    return true;
+  }
+  columnsVM() {
+    const beads = this.state.beads.filter((b) => this.matchFilters(b));
+    const cols = [
+      { id: "backlog", name: "Backlog", color: "#64748b", cmd: "deferred", test: (b) => b.status === "deferred" },
+      { id: "ready", name: "Ready", color: "#3b82f6", cmd: "bd ready", test: (b) => b.status === "open" && !this.isBlocked(b) },
+      { id: "in_progress", name: "In Progress", color: "#d97706", cmd: "in_progress", test: (b) => b.status === "in_progress" || b.status === "hooked" },
+      { id: "blocked", name: "Blocked", color: "#ef4444", cmd: "bd blocked", drop: false, test: (b) => this.isBlocked(b) && b.status !== "deferred" && b.status !== "closed" },
+      { id: "done", name: "Done", color: "#16a34a", cmd: "closed", test: (b) => b.status === "closed" },
+    ];
+    return cols.map((c) => {
+      const cards = beads.filter((b) => c.test(b)).sort((a, b) => a.priority - b.priority).map((b) => this.cardVM(b));
+      const isOver = this.state.overCol === c.id;
+      const base = { minHeight: 0, flex: 1, overflowY: "auto", overflowX: "hidden", display: "flex", flexDirection: "column", gap: "10px", padding: "4px 4px 14px", borderRadius: "12px", transition: "background .12s,outline .12s", outline: isOver && c.drop !== false ? "2px dashed var(--accent)" : "2px solid transparent", outlineOffset: "-2px", background: isOver && c.drop !== false ? "var(--accent-weak)" : "transparent" };
+      return { id: c.id, name: c.name, color: c.color, cmd: c.cmd, count: cards.length, cards, empty: cards.length === 0, dropStyle: base };
+    });
+  }
+
+  // ---------- epics ----------
+  epicsVM() {
+    return this.state.beads.filter((b) => b.issue_type === "epic").map((e) => {
+      const kids = this.childrenOf(e.id);
+      const closed = kids.filter((k) => k.status === "closed").length;
+      const total = kids.length;
+      const pct = total ? Math.round((closed / total) * 100) : 0;
+      const expanded = !!this.state.expanded[e.id];
+      return {
+        id: e.id, title: e.title, statusLabel: this.statusLabel(e.status), statusStyle: this.statusChip(e.status),
+        closed, total, pct, expanded, chevron: expanded ? "rotate(180deg)" : "rotate(0deg)",
+        barStyle: { height: "100%", width: pct + "%", borderRadius: "20px", background: pct === 100 ? "#16a34a" : "var(--accent)", transition: "width .3s" },
+        onToggle: () => this.setState((s) => ({ expanded: { ...s.expanded, [e.id]: !s.expanded[e.id] } })),
+        onAddChild: (ev) => { if (ev) ev.stopPropagation(); this.openCreate(e.id); },
+        children: kids.sort((a, b) => (a.status === "closed") - (b.status === "closed") || a.priority - b.priority).map((k) => {
+          const o = this.origin(k);
+          return { id: k.id, title: k.title, catColor: this.catColor(k.status), typeIcon: this.typeIcon(k.issue_type), typeColor: this.typeColor(k.issue_type), prioLabel: this.prioLabel(k.priority), prioStyle: this.prioStyle(k.priority), originTitle: (o === "human" ? "Human · " : "Agent · ") + k.created_by, originIcon: this.originIcon(o), originStyle: this.originBadgeMini(o), assigneeInitials: this.initials(k.assignee), assigneeColor: this.avatarColor(k.assignee) };
+        }),
+      };
+    });
+  }
+  statusChip(s) {
+    const c = this.catColor(s);
+    return { display: "inline-flex", alignItems: "center", fontSize: "10.5px", fontWeight: 600, padding: "2px 8px", borderRadius: "20px", color: c, background: c + "1c", border: "1px solid " + c + "33", letterSpacing: ".01em" };
+  }
+
+  // ---------- graph ----------
+  graphVM() {
+    const pos = {
+      "bd-9f2a": [70, 30], "bd-9f2a.5": [70, 360],
+      "bd-3c71": [400, 30], "bd-3c71.1": [250, 200], "bd-3c71.2": [430, 200], "bd-3c71.3": [610, 200], "bd-3c71.4": [780, 200],
+      "bd-3c71.5": [430, 360], "bd-8d3e": [700, 380],
+    };
+    const W = 150, H = 64;
+    const nodes = Object.keys(pos).map((id) => {
+      const b = this.byId(id);
+      const [x, y] = pos[id];
+      return { id, title: b.title.replace(/\s*\([^)]*\)\s*/, ""), catColor: this.catColor(b.status), typeIcon: this.typeIcon(b.issue_type), typeColor: this.typeColor(b.issue_type), cx: x + W / 2, cy: y + H / 2,
+        style: { position: "absolute", left: x + "px", top: y + "px", width: W + "px", minHeight: H + "px", padding: "9px 11px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "11px", boxShadow: "var(--shadow)", cursor: "pointer", transition: "box-shadow .12s,border-color .12s" } };
+    });
+    const nm = {}; nodes.forEach((n) => (nm[n.id] = n));
+    const E = (a, b, kind) => {
+      const A = nm[a], B = nm[b]; if (!A || !B) return null;
+      const stroke = kind === "blocks" ? "#ef4444" : kind === "related" ? "var(--accent)" : "var(--text-3)";
+      return { x1: A.cx, y1: A.cy, x2: B.cx, y2: B.cy, stroke, width: kind === "blocks" ? 2 : 1.6, dash: kind === "related" ? "5 4" : "0", marker: kind === "blocks" ? "url(#bdArrowR)" : "url(#bdArrow)", opacity: kind === "parent" ? 0.5 : 0.85 };
+    };
+    const edges = [
+      E("bd-3c71.1", "bd-3c71", "parent"), E("bd-3c71.2", "bd-3c71", "parent"), E("bd-3c71.3", "bd-3c71", "parent"), E("bd-3c71.4", "bd-3c71", "parent"), E("bd-3c71.5", "bd-3c71", "parent"),
+      E("bd-9f2a.5", "bd-9f2a", "parent"),
+      E("bd-3c71.2", "bd-3c71.1", "blocks"), E("bd-3c71.4", "bd-3c71.1", "blocks"),
+      E("bd-8d3e", "bd-3c71.1", "related"),
+    ].filter(Boolean);
+    return { nodes, edges };
+  }
+
+  // ---------- drawer ----------
+  openVM() {
+    const b = this.byId(this.state.openId);
+    if (!b) return null;
+    const o = this.origin(b);
+    const ep = this.epicOf(b);
+    const deps = (b.dependencies || []).filter((d) => d.type !== "parent-child").map((d) => {
+      const t = this.byId(d.depends_on_id) || { title: "(unknown)", status: "open" };
+      const blocking = ["blocks", "conditional-blocks", "waits-for"].includes(d.type);
+      const c = blocking ? "#ef4444" : "var(--text-2)";
+      return { targetId: d.depends_on_id, targetTitle: t.title, targetColor: this.catColor(t.status), targetStatus: this.statusLabel(t.status), typeLabel: d.type, tagStyle: { fontSize: "10px", fontWeight: 600, padding: "2px 7px", borderRadius: "5px", color: c, background: c === "#ef4444" ? "#ef444418" : "var(--surface-2)", border: "1px solid " + (c === "#ef4444" ? "#ef444433" : "var(--border)"), fontFamily: "'Geist Mono',monospace", flexShrink: 0 }, onRemove: (ev) => { if (ev) ev.stopPropagation(); this.removeDep(b.id, d.depends_on_id); } };
+    });
+    const comments = (b.comments || []).map((c) => {
+      const co = this.isHuman(c.author) ? "human" : "agent";
+      return { author: c.author, text: c.text, time: this.rel(c.created_at), initials: this.initials(c.author), color: this.avatarColor(c.author), originTitle: co === "human" ? "Human" : "Agent", originIcon: this.originIcon(co), originStyle: this.originBadgeMini(co) };
+    });
+    const activity = [
+      { label: "Created by " + b.created_by, time: this.fmtDate(b.created_at) },
+      b.updated_at ? { label: "Last updated", time: this.fmtDate(b.updated_at) } : null,
+      b.closed_at ? { label: "Closed", time: this.fmtDate(b.closed_at) } : null,
+    ].filter(Boolean);
+    return {
+      id: b.id, title: b.title, description: b.description || "No description.", status: b.status, priority: String(b.priority),
+      catColor: this.catColor(b.status), statusLabel: this.statusLabel(b.status), statusStyle: this.statusChip(b.status),
+      typeLabel: this.typeLabel(b.issue_type), typeIcon: this.typeIcon(b.issue_type), typeColor: this.typeColor(b.issue_type),
+      originLabel: o === "human" ? "Human" : "Agent", originTitle: (o === "human" ? "Created by human · " : "Created by agent · ") + b.created_by, originIcon: this.originIcon(o),
+      originBadgeStyle: { display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "11.5px", fontWeight: 550, padding: "3px 9px", borderRadius: "7px", color: o === "human" ? "var(--text-2)" : "var(--accent)", background: o === "human" ? "var(--surface-2)" : "var(--accent-weak)", border: "1px solid " + (o === "human" ? "var(--border)" : "transparent") },
+      assignee: b.assignee || "Unassigned", assigneeInitials: this.initials(b.assignee), assigneeColor: this.avatarColor(b.assignee),
+      epicLabel: ep ? ep.title : "—",
+      deps, noDeps: deps.length === 0, depTotal: deps.length,
+      comments, noComments: comments.length === 0, commentCount: comments.length,
+      activity,
+    };
+  }
+
+  // ---------- actions ----------
+  toast(msg) { this.setState({ toast: msg }); clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: null }), 2600); }
+  setView(v) { this.setState({ view: v, openId: null }); }
+  openDetail(id) { this.setState({ openId: id, commentDraft: "" }); }
+  closeDrawer() { this.setState({ openId: null }); }
+  mutate(id, patch, msg) {
+    this.setState((s) => ({ beads: s.beads.map((b) => (b.id === id ? { ...b, ...patch, updated_at: "2026-06-16T12:00:00Z" } : b)) }));
+    if (msg) this.toast(msg);
+  }
+  moveCard(id, col) {
+    const b = this.byId(id); if (!b) return;
+    if (col === "backlog") this.mutate(id, { status: "deferred" }, "Deferred → Backlog");
+    else if (col === "ready") {
+      const next = { ...b, status: "open" };
+      if (this.isBlocked(next)) this.mutate(id, { status: "open" }, "Still blocked by deps → Blocked");
+      else this.mutate(id, { status: "open" }, "Moved to Ready · bd update --status open");
+    } else if (col === "in_progress") this.mutate(id, { status: "in_progress", started_at: "2026-06-16T12:00:00Z" }, "Moved to In Progress");
+    else if (col === "done") this.mutate(id, { status: "closed", closed_at: "2026-06-16T12:00:00Z" }, "Closed · bd close " + id);
+  }
+  removeDep(id, target) {
+    this.setState((s) => ({ beads: s.beads.map((b) => (b.id === id ? { ...b, dependencies: b.dependencies.filter((d) => d.depends_on_id !== target) } : b)) }));
+    this.toast("Removed dependency · bd dep remove");
+  }
+  addComment() {
+    const text = (this.state.commentDraft || "").trim(); if (!text) return;
+    const id = this.state.openId;
+    this.setState((s) => ({ beads: s.beads.map((b) => (b.id === id ? { ...b, comments: [...(b.comments || []), { author: "stevey", text, created_at: "2026-06-16T12:00:00Z" }] } : b)), commentDraft: "" }));
+    this.toast("Comment added as stevey");
+  }
+  archive() {
+    const id = this.state.openId;
+    this.mutate(id, { status: "closed", closed_at: "2026-06-16T12:00:00Z", labels: [...((this.byId(id) || {}).labels || []), "archived"] });
+    this.toast("Archived · bd close + label archived");
+    this.setState({ openId: null });
+  }
+  del() {
+    const id = this.state.openId;
+    this.setState((s) => ({ beads: s.beads.filter((b) => b.id !== id), openId: null }));
+    this.toast("Deleted · bd delete " + id);
+  }
+  openCreate(parent = "") {
+    this.setState({ createOpen: true, createTitle: parent ? "New child bead" : "New bead", form: { ...this.blankForm(), parent } });
+  }
+  createSubmit() {
+    const f = this.state.form;
+    if (!f.title.trim()) { this.toast("Title is required"); return; }
+    const id = "bd-" + Math.random().toString(16).slice(2, 6);
+    const deps = [];
+    if (f.parent) deps.push({ issue_id: id, depends_on_id: f.parent, type: "parent-child" });
+    const bead = {
+      id, title: f.title.trim(), issue_type: f.type, status: f.backlog ? "deferred" : "open", priority: Number(f.priority),
+      assignee: f.assignee || "", created_by: "stevey", description: f.description || "",
+      created_at: "2026-06-16T12:00:00Z", updated_at: "2026-06-16T12:00:00Z", closed_at: null,
+      labels: f.labels.split(",").map((s) => s.trim()).filter(Boolean), dependencies: deps, comments: [], parent: f.parent || null,
+    };
+    this.setState((s) => ({ beads: [...s.beads, bead], createOpen: false, form: this.blankForm() }));
+    this.toast("Created " + id + " · bd create");
+  }
+
+  componentDidMount() {
+    this._key = (e) => {
+      const tag = (e.target.tagName || "").toLowerCase();
+      const typing = tag === "input" || tag === "textarea" || tag === "select";
+      if (e.key === "Escape") { this.setState({ openId: null, createOpen: false }); return; }
+      if (typing) return;
+      if (e.key === "n") { e.preventDefault(); this.openCreate(); }
+      if (e.key === "/") { e.preventDefault(); const el = document.querySelector('input[placeholder^="Search"]'); if (el) el.focus(); }
+    };
+    window.addEventListener("keydown", this._key);
+  }
+  componentWillUnmount() { window.removeEventListener("keydown", this._key); clearTimeout(this._t); }
+
+  renderVals() {
+    const I = (n) => ({ __html: this.ICONS[n] });
+    const theme = this.state.theme || this.props.defaultTheme || "light";
+    const view = this.state.view;
+    const showOrigin = this.props.showOrigin !== false;
+    const navDef = [
+      { key: "board", label: "Board", icon: "board" },
+      { key: "epics", label: "Epics", icon: "target", badge: this.state.beads.filter((b) => b.issue_type === "epic").length },
+      { key: "graph", label: "Graph", icon: "graph" },
+      { key: "settings", label: "Settings", icon: "settings" },
+    ];
+    const nav = navDef.map((n) => {
+      const active = view === n.key;
+      return { label: n.label, icon: I(n.icon), badge: n.badge, active, onClick: () => this.setView(n.key),
+        style: { display: "flex", alignItems: "center", gap: "10px", width: "100%", padding: "8px 10px", border: "none", borderRadius: "9px", cursor: "pointer", fontSize: "13.5px", fontWeight: active ? 600 : 500, textAlign: "left", background: active ? "var(--accent-weak)" : "transparent", color: active ? "var(--accent)" : "var(--text-2)" },
+        hoverStyle: active ? "" : "background:var(--surface-2);color:var(--text)" };
+    });
+
+    const statusOptions = [
+      { value: "open", label: "Open" }, { value: "in_progress", label: "In progress" }, { value: "blocked", label: "Blocked" }, { value: "deferred", label: "Deferred" }, { value: "closed", label: "Closed" }, { value: "pinned", label: "Pinned" }, { value: "hooked", label: "Hooked" },
+    ];
+    const prioOptions = [0, 1, 2, 3, 4].map((p) => ({ value: String(p), label: p + " · " + this.prioLabel(p) }));
+    const typeList = ["task", "feature", "bug", "chore", "epic", "decision", "spike", "story", "milestone"];
+    const typeCreateOptions = typeList.map((t) => ({ value: t, label: this.typeLabel(t) }));
+    const typeFilterOptions = [{ value: "", label: "All types" }, ...typeList.filter((t) => t !== "epic").map((t) => ({ value: t, label: this.typeLabel(t) }))];
+    const prioFilterOptions = [{ value: "", label: "All priorities" }, ...[0, 1, 2, 3, 4].map((p) => ({ value: String(p), label: this.prioLabel(p) }))];
+    const originFilterOptions = [{ value: "", label: "All origins" }, { value: "human", label: "Human" }, { value: "agent", label: "Agent" }];
+    const assigneeOptions = [{ value: "", label: "Unassigned" }, { value: "stevey", label: "stevey" }, { value: "dana", label: "dana" }, { value: "claude-agent", label: "claude-agent" }, { value: "amp-bot", label: "amp-bot" }, { value: "cursor-agent", label: "cursor-agent" }];
+    const epicSelectOptions = [{ value: "", label: "No epic" }, ...this.state.beads.filter((b) => b.issue_type === "epic").map((e) => ({ value: e.id, label: e.title }))];
+
+    const open = this.openVM();
+    const f = this.state.filters;
+
+    return {
+      theme, isBoard: view === "board", isEpics: view === "epics", isGraph: view === "graph", isSettings: view === "settings",
+      themeLabel: theme === "dark" ? "dark" : "light",
+      logoIcon: I("logo"), searchIcon: I("search"), plusIcon: I("plus"), closeIcon: I("x"), checkIcon: I("check"),
+      chevronIcon: I("chevron"), commentIcon: I("comment"), linkIcon: I("link"), archiveIcon: I("archive"), trashIcon: I("trash"),
+      userIcon: I("user"), epicIcon: I("target"), toastIcon: I("check"),
+      themeIcon: I(theme === "dark" ? "sun" : "moon"),
+      nav, showOrigin,
+      onToggleTheme: () => this.setState({ theme: theme === "dark" ? "light" : "dark" }),
+
+      // board
+      boardCount: this.state.beads.filter((b) => b.issue_type !== "epic" && !((b.labels || []).includes("archived") && f.archived)).length,
+      columns: this.columnsVM(),
+      search: this.state.search, onSearch: (e) => this.setState({ search: e.target.value }),
+      filters: f,
+      typeFilterOptions, prioFilterOptions, originFilterOptions,
+      onFilterType: (e) => this.setState((s) => ({ filters: { ...s.filters, type: e.target.value } })),
+      onFilterPrio: (e) => this.setState((s) => ({ filters: { ...s.filters, prio: e.target.value } })),
+      onFilterOrigin: (e) => this.setState((s) => ({ filters: { ...s.filters, origin: e.target.value } })),
+      onToggleArchived: () => this.setState((s) => ({ filters: { ...s.filters, archived: !s.filters.archived } })),
+      archiveIconColor: f.archived,
+      archivedBtnStyle: { height: "36px", display: "flex", alignItems: "center", gap: "6px", padding: "0 11px", borderRadius: "9px", fontSize: "12.5px", fontWeight: 500, cursor: "pointer", border: "1px solid " + (f.archived ? "var(--border)" : "var(--accent)"), background: f.archived ? "var(--surface-2)" : "var(--accent-weak)", color: f.archived ? "var(--text-2)" : "var(--accent)" },
+      onNew: () => this.openCreate(),
+      onCardDragStart: (e) => { this._drag = e.currentTarget.dataset.id; this.setState({ drag: this._drag }); e.dataTransfer.effectAllowed = "move"; try { e.dataTransfer.setData("text/plain", this._drag); } catch (x) {} },
+      onCardDragEnd: () => this.setState({ overCol: null, drag: null }),
+      onColDragOver: (e) => { e.preventDefault(); const col = e.currentTarget.dataset.col; if (col !== "blocked" && this.state.overCol !== col) this.setState({ overCol: col }); },
+      onColDragLeave: (e) => { if (!e.currentTarget.contains(e.relatedTarget)) { const col = e.currentTarget.dataset.col; if (this.state.overCol === col) this.setState({ overCol: null }); } },
+      onColDrop: (e) => { e.preventDefault(); const col = e.currentTarget.dataset.col; const id = this._drag || (e.dataTransfer && e.dataTransfer.getData("text/plain")); this.setState({ overCol: null, drag: null }); if (id && col !== "blocked") this.moveCard(id, col); },
+      onCardClick: (e) => { const id = e.currentTarget.dataset.id; if (id) this.openDetail(id); },
+      linkIcon2: I("link"),
+
+      // epics
+      epics: this.epicsVM(), epicsCount: this.state.beads.filter((b) => b.issue_type === "epic").length,
+
+      // graph
+      graph: this.graphVM(),
+
+      // drawer
+      hasOpen: !!open, open,
+      statusOptions, prioOptions,
+      onStatusChange: (e) => this.mutate(this.state.openId, { status: e.target.value }, "Status → " + this.statusLabel(e.target.value)),
+      onPrioChange: (e) => this.mutate(this.state.openId, { priority: Number(e.target.value) }, "Priority → " + this.prioLabel(Number(e.target.value))),
+      onCloseDrawer: () => this.closeDrawer(),
+      onArchive: () => this.archive(), onDelete: () => { if (window.confirm("Delete " + this.state.openId + "? This calls bd delete.")) this.del(); },
+      commentDraft: this.state.commentDraft, onCommentInput: (e) => this.setState({ commentDraft: e.target.value }), onAddComment: () => this.addComment(),
+      onRemoveDep: () => {}, onAddDepDemo: () => this.toast("Dep picker → bd dep add (cycle-checked)"),
+
+      // create
+      createOpen: this.state.createOpen, createTitle: this.state.createTitle, form: this.state.form,
+      typeCreateOptions, assigneeOptions, epicSelectOptions,
+      onFormType: (e) => this.setForm("type", e.target.value), onFormPrio: (e) => this.setForm("priority", e.target.value),
+      onFormTitle: (e) => this.setForm("title", e.target.value), onFormDesc: (e) => this.setForm("description", e.target.value),
+      onFormAssignee: (e) => this.setForm("assignee", e.target.value), onFormParent: (e) => this.setForm("parent", e.target.value),
+      onFormLabels: (e) => this.setForm("labels", e.target.value), onFormBacklog: (e) => this.setForm("backlog", e.target.checked),
+      onCreateClose: () => this.setState({ createOpen: false }), onCreateSubmit: () => this.createSubmit(),
+      stop: (e) => e.stopPropagation(),
+      createBtnStyle: { height: "38px", display: "flex", alignItems: "center", gap: "7px", padding: "0 16px", border: "none", borderRadius: "9px", background: "var(--accent)", color: "#fff", fontSize: "13px", fontWeight: 600, cursor: "pointer", boxShadow: "0 2px 8px -2px var(--accent)" },
+
+      // toast
+      hasToast: !!this.state.toast, toastMsg: this.state.toast,
+    };
+  }
+  setForm(k, v) { this.setState((s) => ({ form: { ...s.form, [k]: v } })); }
+}
+</script>
+</body>
+</html>

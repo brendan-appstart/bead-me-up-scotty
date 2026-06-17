@@ -1,0 +1,191 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-geist-sans);
+
+  /* shadcn semantic tokens */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Bead Me Up brand + surface/text scale (from the design export) */
+  --color-brand: var(--brand);
+  --color-brand-2: var(--brand-2);
+  --color-brand-weak: var(--brand-weak);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-text-2: var(--text-2);
+  --color-text-3: var(--text-3);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+}
+
+:root {
+  --radius: 0.7rem;
+
+  /* raw palette — light */
+  --bg: #f6f6f8;
+  --surface: #ffffff;
+  --surface-2: #f1f1f4;
+  --surface-3: #ebebef;
+  --border: #e7e7ec;
+  --border-strong: #d6d6dd;
+  --text: #16161a;
+  --text-2: #62626d;
+  --text-3: #9a9aa5;
+  --brand: #6d5ef0;
+  --brand-2: #5546e0;
+  --brand-weak: #efedfd;
+  --shadow: 0 1px 2px rgba(20, 20, 30, 0.05), 0 1px 1px rgba(20, 20, 30, 0.04);
+  --shadow-lg: 0 12px 32px -8px rgba(20, 20, 40, 0.18), 0 4px 12px -4px rgba(20, 20, 40, 0.1);
+  --drawer: #ffffff;
+
+  /* shadcn semantic → mapped to our palette */
+  --background: var(--bg);
+  --foreground: var(--text);
+  --card: var(--surface);
+  --card-foreground: var(--text);
+  --popover: var(--surface);
+  --popover-foreground: var(--text);
+  --primary: var(--brand);
+  --primary-foreground: #ffffff;
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--text);
+  --muted: var(--surface-2);
+  --muted-foreground: var(--text-2);
+  --accent: var(--surface-2);
+  --accent-foreground: var(--text);
+  --destructive: #ef4444;
+  --border: #e7e7ec;
+  --input: #e7e7ec;
+  --ring: var(--brand);
+  --sidebar: var(--surface);
+  --sidebar-foreground: var(--text-2);
+  --sidebar-primary: var(--brand);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--brand-weak);
+  --sidebar-accent-foreground: var(--brand);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--brand);
+}
+
+.dark {
+  /* raw palette — dark */
+  --bg: #0c0c0f;
+  --surface: #161619;
+  --surface-2: #1d1d22;
+  --surface-3: #26262d;
+  --border: #26262d;
+  --border-strong: #34343d;
+  --text: #f2f2f5;
+  --text-2: #a2a2ad;
+  --text-3: #6c6c77;
+  --brand: #8b7cf8;
+  --brand-2: #9c8ffa;
+  --brand-weak: #211d3a;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 16px 40px -8px rgba(0, 0, 0, 0.6);
+  --drawer: #141417;
+
+  --background: var(--bg);
+  --foreground: var(--text);
+  --card: var(--surface);
+  --card-foreground: var(--text);
+  --popover: var(--surface);
+  --popover-foreground: var(--text);
+  --primary: var(--brand);
+  --primary-foreground: #0c0c0f;
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--text);
+  --muted: var(--surface-2);
+  --muted-foreground: var(--text-2);
+  --accent: var(--surface-2);
+  --accent-foreground: var(--text);
+  --destructive: #ef4444;
+  --border: #26262d;
+  --input: #2c2c34;
+  --ring: var(--brand);
+  --sidebar: var(--surface);
+  --sidebar-foreground: var(--text-2);
+  --sidebar-primary: var(--brand);
+  --sidebar-primary-foreground: #0c0c0f;
+  --sidebar-accent: var(--brand-weak);
+  --sidebar-accent-foreground: var(--brand);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--brand);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+/* custom scrollbars + animations from the design export */
+.bd-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.bd-scroll::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 8px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+.bd-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--text-3);
+  background-clip: content-box;
+}
+.bd-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@keyframes bdFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes bdPop {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}

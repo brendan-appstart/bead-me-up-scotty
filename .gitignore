@@ -41,7 +41,8 @@ yarn-error.log*
 next-env.d.ts
 
 # Beads / Dolt files (added by bd init)
+# .beads holds local tracker state (embedded Dolt DB, config, logs) — not app source.
+.beads/
 .dolt/
 *.db
 .beads-credential-key
-.beads/proxieddb/
