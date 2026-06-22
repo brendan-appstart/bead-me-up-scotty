@@ -6,9 +6,14 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { Icon } from "@/components/icons";
 import { useApp } from "@/components/app-context";
-import { useCreateBead } from "@/hooks/use-beads";
+import { useCreateBead, beadsKey } from "@/hooks/use-beads";
+import { useImageDrop } from "@/hooks/use-image-drop";
+import { DescriptionContent, hasImageRef } from "@/components/description-content";
+import { api } from "@/lib/api-client";
 import { typeLabel } from "@/lib/beads-view";
 import { BEAD_TYPES, type BeadType } from "@/lib/schema";
 
@@ -51,9 +56,11 @@ export function CreateBeadModal({
 }
 
 function CreateForm({ parent, onClose }: { parent: string; onClose: () => void }) {
-  const { beads, meta } = useApp();
+  const { beads, meta, projectId } = useApp();
   const create = useCreateBead();
+  const qc = useQueryClient();
   const actor = meta?.humanActor ?? "you";
+  const isDemo = meta?.kind === "demo";
 
   const [form, setForm] = React.useState<FormState>({
     type: "task",
@@ -68,6 +75,21 @@ function CreateForm({ parent, onClose }: { parent: string; onClose: () => void }
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
+
+  // Images dropped before the bead exists go to a draft folder; on create we
+  // rename that folder to the real id and rewrite the refs in the description.
+  const taRef = React.useRef<HTMLTextAreaElement>(null);
+  const uid = React.useId();
+  const draftId = React.useMemo(() => "draft-" + uid.replace(/[^a-zA-Z0-9]/g, ""), [uid]);
+  const drop = useImageDrop({
+    projectId,
+    beadId: draftId,
+    disabled: isDemo,
+    disabledMessage: "Attachments aren't available for the Demo project.",
+    textareaRef: taRef,
+    value: form.description,
+    onChange: (v) => set("description", v),
+  });
 
   const epics = beads.filter((b) => b.issue_type === "epic");
   const assignees = Array.from(
@@ -87,7 +109,24 @@ function CreateForm({ parent, onClose }: { parent: string; onClose: () => void }
         parent: form.parent,
         backlog: form.backlog,
       },
-      { onSuccess: onClose },
+      {
+        onSuccess: async (newBead) => {
+          if (form.description.includes(`attachment://${draftId}/`)) {
+            try {
+              await api.attachments.finalize(projectId, draftId, newBead.id);
+              const rewritten = form.description.replaceAll(
+                `attachment://${draftId}/`,
+                `attachment://${newBead.id}/`,
+              );
+              await api.update(projectId, newBead.id, { description: rewritten });
+              qc.invalidateQueries({ queryKey: beadsKey(projectId) });
+            } catch (e) {
+              toast.error((e as Error).message);
+            }
+          }
+          onClose();
+        },
+      },
     );
   }
 
@@ -156,14 +195,42 @@ function CreateForm({ parent, onClose }: { parent: string; onClose: () => void }
         </label>
 
         <label className="flex flex-col gap-[6px]">
-          <span className={labelClass}>Description</span>
-          <textarea
-            className={`${inputClass} h-auto resize-y py-[10px] leading-[1.5]`}
-            rows={3}
-            value={form.description}
-            onChange={(e) => set("description", e.target.value)}
-            placeholder="Optional details, acceptance criteria…"
-          />
+          <span className={labelClass}>
+            Description{" "}
+            {!isDemo && (
+              <span className="font-normal text-[var(--text-3)]">· drop or paste images</span>
+            )}
+          </span>
+          <div
+            className="relative"
+            onDrop={drop.onDrop}
+            onDragOver={drop.onDragOver}
+            onDragLeave={drop.onDragLeave}
+          >
+            <textarea
+              ref={taRef}
+              className={`${inputClass} h-auto w-full resize-y py-[10px] leading-[1.5] ${
+                drop.dragOver ? "border-[var(--brand)] ring-1 ring-[var(--brand)]" : ""
+              }`}
+              rows={3}
+              value={form.description}
+              onChange={(e) => set("description", e.target.value)}
+              onPaste={drop.onPaste}
+              placeholder="Optional details, acceptance criteria…"
+            />
+            {drop.uploading && (
+              <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md bg-[var(--surface)] px-2 py-0.5 text-[11px] text-[var(--text-3)]">
+                <Icon name="image" size={12} /> Uploading…
+              </span>
+            )}
+          </div>
+          {hasImageRef(form.description) && (
+            <DescriptionContent
+              text={form.description}
+              projectId={projectId}
+              className="mt-1 rounded-[8px] border border-border bg-[var(--surface-2)] p-2 text-[12.5px] text-[var(--text-2)]"
+            />
+          )}
         </label>
 
         <div className="grid grid-cols-2 gap-3">

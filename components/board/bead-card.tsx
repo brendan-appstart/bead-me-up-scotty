@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
-import { useDraggable } from "@dnd-kit/core";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import type { Bead } from "@/lib/schema";
 import { Icon, typeIconName } from "@/components/icons";
 import { useApp } from "@/components/app-context";
@@ -20,7 +21,9 @@ import {
 
 export function BeadCard({ bead }: { bead: Bead }) {
   const { index, humanAllowlist, openDetail } = useApp();
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: bead.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: bead.id,
+  });
 
   const o = beadOrigin(bead, humanAllowlist);
   const ep = epicOf(bead, index);
@@ -35,7 +38,13 @@ export function BeadCard({ bead }: { bead: Bead }) {
       {...listeners}
       {...attributes}
       onClick={() => openDetail(bead.id)}
-      style={{ opacity: isDragging ? 0.4 : 1, boxShadow: "var(--shadow)" }}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+        boxShadow: "var(--shadow)",
+        zIndex: isDragging ? 10 : undefined,
+      }}
       className="flex cursor-pointer touch-none flex-col gap-[9px] rounded-[11px] border border-border bg-[var(--surface)] p-[12px_13px] transition-[border-color,box-shadow] hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-lg)]"
     >
       <div className="flex items-center gap-2">

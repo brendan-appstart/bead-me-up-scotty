@@ -120,8 +120,12 @@ export function createBdStore(repoPath: string): BeadsStore {
   const rw = (actor: string) => ({ repoPath, actor });
 
   async function show(id: string): Promise<Bead> {
+    // bd 1.0.5 `show <id> --json` returns its envelope `data` as an ARRAY even
+    // for a single id, while beadSchema expects one object. Unwrap before parse.
     const data = await runBdJson(["show", id], ro);
-    const parsed = beadSchema.safeParse(data);
+    const rec = Array.isArray(data) ? data[0] : data;
+    if (!rec) throw new BdError(`bead ${id} not found`, "not_found");
+    const parsed = beadSchema.safeParse(rec);
     if (!parsed.success) throw new BdError(`could not parse bead ${id}`);
     return parsed.data;
   }

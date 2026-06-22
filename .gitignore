@@ -20,6 +20,9 @@
 # production
 /build
 
+# graphify knowledge-graph output (generated tooling artifacts, not app source)
+/graphify-out/
+
 # misc
 .DS_Store
 *.pem

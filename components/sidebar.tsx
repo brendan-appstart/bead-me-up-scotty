@@ -4,11 +4,38 @@ import { Icon } from "@/components/icons";
 import { useTheme } from "@/components/theme-provider";
 import { useApp, type View } from "@/components/app-context";
 import { ProjectSwitcher } from "@/components/project-switcher";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
 import { initials, avatarColor } from "@/lib/beads-view";
 import { cn } from "@/lib/utils";
 
+// This app's own GitHub repo — where bug reports / feature requests are filed.
+const GITHUB_REPO = "brendan-appstart/bead-me-up-scotty";
+
+function githubIssueUrl(kind: "bug" | "feature"): string {
+  const isBug = kind === "bug";
+  const params = new URLSearchParams({
+    title: isBug ? "[Bug] " : "[Feature] ",
+    labels: isBug ? "bug" : "enhancement",
+    body: isBug
+      ? "## Steps to reproduce\n\n1. \n2. \n\n## Expected\n\n## Actual\n\n---\n_Filed from Bead Me Up, Scotty_"
+      : "## Problem\n\n## Proposed solution\n\n---\n_Filed from Bead Me Up, Scotty_",
+  });
+  return `https://github.com/${GITHUB_REPO}/issues/new?${params.toString()}`;
+}
+
+function openIssue(kind: "bug" | "feature") {
+  window.open(githubIssueUrl(kind), "_blank", "noopener,noreferrer");
+}
+
 const NAV: { key: View; label: string; icon: string }[] = [
   { key: "board", label: "Board", icon: "board" },
+  { key: "list", label: "List", icon: "list" },
   { key: "epics", label: "Epics", icon: "target" },
   { key: "graph", label: "Graph", icon: "graph" },
   { key: "settings", label: "Settings", icon: "settings" },
@@ -74,6 +101,25 @@ export function Sidebar({
       </nav>
 
       <div className="mt-auto flex flex-col gap-[10px]">
+        <DropdownMenu>
+          <DropdownMenuTrigger className="flex w-full items-center gap-[10px] rounded-[9px] border border-border bg-[var(--surface)] px-[10px] py-2 text-left text-[12.5px] font-medium text-[var(--text-2)] hover:bg-[var(--surface-2)] hover:text-[var(--text)] focus:outline-none">
+            <Icon name="bug" size={16} className="flex-shrink-0" />
+            <span className="flex-1">Report / request</span>
+            <Icon name="chevron" size={14} className="flex-shrink-0 text-[var(--text-3)]" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-[200px]">
+            <DropdownMenuLabel>Open a GitHub issue</DropdownMenuLabel>
+            <DropdownMenuItem onClick={() => openIssue("bug")}>
+              <Icon name="bug" size={14} style={{ color: "#ef4444" }} />
+              <span>Report a bug</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => openIssue("feature")}>
+              <Icon name="feature" size={14} style={{ color: "var(--brand)" }} />
+              <span>Request a feature</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         <div className="flex items-center gap-2 px-1">
           <div
             className="flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold text-white"

@@ -5,11 +5,14 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  closestCorners,
   type DragEndEvent,
 } from "@dnd-kit/core";
+import { arrayMove } from "@dnd-kit/sortable";
 import { Icon } from "@/components/icons";
 import { useApp } from "@/components/app-context";
 import { useSetStatus } from "@/hooks/use-beads";
+import { useOrder, useSetOrder } from "@/hooks/use-order";
 import { isBlocked, prioLabel, typeLabel } from "@/lib/beads-view";
 import { beadOrigin } from "@/lib/attribution";
 import { BEAD_TYPES } from "@/lib/schema";
@@ -27,9 +30,23 @@ const COLUMNS: (ColumnDef & { test: (b: Bead, blocked: boolean) => boolean; stat
   { id: "done", name: "Done", color: "#16a34a", cmd: "closed", droppable: true, status: "closed", test: (b) => b.status === "closed" },
 ];
 
+/** Sort a column's cards by the saved manual order, falling back to priority. */
+function sortCards(cards: Bead[], order?: string[]): Bead[] {
+  const rank = new Map((order ?? []).map((id, i) => [id, i] as const));
+  return [...cards].sort((a, b) => {
+    const ra = rank.has(a.id) ? (rank.get(a.id) as number) : Number.POSITIVE_INFINITY;
+    const rb = rank.has(b.id) ? (rank.get(b.id) as number) : Number.POSITIVE_INFINITY;
+    if (ra !== rb) return ra - rb;
+    return a.priority - b.priority;
+  });
+}
+
 export function Board() {
-  const { beads, index, humanAllowlist, openCreate, loading } = useApp();
+  const { beads, index, humanAllowlist, openCreate, loading, projectId } = useApp();
   const setStatus = useSetStatus();
+  const { data: orderData } = useOrder(projectId);
+  const setOrder = useSetOrder(projectId);
+  const orders = React.useMemo(() => orderData?.orders ?? {}, [orderData]);
   const [search, setSearch] = React.useState("");
   const [filters, setFilters] = React.useState({
     type: "",
@@ -69,26 +86,50 @@ export function Board() {
     () =>
       COLUMNS.map((c) => ({
         col: c,
-        cards: visible
-          .filter((b) => c.test(b, isBlocked(b, index)))
-          .sort((a, b) => a.priority - b.priority),
+        cards: sortCards(visible.filter((b) => c.test(b, isBlocked(b, index))), orders[c.id]),
       })),
-    [visible, index],
+    [visible, index, orders],
   );
+
+  // Which column each visible bead currently sits in (drag targets resolve here).
+  const colOfBead = React.useMemo(() => {
+    const m = new Map<string, string>();
+    for (const { col, cards } of columns) for (const b of cards) m.set(b.id, col.id);
+    return m;
+  }, [columns]);
 
   const boardCount = beads.filter(
     (b) => b.issue_type !== "epic" && !((b.labels ?? []).includes("archived") && !filters.showArchived),
   ).length;
 
   function onDragEnd(e: DragEndEvent) {
-    const id = String(e.active.id);
-    const colId = e.over?.id ? String(e.over.id) : null;
-    if (!colId) return;
-    const target = COLUMNS.find((c) => c.id === colId);
-    if (!target || !target.droppable || !target.status) return;
-    const bead = index.get(id);
-    if (!bead || bead.status === target.status) return;
-    setStatus.mutate({ id, status: target.status });
+    const activeId = String(e.active.id);
+    const overRaw = e.over?.id ? String(e.over.id) : null;
+    if (!overRaw) return;
+
+    const activeCol = colOfBead.get(activeId);
+    if (!activeCol) return;
+
+    // `over` is a column id (dropped on empty area) or a bead id (over a card).
+    const overCol = COLUMNS.some((c) => c.id === overRaw) ? overRaw : colOfBead.get(overRaw);
+    if (!overCol) return;
+
+    if (overCol !== activeCol) {
+      // Cross-column → status change (existing behavior).
+      const target = COLUMNS.find((c) => c.id === overCol);
+      if (!target || !target.droppable || !target.status) return;
+      const bead = index.get(activeId);
+      if (!bead || bead.status === target.status) return;
+      setStatus.mutate({ id: activeId, status: target.status });
+      return;
+    }
+
+    // Within-column → reorder + persist the manual order.
+    const ids = (columns.find((c) => c.col.id === activeCol)?.cards ?? []).map((b) => b.id);
+    const oldIndex = ids.indexOf(activeId);
+    const newIndex = overRaw === activeCol ? ids.length - 1 : ids.indexOf(overRaw);
+    if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
+    setOrder.mutate({ columnId: activeCol, ids: arrayMove(ids, oldIndex, newIndex) });
   }
 
   return (
@@ -174,7 +215,7 @@ export function Board() {
         {loading && beads.length === 0 ? (
           <div className="text-[13px] text-[var(--text-3)]">Loading beads…</div>
         ) : (
-          <DndContext sensors={sensors} onDragEnd={onDragEnd}>
+          <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={onDragEnd}>
             <div className="flex h-full min-h-0 gap-4">
               {columns.map(({ col, cards }) => (
                 <Column key={col.id} col={col} cards={cards} />

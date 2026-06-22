@@ -9,6 +9,8 @@ import {
 import { Icon, typeIconName } from "@/components/icons";
 import { OriginBadge } from "@/components/board/bead-card";
 import { useApp } from "@/components/app-context";
+import { useImageDrop } from "@/hooks/use-image-drop";
+import { DescriptionContent } from "@/components/description-content";
 import {
   useUpdateBead,
   useSetStatus,
@@ -62,8 +64,9 @@ export function BeadDetailDrawer({
 }
 
 function DrawerBody({ bead, onClose }: { bead: Bead; onClose: () => void }) {
-  const { index, beads, humanAllowlist, meta } = useApp();
+  const { index, beads, humanAllowlist, meta, projectId } = useApp();
   const actor = meta?.humanActor ?? "you";
+  const isDemo = meta?.kind === "demo";
 
   const update = useUpdateBead();
   const setStatus = useSetStatus();
@@ -77,6 +80,36 @@ function DrawerBody({ bead, onClose }: { bead: Bead; onClose: () => void }) {
   const [addingDep, setAddingDep] = React.useState(false);
   const [depTarget, setDepTarget] = React.useState("");
   const [depType, setDepType] = React.useState<DepType>("blocks");
+
+  // Inline edit of title + description (with image drop/paste on the textarea).
+  const [editing, setEditing] = React.useState(false);
+  const [titleDraft, setTitleDraft] = React.useState(bead.title);
+  const [descDraft, setDescDraft] = React.useState(bead.description ?? "");
+  const descRef = React.useRef<HTMLTextAreaElement>(null);
+  const drop = useImageDrop({
+    projectId,
+    beadId: bead.id,
+    disabled: isDemo,
+    disabledMessage: "Attachments aren't available for the Demo project.",
+    textareaRef: descRef,
+    value: descDraft,
+    onChange: setDescDraft,
+  });
+
+  const startEdit = () => {
+    setTitleDraft(bead.title);
+    setDescDraft(bead.description ?? "");
+    setEditing(true);
+  };
+  const cancelEdit = () => setEditing(false);
+  const saveEdit = () => {
+    const t = titleDraft.trim();
+    if (!t) return;
+    update.mutate(
+      { id: bead.id, patch: { title: t, description: descDraft } },
+      { onSuccess: () => setEditing(false) },
+    );
+  };
 
   const o = beadOrigin(bead, humanAllowlist);
   const ep = epicOf(bead, index);
@@ -101,6 +134,12 @@ function DrawerBody({ bead, onClose }: { bead: Bead; onClose: () => void }) {
         <span className="font-mono text-[13px] text-[var(--text-2)]">{bead.id}</span>
         <StatusChip status={bead.status} />
         <span className="flex-1" />
+        <IconBtn
+          title={editing ? "Stop editing" : "Edit title & description"}
+          onClick={editing ? cancelEdit : startEdit}
+        >
+          <Icon name="pencil" size={15} />
+        </IconBtn>
         <IconBtn title="Archive (close + label)" onClick={() => archive.mutate(bead.id)}>
           <Icon name="archive" size={15} />
         </IconBtn>
@@ -130,9 +169,21 @@ function DrawerBody({ bead, onClose }: { bead: Bead; onClose: () => void }) {
           <OriginBadge origin={o} title={originTitle(bead.created_by, o)} withLabel />
         </div>
 
-        <SheetTitle className="mb-[14px] text-[20px] font-[650] leading-[1.25] tracking-[-.02em] [text-wrap:pretty]">
-          {bead.title}
-        </SheetTitle>
+        {editing ? (
+          <>
+            <SheetTitle className="sr-only">Edit {bead.id}</SheetTitle>
+            <input
+              value={titleDraft}
+              onChange={(e) => setTitleDraft(e.target.value)}
+              placeholder="Title"
+              className="mb-[14px] w-full rounded-[9px] border border-border bg-[var(--surface-2)] px-[11px] py-[9px] text-[18px] font-[650] leading-[1.25] tracking-[-.02em] text-[var(--text)] outline-none focus:border-[var(--brand)]"
+            />
+          </>
+        ) : (
+          <SheetTitle className="mb-[14px] text-[20px] font-[650] leading-[1.25] tracking-[-.02em] [text-wrap:pretty]">
+            {bead.title}
+          </SheetTitle>
+        )}
 
         <div className="mb-4 grid grid-cols-2 gap-[10px]">
           <label className="flex flex-col gap-[5px]">
@@ -189,10 +240,67 @@ function DrawerBody({ bead, onClose }: { bead: Bead; onClose: () => void }) {
         </div>
 
         <Section>
-          <div className={`${fieldLabel} mb-[6px]`}>Description</div>
-          <div className="rounded-[10px] border border-border bg-[var(--surface-2)] p-[12px_13px] text-[13.5px] leading-[1.55] text-[var(--text-2)] [text-wrap:pretty]">
-            {bead.description || "No description."}
+          <div className={`${fieldLabel} mb-[6px] flex items-center gap-2`}>
+            <span>Description</span>
+            {editing && !isDemo && (
+              <span className="font-normal normal-case tracking-normal text-[var(--text-3)]">
+                · drop or paste images
+              </span>
+            )}
           </div>
+          {editing ? (
+            <>
+              <div
+                className="relative"
+                onDrop={drop.onDrop}
+                onDragOver={drop.onDragOver}
+                onDragLeave={drop.onDragLeave}
+              >
+                <textarea
+                  ref={descRef}
+                  value={descDraft}
+                  onChange={(e) => setDescDraft(e.target.value)}
+                  onPaste={drop.onPaste}
+                  rows={6}
+                  placeholder="Describe this bead…"
+                  className={`w-full resize-y rounded-[10px] border bg-[var(--surface-2)] p-[12px_13px] text-[13.5px] leading-[1.55] text-[var(--text)] outline-none ${
+                    drop.dragOver ? "border-[var(--brand)] ring-1 ring-[var(--brand)]" : "border-border"
+                  }`}
+                />
+                {drop.uploading && (
+                  <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md bg-[var(--surface)] px-2 py-0.5 text-[11px] text-[var(--text-3)]">
+                    <Icon name="image" size={12} /> Uploading…
+                  </span>
+                )}
+              </div>
+              <div className="mt-2 flex items-center justify-end gap-2">
+                <button
+                  onClick={cancelEdit}
+                  className="h-8 rounded-lg border border-border bg-[var(--surface-2)] px-3 text-[12.5px] font-[550] hover:bg-[var(--surface-3)]"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={saveEdit}
+                  disabled={!titleDraft.trim() || update.isPending}
+                  className="flex h-8 items-center gap-[6px] rounded-lg px-3 text-[12.5px] font-[550] text-white disabled:opacity-50"
+                  style={{ background: "var(--brand)" }}
+                >
+                  <Icon name="check" size={14} /> Save
+                </button>
+              </div>
+            </>
+          ) : bead.description ? (
+            <DescriptionContent
+              text={bead.description}
+              projectId={projectId}
+              className="rounded-[10px] border border-border bg-[var(--surface-2)] p-[12px_13px] text-[13.5px] leading-[1.55] text-[var(--text-2)] [text-wrap:pretty]"
+            />
+          ) : (
+            <div className="rounded-[10px] border border-border bg-[var(--surface-2)] p-[12px_13px] text-[13.5px] leading-[1.55] text-[var(--text-3)]">
+              No description.
+            </div>
+          )}
         </Section>
 
         {/* Dependencies */}

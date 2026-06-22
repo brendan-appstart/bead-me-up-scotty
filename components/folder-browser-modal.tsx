@@ -37,6 +37,11 @@ function Browser({ onClose }: { onClose: () => void }) {
     queryFn: () => api.fs.browse(path),
   });
 
+  const go = (p: string) => {
+    const trimmed = p.trim();
+    if (trimmed) setPath(trimmed);
+  };
+
   const add = useMutation({
     mutationFn: (p: string) => api.projects.add(p),
     onSuccess: (entry) => {
@@ -81,9 +86,25 @@ function Browser({ onClose }: { onClose: () => void }) {
         >
           <ArrowUp size={14} />
         </button>
-        <div className="min-w-0 flex-1 truncate font-mono text-[12px] text-[var(--text-2)]" dir="rtl">
-          {data?.path ?? "…"}
-        </div>
+        <input
+          // Re-mount on navigation so the field shows where we landed, while
+          // still letting the user freely type/paste a path in between.
+          key={data?.path ?? "home"}
+          defaultValue={data?.path ?? ""}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              go((e.target as HTMLInputElement).value);
+            }
+          }}
+          spellCheck={false}
+          autoComplete="off"
+          placeholder="Type or paste a path, then press Enter"
+          aria-label="Folder path"
+          className={`min-w-0 flex-1 rounded-lg border bg-[var(--surface)] px-[10px] py-[6px] font-mono text-[12px] text-[var(--text)] outline-none focus:border-[var(--brand)] ${
+            errMsg ? "border-[#d97706]" : "border-border"
+          }`}
+        />
       </div>
 
       {/* Entries */}

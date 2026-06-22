@@ -7,6 +7,7 @@ import { makeIndex } from "@/lib/beads-view";
 import { AppProvider, type View } from "@/components/app-context";
 import { Sidebar } from "@/components/sidebar";
 import { Board } from "@/components/board/board";
+import { ListView } from "@/components/list-view";
 import { EpicsView } from "@/components/epics-view";
 import { GraphView } from "@/components/graph-view";
 import { SettingsView } from "@/components/settings-view";
@@ -96,6 +97,7 @@ export function AppShell({ projectId }: { projectId: string }) {
           ) : (
             <>
               {view === "board" && <Board />}
+              {view === "list" && <ListView />}
               {view === "epics" && <EpicsView />}
               {view === "graph" && <GraphView />}
               {view === "settings" && <SettingsView />}

@@ -26,7 +26,14 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const home = os.homedir();
     const root = process.env.BEADS_FS_ROOT ? path.resolve(process.env.BEADS_FS_ROOT) : null;
-    const requested = url.searchParams.get("path");
+    const rawRequested = url.searchParams.get("path");
+    // Expand a leading ~ so typed/pasted home-relative paths resolve.
+    const requested =
+      rawRequested === "~"
+        ? home
+        : rawRequested?.startsWith("~/")
+          ? path.join(home, rawRequested.slice(2))
+          : rawRequested;
     const target = path.resolve(requested && requested.trim() ? requested : root || home);
 
     if (root && target !== root && !target.startsWith(root + path.sep)) {

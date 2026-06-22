@@ -26,6 +26,11 @@ export interface AppConfig {
   humanAllowlist: string[];
   pollIntervalMs: number;
   projects: ProjectEntry[];
+  /**
+   * Manual board ordering, kept app-local (NOT in beads): projectId → columnId →
+   * ordered bead ids. Lets users drag beads within a column to set work order.
+   */
+  orders: Record<string, Record<string, string[]>>;
 }
 
 /**
@@ -71,6 +76,7 @@ function defaults(): AppConfig {
     // drives fast updates; this interval only backstops a dropped stream.
     pollIntervalMs: 30000,
     projects: [],
+    orders: {},
   };
 }
 
@@ -190,6 +196,10 @@ export function getConfig(): AppConfig {
     pollIntervalMs:
       typeof onDisk?.pollIntervalMs === "number" ? onDisk.pollIntervalMs : d.pollIntervalMs,
     projects: sanitizeProjects(onDisk?.projects),
+    orders:
+      onDisk?.orders && typeof onDisk.orders === "object" && !Array.isArray(onDisk.orders)
+        ? (onDisk.orders as Record<string, Record<string, string[]>>)
+        : {},
   };
 
   // One-time migration: back-fill the registry from the legacy single repoPath
@@ -255,6 +265,12 @@ export function addProject(inputPath: string): ProjectEntry {
 export function removeProject(id: string): void {
   const cfg = getConfig();
   cfg.projects = cfg.projects.filter((p) => p.id !== id);
+  // Drop any saved board ordering for the removed project so it can't orphan.
+  if (cfg.orders[id]) {
+    const rest = { ...cfg.orders };
+    delete rest[id];
+    cfg.orders = rest;
+  }
   persist(cfg);
 }
 
@@ -274,4 +290,25 @@ export function renameProject(id: string, name: string): ProjectEntry | undefine
   p.name = name;
   persist(cfg);
   return p;
+}
+
+// ---- manual board ordering ------------------------------------------------
+
+/** All saved column orders for a project: columnId → ordered bead ids. */
+export function getColumnOrders(projectId: string): Record<string, string[]> {
+  return getConfig().orders[projectId] ?? {};
+}
+
+/** Replace the saved order for one column of one project. */
+export function setColumnOrder(
+  projectId: string,
+  columnId: string,
+  ids: string[],
+): Record<string, string[]> {
+  const cfg = getConfig();
+  const proj = { ...(cfg.orders[projectId] ?? {}) };
+  proj[columnId] = ids;
+  cfg.orders = { ...cfg.orders, [projectId]: proj };
+  persist(cfg);
+  return proj;
 }

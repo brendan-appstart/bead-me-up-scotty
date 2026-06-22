@@ -101,6 +101,48 @@ export const api = {
     request<Bead>(`${base(projectId)}/beads/${enc(id)}/archive`, { method: "POST" }),
   doctor: (projectId: string) => request<DoctorResponse>(`${base(projectId)}/doctor`),
 
+  // Manual per-column board ordering (stored in app config, not in beads).
+  order: {
+    get: (projectId: string) =>
+      request<{ orders: Record<string, string[]> }>(`${base(projectId)}/order`),
+    set: (projectId: string, columnId: string, ids: string[]) =>
+      request<{ orders: Record<string, string[]> }>(`${base(projectId)}/order`, {
+        method: "PUT",
+        body: JSON.stringify({ columnId, ids }),
+      }),
+  },
+
+  // Image attachments stored under <repo>/.beads/attachments/<beadId>/.
+  attachments: {
+    upload: async (projectId: string, beadId: string, file: File) => {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("beadId", beadId);
+      // No JSON Content-Type — let the browser set the multipart boundary.
+      const res = await fetch(`${base(projectId)}/attachments`, { method: "POST", body: fd });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error((body as { error?: string }).error || `Upload failed (${res.status})`);
+      }
+      return body as { ref: string; url: string; name: string };
+    },
+    finalize: (projectId: string, draftId: string, beadId: string) =>
+      request<{ moved: boolean }>(`${base(projectId)}/attachments`, {
+        method: "PUT",
+        body: JSON.stringify({ draftId, beadId }),
+      }),
+    /** Map an `attachment://<beadId>/<file>` ref to its serve URL. */
+    urlFor: (projectId: string, ref: string) => {
+      const rel = ref.replace(/^attachment:\/\//, "");
+      const encoded = rel
+        .split("/")
+        .filter(Boolean)
+        .map(encodeURIComponent)
+        .join("/");
+      return `${base(projectId)}/attachments/${encoded}`;
+    },
+  },
+
   saveConfig: (patch: Record<string, unknown>) =>
     request<DoctorResponse["config"]>("/api/config", {
       method: "PUT",
