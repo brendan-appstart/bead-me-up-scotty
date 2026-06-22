@@ -23,8 +23,8 @@ export function AppShell({ projectId }: { projectId: string }) {
 
   const { data, isLoading, error } = useBeads(projectId);
   // Live push: refetch the moment this project's .beads/ mutates, instead of
-  // waiting for the fallback poll interval.
-  useBeadsStream(projectId);
+  // waiting for the fallback poll interval. `live` drives the sidebar indicator.
+  const { live } = useBeadsStream(projectId);
   const beads = React.useMemo(() => data?.beads ?? [], [data]);
   const index = React.useMemo(() => makeIndex(beads), [beads]);
 
@@ -72,7 +72,13 @@ export function AppShell({ projectId }: { projectId: string }) {
       }}
     >
       <div className="flex h-full overflow-hidden bg-background text-foreground text-sm">
-        <Sidebar view={view} onView={setView} kind={data?.meta?.kind} projectId={projectId} />
+        <Sidebar
+          view={view}
+          onView={setView}
+          kind={data?.meta?.kind}
+          projectId={projectId}
+          live={live}
+        />
         <main className="relative flex min-w-0 flex-1 flex-col">
           {errorMessage && view !== "settings" ? (
             <div className="flex flex-1 items-center justify-center p-8">

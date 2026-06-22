@@ -16,9 +16,12 @@ import { FolderBrowserModal } from "@/components/folder-browser-modal";
 export function ProjectSwitcher({
   projectId,
   kind,
+  live,
 }: {
   projectId: string;
   kind?: "bd" | "demo";
+  /** Whether the SSE change stream is connected (real projects only). */
+  live?: boolean;
 }) {
   const router = useRouter();
   const { data } = useProjects();
@@ -30,12 +33,17 @@ export function ProjectSwitcher({
   const current = projects.find((p) => p.id === projectId);
   const currentName = current?.name ?? (projectId === "demo" ? "Demo" : projectId);
 
+  const isDemo = kind === "demo";
+  const isLive = !isDemo && !!live;
   const dot = (
     <span
-      className="h-[7px] w-[7px] flex-shrink-0 rounded-full"
+      title={isLive ? "Live — changes stream in instantly" : undefined}
+      className={
+        "h-[7px] w-[7px] flex-shrink-0 rounded-full" + (isLive ? " animate-pulse" : "")
+      }
       style={{
-        background: kind === "demo" ? "#d97706" : "#22c55e",
-        boxShadow: `0 0 0 3px ${kind === "demo" ? "#d9770622" : "#22c55e22"}`,
+        background: isDemo ? "#d97706" : "#22c55e",
+        boxShadow: `0 0 0 3px ${isDemo ? "#d9770622" : "#22c55e22"}`,
       }}
     />
   );
@@ -48,7 +56,7 @@ export function ProjectSwitcher({
           <div className="min-w-0 flex-1 leading-[1.15]">
             <div className="truncate text-[13px] font-[600] text-[var(--text)]">{currentName}</div>
             <div className="text-[10.5px] text-[var(--text-3)]">
-              {kind === "demo" ? "sample data" : "bd · project"}
+              {isDemo ? "sample data" : isLive ? "bd · live" : "bd · project"}
             </div>
           </div>
           <ChevronsUpDown size={14} className="flex-shrink-0 text-[var(--text-3)]" />

@@ -19,11 +19,13 @@ export function Sidebar({
   onView,
   kind,
   projectId,
+  live,
 }: {
   view: View;
   onView: (v: View) => void;
   kind?: "bd" | "demo";
   projectId: string;
+  live?: boolean;
 }) {
   const { theme, toggle } = useTheme();
   const { meta, beads } = useApp();
@@ -45,7 +47,7 @@ export function Sidebar({
         </div>
       </div>
 
-      <ProjectSwitcher projectId={projectId} kind={kind} />
+      <ProjectSwitcher projectId={projectId} kind={kind} live={live} />
 
       <nav className="flex flex-col gap-[2px]">
         {NAV.map((n) => {
