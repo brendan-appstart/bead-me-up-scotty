@@ -8,10 +8,10 @@ export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({ status: z.enum(BEAD_STATUSES) });
 
-export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(req: Request, { params }: { params: Promise<{ projectId: string; id: string }> }) {
   try {
-    const { id } = await params;
-    const store = await getStore();
+    const { projectId, id } = await params;
+    const store = await getStore(projectId);
     const cfg = getConfig();
     const { status } = bodySchema.parse(await req.json());
     const bead = await store.setStatus(id, status, cfg.humanActor);

@@ -4,10 +4,10 @@ import { ok, fail } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(_req: Request, { params }: { params: Promise<{ projectId: string; id: string }> }) {
   try {
-    const { id } = await params;
-    const store = await getStore();
+    const { projectId, id } = await params;
+    const store = await getStore(projectId);
     const cfg = getConfig();
     const bead = await store.archive(id, cfg.humanActor);
     return ok(bead);

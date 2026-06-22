@@ -5,12 +5,12 @@ import { ok, fail } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
-type Ctx = { params: Promise<{ id: string }> };
+type Ctx = { params: Promise<{ projectId: string; id: string }> };
 
 export async function GET(_req: Request, { params }: Ctx) {
   try {
-    const { id } = await params;
-    const store = await getStore();
+    const { projectId, id } = await params;
+    const store = await getStore(projectId);
     const bead = await store.get(id);
     if (!bead) return ok({ error: "not found" }, 404);
     return ok(bead);
@@ -21,8 +21,8 @@ export async function GET(_req: Request, { params }: Ctx) {
 
 export async function PATCH(req: Request, { params }: Ctx) {
   try {
-    const { id } = await params;
-    const store = await getStore();
+    const { projectId, id } = await params;
+    const store = await getStore(projectId);
     const cfg = getConfig();
     const patch = updateInputSchema.parse(await req.json());
     const bead = await store.update(id, patch, cfg.humanActor);
@@ -34,8 +34,8 @@ export async function PATCH(req: Request, { params }: Ctx) {
 
 export async function DELETE(_req: Request, { params }: Ctx) {
   try {
-    const { id } = await params;
-    const store = await getStore();
+    const { projectId, id } = await params;
+    const store = await getStore(projectId);
     const cfg = getConfig();
     await store.remove(id, cfg.humanActor);
     return ok({ deleted: id });

@@ -6,10 +6,12 @@ import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+type Ctx = { params: Promise<{ projectId: string; id: string }> };
+
+export async function POST(req: Request, { params }: Ctx) {
   try {
-    const { id } = await params;
-    const store = await getStore();
+    const { projectId, id } = await params;
+    const store = await getStore(projectId);
     const cfg = getConfig();
     const { depends_on_id, type } = addDepSchema.parse(await req.json());
     const bead = await store.addDep(id, depends_on_id, type, cfg.humanActor);
@@ -19,10 +21,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 }
 
-export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: Request, { params }: Ctx) {
   try {
-    const { id } = await params;
-    const store = await getStore();
+    const { projectId, id } = await params;
+    const store = await getStore(projectId);
     const cfg = getConfig();
     const { depends_on_id } = z.object({ depends_on_id: z.string() }).parse(await req.json());
     const bead = await store.removeDep(id, depends_on_id, cfg.humanActor);

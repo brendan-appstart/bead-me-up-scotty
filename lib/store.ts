@@ -1,6 +1,6 @@
 import "server-only";
 import type { Bead, CreateInput, UpdateInput, DepType } from "./schema";
-import { getConfig } from "./config";
+import { getProject, touchProject, DEMO_PROJECT, ConfigError } from "./config";
 import { createBdStore, isBdAvailable } from "./bd";
 import { demoStore } from "./demo-store";
 
@@ -33,20 +33,35 @@ export interface BeadsStore {
   doctor(): Promise<DoctorInfo>;
 }
 
-let resolved: BeadsStore | null = null;
+// One store per project id. Demo always maps to the shared in-memory store.
+const stores = new Map<string, BeadsStore>();
 
-export async function getStore(): Promise<BeadsStore> {
-  if (resolved) return resolved;
-  const cfg = getConfig();
-  if (!cfg.demo && (await isBdAvailable(cfg.repoPath))) {
-    resolved = createBdStore(cfg.repoPath);
-  } else {
-    resolved = demoStore;
+export async function getStore(projectId: string): Promise<BeadsStore> {
+  if (projectId === DEMO_PROJECT.id) return demoStore;
+
+  const cached = stores.get(projectId);
+  if (cached) return cached;
+
+  const project = getProject(projectId);
+  if (!project || project.path === null) {
+    throw new ConfigError(`Unknown project: ${projectId}`, "unknown_project");
   }
-  return resolved;
+  if (!(await isBdAvailable(project.path))) {
+    throw new ConfigError(
+      `bd is not available for "${project.name}" (${project.path}). ` +
+        `Check that bd is installed and the folder still contains a .beads directory.`,
+      "bd_unavailable",
+    );
+  }
+  const store = createBdStore(project.path);
+  stores.set(projectId, store);
+  // First resolution this session — record that the project was opened.
+  touchProject(projectId);
+  return store;
 }
 
-/** Reset the cached store (used after config changes). */
-export function resetStore() {
-  resolved = null;
+/** Reset cached store(s) — one project, or all when no id is given. */
+export function resetStore(projectId?: string) {
+  if (projectId) stores.delete(projectId);
+  else stores.clear();
 }
