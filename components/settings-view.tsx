@@ -131,9 +131,9 @@ function SettingsForm({ data }: { data: DoctorResponse }) {
       <Card title="Freshness & theme">
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-[13px]">Poll interval</div>
+            <div className="text-[13px]">Fallback refresh interval</div>
             <div className="text-[11.5px] text-[var(--text-3)]">
-              TanStack Query background refetch
+              Live changes stream in instantly; this only backstops a dropped stream
             </div>
           </div>
           <span className="rounded-lg border border-border bg-[var(--surface-2)] px-[10px] py-1 font-mono text-[13px] text-[var(--text-2)]">

@@ -67,7 +67,9 @@ function defaults(): AppConfig {
   return {
     humanActor,
     humanAllowlist: [humanActor],
-    pollIntervalMs: 5000,
+    // Fallback refresh interval. The SSE change stream (see lib/beads-watch)
+    // drives fast updates; this interval only backstops a dropped stream.
+    pollIntervalMs: 30000,
     projects: [],
   };
 }

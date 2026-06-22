@@ -2,6 +2,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useBeads } from "@/hooks/use-beads";
+import { useBeadsStream } from "@/hooks/use-beads-stream";
 import { makeIndex } from "@/lib/beads-view";
 import { AppProvider, type View } from "@/components/app-context";
 import { Sidebar } from "@/components/sidebar";
@@ -21,6 +22,9 @@ export function AppShell({ projectId }: { projectId: string }) {
   });
 
   const { data, isLoading, error } = useBeads(projectId);
+  // Live push: refetch the moment this project's .beads/ mutates, instead of
+  // waiting for the fallback poll interval.
+  useBeadsStream(projectId);
   const beads = React.useMemo(() => data?.beads ?? [], [data]);
   const index = React.useMemo(() => makeIndex(beads), [beads]);
 
