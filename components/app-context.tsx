@@ -6,6 +6,7 @@ import type { Meta } from "@/lib/api-client";
 export type View = "board" | "epics" | "graph" | "settings";
 
 interface AppContextValue {
+  projectId: string;
   beads: Bead[];
   index: Map<string, Bead>;
   meta?: Meta;

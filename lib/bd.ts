@@ -85,20 +85,25 @@ function parseExport(jsonl: string): Bead[] {
   return beads;
 }
 
-// ---- write serialization (embedded Dolt is single-writer) ----
-let writeChain: Promise<unknown> = Promise.resolve();
-function serializeWrite<T>(fn: () => Promise<T>): Promise<T> {
-  const next = writeChain.then(fn, fn);
-  writeChain = next.catch(() => {});
+// ---- write serialization (embedded Dolt is single-writer *per database*) ----
+// Keyed by repoPath so same-project writes serialize (safe) while writes to
+// different projects run in parallel.
+const writeChains = new Map<string, Promise<unknown>>();
+function serializeWrite<T>(repoPath: string, fn: () => Promise<T>): Promise<T> {
+  const prev = writeChains.get(repoPath) ?? Promise.resolve();
+  const next = prev.then(fn, fn);
+  writeChains.set(
+    repoPath,
+    next.catch(() => {}),
+  );
   return next;
 }
 
-let availabilityCache: { repoPath: string; ok: boolean } | null = null;
+const availabilityCache = new Map<string, boolean>();
 
 export async function isBdAvailable(repoPath: string): Promise<boolean> {
-  if (availabilityCache && availabilityCache.repoPath === repoPath) {
-    return availabilityCache.ok;
-  }
+  const hit = availabilityCache.get(repoPath);
+  if (hit !== undefined) return hit;
   let ok = false;
   try {
     await pExecFile(BD_BIN, ["--version"], { timeout: 5000 });
@@ -106,7 +111,7 @@ export async function isBdAvailable(repoPath: string): Promise<boolean> {
   } catch {
     ok = false;
   }
-  availabilityCache = { repoPath, ok };
+  availabilityCache.set(repoPath, ok);
   return ok;
 }
 
@@ -139,7 +144,7 @@ export function createBdStore(repoPath: string): BeadsStore {
     },
 
     create(input: CreateInput, actor: string) {
-      return serializeWrite(async () => {
+      return serializeWrite(repoPath, async () => {
         const args = [
           "create",
           input.title,
@@ -162,7 +167,7 @@ export function createBdStore(repoPath: string): BeadsStore {
     },
 
     update(id, patch: UpdateInput, actor: string) {
-      return serializeWrite(async () => {
+      return serializeWrite(repoPath, async () => {
         const args = ["update", id];
         if (patch.title !== undefined) args.push("--title", patch.title);
         if (patch.description !== undefined) args.push("--description", patch.description);
@@ -176,7 +181,7 @@ export function createBdStore(repoPath: string): BeadsStore {
     },
 
     setStatus(id, status, actor) {
-      return serializeWrite(async () => {
+      return serializeWrite(repoPath, async () => {
         if (status === "closed") {
           await runBdRaw(["close", id], rw(actor));
         } else {
@@ -187,34 +192,34 @@ export function createBdStore(repoPath: string): BeadsStore {
     },
 
     remove(id, actor) {
-      return serializeWrite(async () => {
+      return serializeWrite(repoPath, async () => {
         await runBdRaw(["delete", id, "--force"], rw(actor));
       });
     },
 
     addComment(id, text, actor) {
-      return serializeWrite(async () => {
+      return serializeWrite(repoPath, async () => {
         await runBdRaw(["comment", id, text], rw(actor));
         return show(id);
       });
     },
 
     addDep(id, dependsOnId, type: DepType, actor) {
-      return serializeWrite(async () => {
+      return serializeWrite(repoPath, async () => {
         await runBdRaw(["dep", "add", id, dependsOnId, "-t", type], rw(actor));
         return show(id);
       });
     },
 
     removeDep(id, dependsOnId, actor) {
-      return serializeWrite(async () => {
+      return serializeWrite(repoPath, async () => {
         await runBdRaw(["dep", "remove", id, dependsOnId], rw(actor));
         return show(id);
       });
     },
 
     archive(id, actor) {
-      return serializeWrite(async () => {
+      return serializeWrite(repoPath, async () => {
         await runBdRaw(["close", id], rw(actor));
         await runBdRaw(["label", "add", id, "archived"], rw(actor));
         return show(id);

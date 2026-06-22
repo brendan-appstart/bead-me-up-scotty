@@ -3,6 +3,7 @@ import * as React from "react";
 import { Icon } from "@/components/icons";
 import { useTheme } from "@/components/theme-provider";
 import { useApp, type View } from "@/components/app-context";
+import { ProjectSwitcher } from "@/components/project-switcher";
 import { initials, avatarColor } from "@/lib/beads-view";
 import { cn } from "@/lib/utils";
 
@@ -17,10 +18,12 @@ export function Sidebar({
   view,
   onView,
   kind,
+  projectId,
 }: {
   view: View;
   onView: (v: View) => void;
   kind?: "bd" | "demo";
+  projectId: string;
 }) {
   const { theme, toggle } = useTheme();
   const { meta, beads } = useApp();
@@ -41,6 +44,8 @@ export function Sidebar({
           <div className="font-mono text-[11px] text-[var(--text-3)]">scotty · bd</div>
         </div>
       </div>
+
+      <ProjectSwitcher projectId={projectId} kind={kind} />
 
       <nav className="flex flex-col gap-[2px]">
         {NAV.map((n) => {
@@ -67,27 +72,6 @@ export function Sidebar({
       </nav>
 
       <div className="mt-auto flex flex-col gap-[10px]">
-        <div className="flex flex-col gap-2 rounded-[11px] border border-border bg-[var(--surface-2)] p-3">
-          <div className="text-[11px] font-[550] uppercase tracking-[.02em] text-[var(--text-3)]">
-            Repo
-          </div>
-          <div className="flex items-center gap-[7px]">
-            <span
-              className="h-[7px] w-[7px] rounded-full"
-              style={{
-                background: kind === "demo" ? "#d97706" : "#22c55e",
-                boxShadow: `0 0 0 3px ${kind === "demo" ? "#d9770622" : "#22c55e22"}`,
-              }}
-            />
-            <span className="font-mono text-[12px] text-[var(--text-2)]">
-              {kind === "demo" ? "demo · in-memory" : "~/.beads"}
-            </span>
-          </div>
-          <div className="text-[11px] text-[var(--text-3)]">
-            {kind === "demo" ? "seeded sample data" : "bd · embedded · Dolt"}
-          </div>
-        </div>
-
         <div className="flex items-center gap-2 px-1">
           <div
             className="flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold text-white"

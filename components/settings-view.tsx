@@ -3,17 +3,21 @@ import * as React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Icon } from "@/components/icons";
-import { Switch } from "@/components/ui/switch";
 import { useTheme } from "@/components/theme-provider";
+import { useApp } from "@/components/app-context";
 import { api, type DoctorResponse } from "@/lib/api-client";
 
 const inputClass =
   "h-[38px] rounded-[9px] border border-border bg-[var(--surface-2)] px-3 text-[12.5px] text-[var(--text)] outline-none focus:border-[var(--brand)]";
 
 export function SettingsView() {
-  const { data } = useQuery({ queryKey: ["doctor"], queryFn: api.doctor });
+  const { projectId } = useApp();
+  const { data } = useQuery({
+    queryKey: ["doctor", projectId],
+    queryFn: () => api.doctor(projectId),
+  });
   const key = data?.config
-    ? `${data.config.repoPath}|${data.config.humanActor}|${data.config.humanAllowlist.join(",")}`
+    ? `${data.repoPath}|${data.config.humanActor}|${data.config.humanAllowlist.join(",")}`
     : "loading";
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -24,7 +28,11 @@ export function SettingsView() {
         </span>
       </header>
       <div className="bd-scroll min-h-0 flex-1 overflow-y-auto p-[24px_22px]">
-        {data ? <SettingsForm key={key} data={data} /> : <div className="text-[13px] text-[var(--text-3)]">Loading…</div>}
+        {data ? (
+          <SettingsForm key={key} data={data} />
+        ) : (
+          <div className="text-[13px] text-[var(--text-3)]">Loading…</div>
+        )}
       </div>
     </div>
   );
@@ -33,14 +41,12 @@ export function SettingsView() {
 function SettingsForm({ data }: { data: DoctorResponse }) {
   const { theme, toggle } = useTheme();
   const qc = useQueryClient();
-  const [repoPath, setRepoPath] = React.useState(data.config.repoPath);
   const [actor, setActor] = React.useState(data.config.humanActor);
   const [allowlist, setAllowlist] = React.useState<string[]>(data.config.humanAllowlist);
   const [newName, setNewName] = React.useState("");
-  const [demo, setDemo] = React.useState(data.config.demo);
 
   const save = useMutation({
-    mutationFn: () => api.saveConfig({ repoPath, humanActor: actor, humanAllowlist: allowlist, demo }),
+    mutationFn: () => api.saveConfig({ humanActor: actor, humanAllowlist: allowlist }),
     onSuccess: () => {
       toast.success("Settings saved");
       qc.invalidateQueries({ queryKey: ["doctor"] });
@@ -49,20 +55,31 @@ function SettingsForm({ data }: { data: DoctorResponse }) {
     onError: (e) => toast.error((e as Error).message),
   });
 
+  const isDemo = data.kind === "demo";
+
   return (
     <div className="mx-auto flex max-w-[620px] flex-col gap-[18px]">
-      <Card title="Repository">
-        <label className="flex flex-col gap-[6px]">
-          <span className="text-[12px] text-[var(--text-2)]">.beads repo path</span>
-          <input className={`${inputClass} font-mono`} value={repoPath} onChange={(e) => setRepoPath(e.target.value)} />
-        </label>
+      <Card title="Project">
+        <div className="flex flex-col gap-[6px]">
+          <span className="text-[12px] text-[var(--text-2)]">{data.project?.name ?? "—"}</span>
+          <span className="break-all font-mono text-[12px] text-[var(--text-3)]">
+            {isDemo ? "built-in sample data (no path)" : data.repoPath}
+          </span>
+        </div>
         <div className="flex items-center gap-2 text-[12px] text-[var(--text-2)]">
-          <Icon name={data.ok ? "check" : "x"} size={14} style={{ color: data.ok ? "#22c55e" : "#ef4444" }} />
+          <Icon
+            name={data.ok ? "check" : "x"}
+            size={14}
+            style={{ color: data.ok ? "#22c55e" : "#ef4444" }}
+          />
           <span>
-            {data.kind === "demo"
-              ? "Demo mode — in-memory sample data. Install bd + point at a .beads repo for live data."
+            {isDemo
+              ? "Demo mode — in-memory sample data. Add a real project to manage live beads."
               : `${data.message}${data.version ? ` · ${data.version}` : ""}`}
           </span>
+        </div>
+        <div className="text-[11.5px] text-[var(--text-3)]">
+          Switch or add projects from the project menu in the sidebar.
         </div>
       </Card>
 
@@ -74,7 +91,9 @@ function SettingsForm({ data }: { data: DoctorResponse }) {
           <input className={inputClass} value={actor} onChange={(e) => setActor(e.target.value)} />
         </label>
         <div className="flex flex-col gap-[7px]">
-          <span className="text-[12px] text-[var(--text-2)]">Human allowlist · others render as agent</span>
+          <span className="text-[12px] text-[var(--text-2)]">
+            Human allowlist · others render as agent
+          </span>
           <div className="flex flex-wrap gap-[7px]">
             {allowlist.map((n) => (
               <span
@@ -104,23 +123,8 @@ function SettingsForm({ data }: { data: DoctorResponse }) {
             />
           </div>
         </div>
-      </Card>
-
-      <Card title="Data source">
-        <div className="flex items-center justify-between">
-          <div className="pr-4">
-            <div className="text-[13px]">Demo mode</div>
-            <div className="text-[11.5px] text-[var(--text-3)]">
-              Use the built-in sample dataset instead of <span className="font-mono">bd</span>.
-              Also forced by the <span className="font-mono">BEADS_DEMO=1</span> env var. Save to
-              apply.
-            </div>
-          </div>
-          <Switch checked={demo} onCheckedChange={setDemo} />
-        </div>
-        <div className="text-[11.5px] text-[var(--text-2)]">
-          Currently serving:{" "}
-          <span className="font-mono">{data.kind === "demo" ? "demo (in-memory)" : "bd (live)"}</span>
+        <div className="text-[11.5px] text-[var(--text-3)]">
+          Attribution is global — it applies to every project.
         </div>
       </Card>
 
@@ -128,7 +132,9 @@ function SettingsForm({ data }: { data: DoctorResponse }) {
         <div className="flex items-center justify-between">
           <div>
             <div className="text-[13px]">Poll interval</div>
-            <div className="text-[11.5px] text-[var(--text-3)]">TanStack Query background refetch</div>
+            <div className="text-[11.5px] text-[var(--text-3)]">
+              TanStack Query background refetch
+            </div>
           </div>
           <span className="rounded-lg border border-border bg-[var(--surface-2)] px-[10px] py-1 font-mono text-[13px] text-[var(--text-2)]">
             {Math.round(data.config.pollIntervalMs / 1000)}s

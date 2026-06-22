@@ -5,9 +5,12 @@ import { ok, fail } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+type Ctx = { params: Promise<{ projectId: string }> };
+
+export async function GET(_req: Request, { params }: Ctx) {
   try {
-    const store = await getStore();
+    const { projectId } = await params;
+    const store = await getStore(projectId);
     const cfg = getConfig();
     const beads = await store.list();
     return ok({
@@ -24,9 +27,10 @@ export async function GET() {
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(req: Request, { params }: Ctx) {
   try {
-    const store = await getStore();
+    const { projectId } = await params;
+    const store = await getStore(projectId);
     const cfg = getConfig();
     const input = createInputSchema.parse(await req.json());
     const bead = await store.create(input, cfg.humanActor);

@@ -7,13 +7,15 @@ import {
 import { toast } from "sonner";
 import { api, type BeadsResponse } from "@/lib/api-client";
 import type { Bead, CreateInput, UpdateInput, DepType } from "@/lib/schema";
+import { useApp } from "@/components/app-context";
 
-const KEY = ["beads"] as const;
+/** Query key is scoped per project so tabs on different projects never collide. */
+export const beadsKey = (projectId: string) => ["beads", projectId] as const;
 
-export function useBeads() {
+export function useBeads(projectId: string) {
   return useQuery({
-    queryKey: KEY,
-    queryFn: api.list,
+    queryKey: beadsKey(projectId),
+    queryFn: () => api.list(projectId),
     refetchInterval: (q) => q.state.data?.meta.pollIntervalMs ?? 5000,
   });
 }
@@ -31,10 +33,12 @@ function patchCache(
 }
 
 export function useSetStatus() {
+  const { projectId } = useApp();
   const qc = useQueryClient();
+  const KEY = beadsKey(projectId);
   return useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
-      api.setStatus(id, status),
+      api.setStatus(projectId, id, status),
     onMutate: async ({ id, status }) => {
       await qc.cancelQueries({ queryKey: KEY });
       const prev = qc.getQueryData<BeadsResponse>(KEY);
@@ -53,90 +57,105 @@ function mutationToast<TArgs, TRes>(
   fn: (args: TArgs) => Promise<TRes>,
   message: (args: TArgs, res: TRes) => string,
   qc: ReturnType<typeof useQueryClient>,
+  key: readonly unknown[],
 ) {
   return {
     mutationFn: fn,
     onSuccess: (res: TRes, args: TArgs) => {
       toast.success(message(args, res));
-      qc.invalidateQueries({ queryKey: KEY });
+      qc.invalidateQueries({ queryKey: key });
     },
     onError: (err: unknown) => toast.error((err as Error).message),
   };
 }
 
 export function useCreateBead() {
+  const { projectId } = useApp();
   const qc = useQueryClient();
   return useMutation(
     mutationToast<CreateInput, Bead>(
-      api.create,
+      (input) => api.create(projectId, input),
       (_a, res) => `Created ${res.id} · bd create`,
       qc,
+      beadsKey(projectId),
     ),
   );
 }
 
 export function useUpdateBead() {
+  const { projectId } = useApp();
   const qc = useQueryClient();
   return useMutation(
     mutationToast<{ id: string; patch: UpdateInput }, Bead>(
-      ({ id, patch }) => api.update(id, patch),
+      ({ id, patch }) => api.update(projectId, id, patch),
       () => "Updated · bd update",
       qc,
+      beadsKey(projectId),
     ),
   );
 }
 
 export function useDeleteBead() {
+  const { projectId } = useApp();
   const qc = useQueryClient();
   return useMutation(
     mutationToast<string, { deleted: string }>(
-      api.remove,
+      (id) => api.remove(projectId, id),
       (id) => `Deleted ${id} · bd delete`,
       qc,
+      beadsKey(projectId),
     ),
   );
 }
 
 export function useAddComment() {
+  const { projectId } = useApp();
   const qc = useQueryClient();
   return useMutation(
     mutationToast<{ id: string; text: string }, Bead>(
-      ({ id, text }) => api.addComment(id, text),
+      ({ id, text }) => api.addComment(projectId, id, text),
       () => "Comment added",
       qc,
+      beadsKey(projectId),
     ),
   );
 }
 
 export function useAddDep() {
+  const { projectId } = useApp();
   const qc = useQueryClient();
   return useMutation(
     mutationToast<{ id: string; dependsOnId: string; type: DepType }, Bead>(
-      ({ id, dependsOnId, type }) => api.addDep(id, dependsOnId, type),
+      ({ id, dependsOnId, type }) => api.addDep(projectId, id, dependsOnId, type),
       () => "Dependency added · bd dep add",
       qc,
+      beadsKey(projectId),
     ),
   );
 }
 
 export function useRemoveDep() {
+  const { projectId } = useApp();
   const qc = useQueryClient();
   return useMutation(
     mutationToast<{ id: string; dependsOnId: string }, Bead>(
-      ({ id, dependsOnId }) => api.removeDep(id, dependsOnId),
+      ({ id, dependsOnId }) => api.removeDep(projectId, id, dependsOnId),
       () => "Dependency removed · bd dep remove",
       qc,
+      beadsKey(projectId),
     ),
   );
 }
 
 export function useArchiveBead() {
+  const { projectId } = useApp();
   const qc = useQueryClient();
   return useMutation(
     mutationToast<string, Bead>(
-      api.archive,
+      (id) => api.archive(projectId, id),
       (id) => `Archived ${id} · bd close + label`,
       qc,
+      beadsKey(projectId),
     ),
   );
 }

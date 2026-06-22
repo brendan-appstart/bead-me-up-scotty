@@ -1,5 +1,5 @@
-import { AppShell } from "@/components/app-shell";
+import { Launcher } from "@/components/launcher";
 
 export default function Page() {
-  return <AppShell />;
+  return <Launcher />;
 }
