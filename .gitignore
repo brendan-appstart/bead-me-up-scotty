@@ -23,6 +23,9 @@
 # graphify knowledge-graph output (generated tooling artifacts, not app source)
 /graphify-out/
 
+# local onboarding doc (generated, not app source)
+/ONBOARDING.md
+
 # misc
 .DS_Store
 *.pem
