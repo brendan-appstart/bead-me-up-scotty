@@ -67,6 +67,45 @@ npm run dev            # http://localhost:3000
 Set the human actor / allowlist, repo path, and theme in **Settings** (stored
 under your OS config dir, not in beads).
 
+## Install globally
+
+Install once from a clone, then run `scotty` (or `bead-me-up-scotty`) from **any**
+directory. It starts the production server on a free port (default 3000) and opens
+your browser. Run it from a folder that has a `.beads` repo to jump straight to
+that project; otherwise you get the project picker. Requires Node 20+.
+
+Flags: `-p, --port <n>` · `--no-open` · `--help`.
+
+**Recommended — `npm link` (keep the clone):**
+
+```bash
+git clone <repo-url> bead-me-up-scotty
+cd bead-me-up-scotty
+npm install
+npm run build
+npm link
+scotty                 # from anywhere
+```
+
+The global command is a symlink to the clone, so keep it on disk and re-run
+`npm run build` after pulling changes. Uninstall: `npm rm -g bead-me-up-scotty`.
+
+**Alternative — global copy (clone is deletable):**
+
+```bash
+git clone <repo-url> bead-me-up-scotty
+cd bead-me-up-scotty
+npm install
+rm -rf .next           # ensure a clean build (only the prod build is shipped)
+npm run build
+npm install -g .
+scotty                 # from anywhere; the clone can now be deleted
+```
+
+To update, rebuild and re-run `npm install -g .`. If `npm install -g .` hits a
+permissions error, use a user-owned npm prefix:
+`npm config set prefix ~/.npm-global` and add `~/.npm-global/bin` to your `PATH`.
+
 ## Stack
 
 Next.js 16 (App Router) · React 19 · TypeScript · Tailwind v4 · shadcn/ui ·
