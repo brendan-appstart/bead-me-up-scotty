@@ -77,10 +77,6 @@ export function Board() {
     return m;
   }, [columns]);
 
-  const boardCount = beads.filter(
-    (b) => b.issue_type !== "epic" && !((b.labels ?? []).includes("archived") && !showArchived),
-  ).length;
-
   function onDragEnd(e: DragEndEvent) {
     const activeId = String(e.active.id);
     const overRaw = e.over?.id ? String(e.over.id) : null;
@@ -117,7 +113,7 @@ export function Board() {
         <div className="mr-1 flex flex-col gap-px">
           <h1 className="m-0 text-base font-[650] tracking-[-.01em]">Board</h1>
           <span className="text-[11.5px] text-[var(--text-3)]">
-            {boardCount} beads · live from <span className="font-mono">bd list</span>
+            {visible.length} beads · live from <span className="font-mono">bd list</span>
           </span>
         </div>
 
