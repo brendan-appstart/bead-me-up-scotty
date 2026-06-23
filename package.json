@@ -2,6 +2,8 @@
   "name": "bead-me-up-scotty",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
+  "author": "Brendan <brendan@appstart.one>",
   "bin": {
     "bead-me-up-scotty": "bin/bead-me-up-scotty.mjs",
     "scotty": "bin/bead-me-up-scotty.mjs"

@@ -134,3 +134,7 @@ components/           # sidebar, board (dnd), detail drawer, create modal, epics
 npm run build         # typecheck + production build
 npm run lint          # eslint
 ```
+
+## License
+
+[MIT](LICENSE) © Brendan
