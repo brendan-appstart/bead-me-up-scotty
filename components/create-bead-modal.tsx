@@ -79,8 +79,16 @@ function CreateForm({ parent, onClose }: { parent: string; onClose: () => void }
   // Images dropped before the bead exists go to a draft folder; on create we
   // rename that folder to the real id and rewrite the refs in the description.
   const taRef = React.useRef<HTMLTextAreaElement>(null);
+  const fileRef = React.useRef<HTMLInputElement>(null);
   const uid = React.useId();
   const draftId = React.useMemo(() => "draft-" + uid.replace(/[^a-zA-Z0-9]/g, ""), [uid]);
+
+  // Auto-grow a textarea to fit its content (used by the title field).
+  const autosize = (el: HTMLTextAreaElement | null) => {
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  };
   const drop = useImageDrop({
     projectId,
     beadId: draftId,
@@ -182,14 +190,23 @@ function CreateForm({ parent, onClose }: { parent: string; onClose: () => void }
 
         <label className="flex flex-col gap-[6px]">
           <span className={labelClass}>Title</span>
-          <input
+          <textarea
             autoFocus
-            className={inputClass}
+            ref={autosize}
+            rows={1}
+            className={`${inputClass} h-auto min-h-[38px] resize-none overflow-hidden py-[9px] leading-[1.4]`}
             value={form.title}
-            onChange={(e) => set("title", e.target.value)}
+            onChange={(e) => {
+              set("title", e.target.value);
+              autosize(e.currentTarget);
+            }}
             placeholder="What needs doing?"
             onKeyDown={(e) => {
-              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit();
+              // Enter submits (titles are single-line); the box still grows as text wraps.
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                submit();
+              }
             }}
           />
         </label>
@@ -224,6 +241,25 @@ function CreateForm({ parent, onClose }: { parent: string; onClose: () => void }
               </span>
             )}
           </div>
+          {!isDemo && (
+            <div>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={drop.pickFiles}
+              />
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                className="inline-flex items-center gap-[6px] rounded-[8px] border border-border bg-[var(--surface-2)] px-[10px] py-[6px] text-[12px] font-medium text-[var(--text-2)] hover:bg-[var(--surface-3)]"
+              >
+                <Icon name="image" size={14} /> Attach image
+              </button>
+            </div>
+          )}
           {hasImageRef(form.description) && (
             <DescriptionContent
               text={form.description}

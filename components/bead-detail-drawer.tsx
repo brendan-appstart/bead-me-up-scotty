@@ -86,6 +86,7 @@ function DrawerBody({ bead, onClose }: { bead: Bead; onClose: () => void }) {
   const [titleDraft, setTitleDraft] = React.useState(bead.title);
   const [descDraft, setDescDraft] = React.useState(bead.description ?? "");
   const descRef = React.useRef<HTMLTextAreaElement>(null);
+  const fileRef = React.useRef<HTMLInputElement>(null);
   const drop = useImageDrop({
     projectId,
     beadId: bead.id,
@@ -273,7 +274,26 @@ function DrawerBody({ bead, onClose }: { bead: Bead; onClose: () => void }) {
                   </span>
                 )}
               </div>
-              <div className="mt-2 flex items-center justify-end gap-2">
+              <div className="mt-2 flex items-center gap-2">
+                {!isDemo && (
+                  <>
+                    <input
+                      ref={fileRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={drop.pickFiles}
+                    />
+                    <button
+                      onClick={() => fileRef.current?.click()}
+                      className="inline-flex h-8 items-center gap-[6px] rounded-lg border border-border bg-[var(--surface-2)] px-3 text-[12.5px] font-[550] text-[var(--text-2)] hover:bg-[var(--surface-3)]"
+                    >
+                      <Icon name="image" size={14} /> Attach image
+                    </button>
+                  </>
+                )}
+                <span className="flex-1" />
                 <button
                   onClick={cancelEdit}
                   className="h-8 rounded-lg border border-border bg-[var(--surface-2)] px-3 text-[12.5px] font-[550] hover:bg-[var(--surface-3)]"

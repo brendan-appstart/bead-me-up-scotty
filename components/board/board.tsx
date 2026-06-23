@@ -13,14 +13,11 @@ import { Icon } from "@/components/icons";
 import { useApp } from "@/components/app-context";
 import { useSetStatus } from "@/hooks/use-beads";
 import { useOrder, useSetOrder } from "@/hooks/use-order";
-import { isBlocked, prioLabel, typeLabel } from "@/lib/beads-view";
-import { beadOrigin } from "@/lib/attribution";
-import { BEAD_TYPES } from "@/lib/schema";
+import { isBlocked } from "@/lib/beads-view";
+import { FilterBar } from "@/components/filter-bar";
+import { matchesFilters, emptyFilters, type Filters } from "@/lib/filters";
 import { Column, type ColumnDef } from "./column";
 import type { Bead } from "@/lib/schema";
-
-const selectClass =
-  "h-9 cursor-pointer rounded-[9px] border border-border bg-[var(--surface-2)] px-2 text-[12.5px] text-[var(--text-2)] outline-none";
 
 const COLUMNS: (ColumnDef & { test: (b: Bead, blocked: boolean) => boolean; status?: string })[] = [
   { id: "backlog", name: "Backlog", color: "#64748b", cmd: "deferred", droppable: true, status: "deferred", test: (b) => b.status === "deferred" },
@@ -47,13 +44,8 @@ export function Board() {
   const { data: orderData } = useOrder(projectId);
   const setOrder = useSetOrder(projectId);
   const orders = React.useMemo(() => orderData?.orders ?? {}, [orderData]);
-  const [search, setSearch] = React.useState("");
-  const [filters, setFilters] = React.useState({
-    type: "",
-    prio: "",
-    origin: "",
-    showArchived: false,
-  });
+  const [filters, setFilters] = React.useState<Filters>(emptyFilters);
+  const [showArchived, setShowArchived] = React.useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -62,23 +54,10 @@ export function Board() {
   const matchFilters = React.useCallback(
     (b: Bead) => {
       if (b.issue_type === "epic") return false;
-      if (!filters.showArchived && (b.labels ?? []).includes("archived")) return false;
-      if (filters.type && b.issue_type !== filters.type) return false;
-      if (filters.prio !== "" && String(b.priority) !== filters.prio) return false;
-      if (filters.origin && beadOrigin(b, humanAllowlist) !== filters.origin) return false;
-      const q = search.trim().toLowerCase();
-      if (
-        q &&
-        !(
-          b.title.toLowerCase().includes(q) ||
-          b.id.toLowerCase().includes(q) ||
-          (b.assignee ?? "").toLowerCase().includes(q)
-        )
-      )
-        return false;
-      return true;
+      if (!showArchived && (b.labels ?? []).includes("archived")) return false;
+      return matchesFilters(b, filters, humanAllowlist);
     },
-    [filters, humanAllowlist, search],
+    [filters, showArchived, humanAllowlist],
   );
 
   const visible = React.useMemo(() => beads.filter(matchFilters), [beads, matchFilters]);
@@ -99,7 +78,7 @@ export function Board() {
   }, [columns]);
 
   const boardCount = beads.filter(
-    (b) => b.issue_type !== "epic" && !((b.labels ?? []).includes("archived") && !filters.showArchived),
+    (b) => b.issue_type !== "epic" && !((b.labels ?? []).includes("archived") && !showArchived),
   ).length;
 
   function onDragEnd(e: DragEndEvent) {
@@ -142,73 +121,21 @@ export function Board() {
           </span>
         </div>
 
-        <div className="flex h-9 max-w-[300px] flex-1 items-center gap-[7px] rounded-[9px] border border-border bg-[var(--surface-2)] px-[11px]">
-          <Icon name="search" size={15} className="flex-shrink-0 text-[var(--text-3)]" />
-          <input
-            data-search
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search beads…  (/)"
-            className="w-full border-none bg-transparent text-[13px] text-[var(--text)] outline-none"
-          />
-        </div>
+        <FilterBar
+          filters={filters}
+          onChange={setFilters}
+          showArchived={showArchived}
+          onShowArchived={setShowArchived}
+        />
 
-        <div className="flex items-center gap-[7px]">
-          <select
-            className={selectClass}
-            value={filters.type}
-            onChange={(e) => setFilters((f) => ({ ...f, type: e.target.value }))}
-          >
-            <option value="">All types</option>
-            {BEAD_TYPES.filter((t) => t !== "epic").map((t) => (
-              <option key={t} value={t}>
-                {typeLabel(t)}
-              </option>
-            ))}
-          </select>
-          <select
-            className={selectClass}
-            value={filters.prio}
-            onChange={(e) => setFilters((f) => ({ ...f, prio: e.target.value }))}
-          >
-            <option value="">All priorities</option>
-            {[0, 1, 2, 3, 4].map((p) => (
-              <option key={p} value={String(p)}>
-                {prioLabel(p)}
-              </option>
-            ))}
-          </select>
-          <select
-            className={selectClass}
-            value={filters.origin}
-            onChange={(e) => setFilters((f) => ({ ...f, origin: e.target.value }))}
-          >
-            <option value="">All origins</option>
-            <option value="human">Human</option>
-            <option value="agent">Agent</option>
-          </select>
-          <button
-            onClick={() => setFilters((f) => ({ ...f, showArchived: !f.showArchived }))}
-            title="Toggle archived"
-            className="flex h-9 items-center gap-[6px] rounded-[9px] px-[11px] text-[12.5px] font-medium"
-            style={{
-              border: `1px solid ${filters.showArchived ? "var(--brand)" : "var(--border)"}`,
-              background: filters.showArchived ? "var(--brand-weak)" : "var(--surface-2)",
-              color: filters.showArchived ? "var(--brand)" : "var(--text-2)",
-            }}
-          >
-            <Icon name="archive" size={14} />
-            <span>Archived</span>
-          </button>
-          <button
-            onClick={() => openCreate()}
-            className="flex h-9 items-center gap-[6px] rounded-[9px] px-[14px] text-[13px] font-[550] text-white"
-            style={{ background: "var(--brand)", boxShadow: "0 2px 8px -2px var(--brand)" }}
-          >
-            <Icon name="plus" size={15} />
-            <span>New</span>
-          </button>
-        </div>
+        <button
+          onClick={() => openCreate()}
+          className="flex h-9 flex-shrink-0 items-center gap-[6px] rounded-[9px] px-[14px] text-[13px] font-[550] text-white"
+          style={{ background: "var(--brand)", boxShadow: "0 2px 8px -2px var(--brand)" }}
+        >
+          <Icon name="plus" size={15} />
+          <span>New</span>
+        </button>
       </header>
 
       <div className="bd-scroll min-h-0 flex-1 overflow-x-auto overflow-y-hidden p-[18px_22px]">

@@ -155,6 +155,33 @@ function SettingsForm({ data }: { data: DoctorResponse }) {
         </div>
       </Card>
 
+      <Card title="Keyboard shortcuts">
+        <div className="flex flex-col gap-[10px]">
+          {[
+            { keys: ["N"], label: "Create a new bead" },
+            { keys: ["/"], label: "Focus the search box" },
+            { keys: ["Esc"], label: "Close the open drawer or dialog" },
+          ].map((s) => (
+            <div key={s.label} className="flex items-center justify-between">
+              <span className="text-[13px] text-[var(--text-2)]">{s.label}</span>
+              <span className="flex items-center gap-1">
+                {s.keys.map((k) => (
+                  <kbd
+                    key={k}
+                    className="rounded-md border border-border bg-[var(--surface-2)] px-[8px] py-[3px] font-mono text-[12px] text-[var(--text-2)] shadow-[var(--shadow)]"
+                  >
+                    {k}
+                  </kbd>
+                ))}
+              </span>
+            </div>
+          ))}
+        </div>
+        <div className="text-[11.5px] text-[var(--text-3)]">
+          Shortcuts are disabled while typing in a field.
+        </div>
+      </Card>
+
       <div className="flex justify-end">
         <button
           onClick={() => save.mutate()}

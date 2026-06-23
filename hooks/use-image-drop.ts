@@ -108,5 +108,15 @@ export function useImageDrop({
     [uploadFiles],
   );
 
-  return { uploading: uploads > 0, dragOver, onDrop, onDragOver, onDragLeave, onPaste };
+  // For an <input type="file"> change — gives a discoverable click-to-upload path.
+  const pickFiles = React.useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(e.target.files ?? []);
+      e.target.value = ""; // allow re-picking the same file
+      if (files.length) void uploadFiles(files);
+    },
+    [uploadFiles],
+  );
+
+  return { uploading: uploads > 0, dragOver, onDrop, onDragOver, onDragLeave, onPaste, pickFiles };
 }

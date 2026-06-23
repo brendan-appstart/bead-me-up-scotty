@@ -3,51 +3,37 @@ import * as React from "react";
 import { Icon, typeIconName } from "@/components/icons";
 import { useApp } from "@/components/app-context";
 import { PriorityChip, OriginBadge } from "@/components/board/bead-card";
+import { FilterBar } from "@/components/filter-bar";
+import { matchesFilters, emptyFilters, type Filters } from "@/lib/filters";
 import { beadOrigin, originTitle } from "@/lib/attribution";
 import {
   catColor,
   statusLabel,
   typeColor,
-  typeLabel,
   avatarColor,
   initials,
   isBlocked,
   relTime,
 } from "@/lib/beads-view";
-import { BEAD_TYPES, type Bead } from "@/lib/schema";
-
-const selectClass =
-  "h-9 cursor-pointer rounded-[9px] border border-border bg-[var(--surface-2)] px-2 text-[12.5px] text-[var(--text-2)] outline-none";
+import { type Bead } from "@/lib/schema";
 
 export function ListView() {
   const { beads, index, humanAllowlist, openDetail, openCreate, loading } = useApp();
-  const [search, setSearch] = React.useState("");
-  const [type, setType] = React.useState("");
+  const [filters, setFilters] = React.useState<Filters>(emptyFilters);
   const [showArchived, setShowArchived] = React.useState(false);
 
   const rows = React.useMemo(() => {
-    const q = search.trim().toLowerCase();
     return beads
       .filter((b) => {
         if (b.issue_type === "epic") return false;
         if (!showArchived && (b.labels ?? []).includes("archived")) return false;
-        if (type && b.issue_type !== type) return false;
-        if (
-          q &&
-          !(
-            b.title.toLowerCase().includes(q) ||
-            b.id.toLowerCase().includes(q) ||
-            (b.assignee ?? "").toLowerCase().includes(q)
-          )
-        )
-          return false;
-        return true;
+        return matchesFilters(b, filters, humanAllowlist);
       })
       .sort((a, b) => {
         if (a.priority !== b.priority) return a.priority - b.priority;
         return (b.updated_at ?? "").localeCompare(a.updated_at ?? "");
       });
-  }, [beads, search, type, showArchived]);
+  }, [beads, filters, showArchived, humanAllowlist]);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -59,48 +45,21 @@ export function ListView() {
           </span>
         </div>
 
-        <div className="flex h-9 max-w-[300px] flex-1 items-center gap-[7px] rounded-[9px] border border-border bg-[var(--surface-2)] px-[11px]">
-          <Icon name="search" size={15} className="flex-shrink-0 text-[var(--text-3)]" />
-          <input
-            data-search
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search beads…  (/)"
-            className="w-full border-none bg-transparent text-[13px] text-[var(--text)] outline-none"
-          />
-        </div>
+        <FilterBar
+          filters={filters}
+          onChange={setFilters}
+          showArchived={showArchived}
+          onShowArchived={setShowArchived}
+        />
 
-        <div className="flex items-center gap-[7px]">
-          <select className={selectClass} value={type} onChange={(e) => setType(e.target.value)}>
-            <option value="">All types</option>
-            {BEAD_TYPES.filter((t) => t !== "epic").map((t) => (
-              <option key={t} value={t}>
-                {typeLabel(t)}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={() => setShowArchived((v) => !v)}
-            title="Toggle archived"
-            className="flex h-9 items-center gap-[6px] rounded-[9px] px-[11px] text-[12.5px] font-medium"
-            style={{
-              border: `1px solid ${showArchived ? "var(--brand)" : "var(--border)"}`,
-              background: showArchived ? "var(--brand-weak)" : "var(--surface-2)",
-              color: showArchived ? "var(--brand)" : "var(--text-2)",
-            }}
-          >
-            <Icon name="archive" size={14} />
-            <span>Archived</span>
-          </button>
-          <button
-            onClick={() => openCreate()}
-            className="flex h-9 items-center gap-[6px] rounded-[9px] px-[14px] text-[13px] font-[550] text-white"
-            style={{ background: "var(--brand)", boxShadow: "0 2px 8px -2px var(--brand)" }}
-          >
-            <Icon name="plus" size={15} />
-            <span>New</span>
-          </button>
-        </div>
+        <button
+          onClick={() => openCreate()}
+          className="flex h-9 flex-shrink-0 items-center gap-[6px] rounded-[9px] px-[14px] text-[13px] font-[550] text-white"
+          style={{ background: "var(--brand)", boxShadow: "0 2px 8px -2px var(--brand)" }}
+        >
+          <Icon name="plus" size={15} />
+          <span>New</span>
+        </button>
       </header>
 
       <div className="bd-scroll min-h-0 flex-1 overflow-y-auto p-[12px_22px]">
