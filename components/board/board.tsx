@@ -16,27 +16,9 @@ import { useOrder, useSetOrder } from "@/hooks/use-order";
 import { isBlocked } from "@/lib/beads-view";
 import { FilterBar } from "@/components/filter-bar";
 import { matchesFilters, emptyFilters, type Filters } from "@/lib/filters";
-import { Column, type ColumnDef } from "./column";
+import { BOARD_COLUMNS as COLUMNS, sortByOrder as sortCards } from "@/lib/board-columns";
+import { Column } from "./column";
 import type { Bead } from "@/lib/schema";
-
-const COLUMNS: (ColumnDef & { test: (b: Bead, blocked: boolean) => boolean; status?: string })[] = [
-  { id: "backlog", name: "Backlog", color: "#64748b", cmd: "deferred", droppable: true, status: "deferred", test: (b) => b.status === "deferred" },
-  { id: "ready", name: "Ready", color: "#3b82f6", cmd: "bd ready", droppable: true, status: "open", test: (b, blocked) => b.status === "open" && !blocked },
-  { id: "in_progress", name: "In Progress", color: "#d97706", cmd: "in_progress", droppable: true, status: "in_progress", test: (b) => b.status === "in_progress" || b.status === "hooked" },
-  { id: "blocked", name: "Blocked", color: "#ef4444", cmd: "bd blocked", droppable: false, test: (b, blocked) => blocked && b.status !== "deferred" && b.status !== "closed" },
-  { id: "done", name: "Done", color: "#16a34a", cmd: "closed", droppable: true, status: "closed", test: (b) => b.status === "closed" },
-];
-
-/** Sort a column's cards by the saved manual order, falling back to priority. */
-function sortCards(cards: Bead[], order?: string[]): Bead[] {
-  const rank = new Map((order ?? []).map((id, i) => [id, i] as const));
-  return [...cards].sort((a, b) => {
-    const ra = rank.has(a.id) ? (rank.get(a.id) as number) : Number.POSITIVE_INFINITY;
-    const rb = rank.has(b.id) ? (rank.get(b.id) as number) : Number.POSITIVE_INFINITY;
-    if (ra !== rb) return ra - rb;
-    return a.priority - b.priority;
-  });
-}
 
 export function Board() {
   const { beads, index, humanAllowlist, openCreate, loading, projectId } = useApp();

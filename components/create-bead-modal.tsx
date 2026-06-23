@@ -12,6 +12,7 @@ import { Icon } from "@/components/icons";
 import { useApp } from "@/components/app-context";
 import { useCreateBead, beadsKey } from "@/hooks/use-beads";
 import { useImageDrop } from "@/hooks/use-image-drop";
+import { useResizableWidth } from "@/hooks/use-resizable-width";
 import { DescriptionContent, hasImageRef } from "@/components/description-content";
 import { api } from "@/lib/api-client";
 import { typeLabel } from "@/lib/beads-view";
@@ -43,12 +44,26 @@ export function CreateBeadModal({
   parent: string;
   onOpenChange: (o: boolean) => void;
 }) {
+  // ~50% wider than the old 540px default; drag the right edge to resize (persisted).
+  const { width, startResize } = useResizableWidth({
+    storageKey: "bmus.width.create",
+    defaultWidth: 810,
+    min: 480,
+    max: 1200,
+    deltaFactor: 2,
+  });
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="w-[540px] max-w-[100%] gap-0 overflow-hidden rounded-2xl border border-border bg-[var(--surface)] p-0 shadow-[var(--shadow-lg)]"
+        style={{ width, maxWidth: "96vw" }}
+        className="gap-0 overflow-hidden rounded-2xl border border-border bg-[var(--surface)] p-0 shadow-[var(--shadow-lg)]"
       >
+        <div
+          onPointerDown={startResize}
+          title="Drag to resize"
+          className="absolute right-0 top-0 z-20 h-full w-1.5 cursor-ew-resize hover:bg-[var(--brand)]/40"
+        />
         {open && <CreateForm parent={parent} onClose={() => onOpenChange(false)} />}
       </DialogContent>
     </Dialog>
@@ -233,7 +248,11 @@ function CreateForm({ parent, onClose }: { parent: string; onClose: () => void }
               value={form.description}
               onChange={(e) => set("description", e.target.value)}
               onPaste={drop.onPaste}
-              placeholder="Optional details, acceptance criteria…"
+              placeholder={
+                isDemo
+                  ? "Optional details, acceptance criteria…"
+                  : "Optional details, acceptance criteria… drag and drop screenshots and images here too!"
+              }
             />
             {drop.uploading && (
               <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md bg-[var(--surface)] px-2 py-0.5 text-[11px] text-[var(--text-3)]">

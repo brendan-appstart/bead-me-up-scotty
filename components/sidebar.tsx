@@ -68,9 +68,8 @@ export function Sidebar({
         >
           <Icon name="logo" size={17} />
         </div>
-        <div className="leading-[1.1]">
-          <div className="text-sm font-[650] tracking-[-.01em]">Bead Me Up</div>
-          <div className="font-mono text-[11px] text-[var(--text-3)]">scotty · bd</div>
+        <div className="text-sm font-[650] leading-[1.15] tracking-[-.01em]">
+          Bead Me Up Scotty
         </div>
       </div>
 

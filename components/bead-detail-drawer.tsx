@@ -10,6 +10,7 @@ import { Icon, typeIconName } from "@/components/icons";
 import { OriginBadge } from "@/components/board/bead-card";
 import { useApp } from "@/components/app-context";
 import { useImageDrop } from "@/hooks/use-image-drop";
+import { useResizableWidth } from "@/hooks/use-resizable-width";
 import { DescriptionContent } from "@/components/description-content";
 import {
   useUpdateBead,
@@ -47,17 +48,34 @@ export function BeadDetailDrawer({
 }) {
   const { index } = useApp();
   const bead = openId ? index.get(openId) : undefined;
+  // ~50% wider than the old 480px default; drag the left edge to resize (persisted).
+  const { width, startResize } = useResizableWidth({
+    storageKey: "bmus.width.drawer",
+    defaultWidth: 720,
+    min: 480,
+    max: 1200,
+    deltaFactor: -1,
+  });
   return (
     <Sheet open={!!openId && !!bead} onOpenChange={(open) => !open && onClose()}>
       <SheetContent
         showCloseButton={false}
-        className="bd-scroll w-[480px] max-w-[92%] gap-0 overflow-y-auto border-l border-border bg-[var(--drawer)] p-0 sm:max-w-[480px]"
+        style={{ width, maxWidth: "96vw" }}
+        className="flex gap-0 overflow-hidden border-l border-border bg-[var(--drawer)] p-0"
       >
-        {bead ? (
-          <DrawerBody key={bead.id} bead={bead} onClose={onClose} />
-        ) : (
-          <SheetTitle className="sr-only">Bead details</SheetTitle>
-        )}
+        {/* Left-edge resize handle (drawer is anchored right, so it grows leftward). */}
+        <div
+          onPointerDown={startResize}
+          title="Drag to resize"
+          className="absolute left-0 top-0 z-20 h-full w-1.5 cursor-ew-resize hover:bg-[var(--brand)]/40"
+        />
+        <div className="bd-scroll min-w-0 flex-1 overflow-y-auto">
+          {bead ? (
+            <DrawerBody key={bead.id} bead={bead} onClose={onClose} />
+          ) : (
+            <SheetTitle className="sr-only">Bead details</SheetTitle>
+          )}
+        </div>
       </SheetContent>
     </Sheet>
   );

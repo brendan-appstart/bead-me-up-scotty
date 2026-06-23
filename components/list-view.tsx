@@ -1,10 +1,28 @@
 "use client";
 import * as React from "react";
+import {
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Icon, typeIconName } from "@/components/icons";
 import { useApp } from "@/components/app-context";
 import { PriorityChip, OriginBadge } from "@/components/board/bead-card";
 import { FilterBar } from "@/components/filter-bar";
+import { useOrder, useSetOrder } from "@/hooks/use-order";
+import { useSetStatus } from "@/hooks/use-beads";
 import { matchesFilters, emptyFilters, type Filters } from "@/lib/filters";
+import { BOARD_COLUMNS, COLUMN_ORDER, colOf } from "@/lib/board-columns";
 import { beadOrigin, originTitle } from "@/lib/attribution";
 import {
   catColor,
@@ -17,11 +35,35 @@ import {
 } from "@/lib/beads-view";
 import { type Bead } from "@/lib/schema";
 
+function rankOf(order: string[] | undefined, id: string): number {
+  if (!order) return Number.POSITIVE_INFINITY;
+  const i = order.indexOf(id);
+  return i === -1 ? Number.POSITIVE_INFINITY : i;
+}
+
 export function ListView() {
-  const { beads, index, humanAllowlist, openDetail, openCreate, loading } = useApp();
+  const { beads, index, humanAllowlist, openDetail, openCreate, loading, projectId } = useApp();
+  const setStatus = useSetStatus();
+  const { data: orderData } = useOrder(projectId);
+  const setOrder = useSetOrder(projectId);
+  const orders = React.useMemo(() => orderData?.orders ?? {}, [orderData]);
+
   const [filters, setFilters] = React.useState<Filters>(emptyFilters);
   const [showArchived, setShowArchived] = React.useState(false);
 
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  // Which board column each bead belongs to (shared with the Board view).
+  const colById = React.useMemo(() => {
+    const m = new Map<string, string>();
+    for (const b of beads) {
+      const c = colOf(b, index);
+      if (c) m.set(b.id, c);
+    }
+    return m;
+  }, [beads, index]);
+
+  // Sort: by board column order, then the column's shared manual rank, then priority.
   const rows = React.useMemo(() => {
     return beads
       .filter((b) => {
@@ -30,10 +72,43 @@ export function ListView() {
         return matchesFilters(b, filters, humanAllowlist);
       })
       .sort((a, b) => {
+        const ca = COLUMN_ORDER.indexOf(colById.get(a.id) ?? "");
+        const cb = COLUMN_ORDER.indexOf(colById.get(b.id) ?? "");
+        if (ca !== cb) return ca - cb;
+        const col = colById.get(a.id);
+        const order = col ? orders[col] : undefined;
+        const ra = rankOf(order, a.id);
+        const rb = rankOf(order, b.id);
+        if (ra !== rb) return ra - rb;
         if (a.priority !== b.priority) return a.priority - b.priority;
         return (b.updated_at ?? "").localeCompare(a.updated_at ?? "");
       });
-  }, [beads, filters, showArchived, humanAllowlist]);
+  }, [beads, filters, showArchived, humanAllowlist, colById, orders]);
+
+  function onDragEnd(e: DragEndEvent) {
+    const activeId = String(e.active.id);
+    const overId = e.over?.id ? String(e.over.id) : null;
+    if (!overId || overId === activeId) return;
+    const activeCol = colById.get(activeId);
+    const overCol = colById.get(overId);
+    if (!activeCol || !overCol) return;
+
+    if (overCol === activeCol) {
+      // Reorder within a column → write that column's shared order (Board sees it too).
+      const ids = rows.filter((b) => colById.get(b.id) === activeCol).map((b) => b.id);
+      const oldI = ids.indexOf(activeId);
+      const newI = ids.indexOf(overId);
+      if (oldI === -1 || newI === -1 || oldI === newI) return;
+      setOrder.mutate({ columnId: activeCol, ids: arrayMove(ids, oldI, newI) });
+    } else {
+      // Across columns → status change (cross-column = status, like the Board).
+      const target = BOARD_COLUMNS.find((c) => c.id === overCol);
+      if (!target || !target.droppable || !target.status) return;
+      const bead = index.get(activeId);
+      if (!bead || bead.status === target.status) return;
+      setStatus.mutate({ id: activeId, status: target.status });
+    }
+  }
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -41,7 +116,7 @@ export function ListView() {
         <div className="mr-1 flex flex-col gap-px">
           <h1 className="m-0 text-base font-[650] tracking-[-.01em]">List</h1>
           <span className="text-[11.5px] text-[var(--text-3)]">
-            {rows.length} beads · sorted by priority
+            {rows.length} beads · drag to set run-order
           </span>
         </div>
 
@@ -70,11 +145,39 @@ export function ListView() {
             No beads match.
           </div>
         ) : (
-          <div className="flex flex-col gap-[6px]">
-            {rows.map((b) => (
-              <Row key={b.id} bead={b} blocked={isBlocked(b, index)} onOpen={() => openDetail(b.id)} humanAllowlist={humanAllowlist} />
-            ))}
-          </div>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+            <SortableContext items={rows.map((b) => b.id)} strategy={verticalListSortingStrategy}>
+              <div className="flex flex-col gap-[6px]">
+                {rows.map((b, i) => {
+                  const col = colById.get(b.id);
+                  const prevCol = i > 0 ? colById.get(rows[i - 1].id) : undefined;
+                  const showGroup = col && col !== prevCol;
+                  const meta = BOARD_COLUMNS.find((c) => c.id === col);
+                  return (
+                    <React.Fragment key={b.id}>
+                      {showGroup && meta && (
+                        <div className="flex items-center gap-2 px-1 pb-px pt-3 first:pt-0">
+                          <span
+                            className="h-[7px] w-[7px] rounded-[2px]"
+                            style={{ background: meta.color }}
+                          />
+                          <span className="text-[11px] font-semibold uppercase tracking-[.04em] text-[var(--text-3)]">
+                            {meta.name}
+                          </span>
+                        </div>
+                      )}
+                      <Row
+                        bead={b}
+                        blocked={isBlocked(b, index)}
+                        onOpen={() => openDetail(b.id)}
+                        humanAllowlist={humanAllowlist}
+                      />
+                    </React.Fragment>
+                  );
+                })}
+              </div>
+            </SortableContext>
+          </DndContext>
         )}
       </div>
     </div>
@@ -92,12 +195,24 @@ function Row({
   onOpen: () => void;
   humanAllowlist: string[];
 }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: bead.id,
+  });
   const o = beadOrigin(bead, humanAllowlist);
   const labels = (bead.labels ?? []).filter((l) => l !== "archived").slice(0, 2);
   return (
     <button
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
       onClick={onOpen}
-      className="flex w-full items-center gap-3 rounded-[10px] border border-border bg-[var(--surface)] px-[13px] py-[9px] text-left transition-[border-color,box-shadow] hover:border-[var(--border-strong)] hover:shadow-[var(--shadow)]"
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+        zIndex: isDragging ? 10 : undefined,
+      }}
+      className="flex w-full touch-none items-center gap-3 rounded-[10px] border border-border bg-[var(--surface)] px-[13px] py-[9px] text-left transition-[border-color,box-shadow] hover:border-[var(--border-strong)] hover:shadow-[var(--shadow)]"
     >
       <span
         className="h-[9px] w-[9px] flex-shrink-0 rounded-full"
