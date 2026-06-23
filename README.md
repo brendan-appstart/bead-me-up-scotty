@@ -1,4 +1,43 @@
-# Bead Me Up, Scotty
+<div align="center">
+
+<h1>🛸 Bead Me Up, Scotty</h1>
+
+<p>
+  <b>The free, open-source visual UI for <a href="https://github.com/gastownhall/beads">Beads</a></b> — Steve Yegge's
+  graph-based issue tracker for AI coding agents.<br/>
+  <i>Brainstorm, create, and organize work in the same place your AI agent does.</i>
+</p>
+
+<p>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-6d5ef0?style=flat-square" alt="MIT License"></a>
+  <img src="https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js&logoColor=white" alt="Next.js 16">
+  <img src="https://img.shields.io/badge/Run_anywhere-scotty-22c55e?style=flat-square" alt="Global CLI: scotty">
+  <a href="https://github.com/brendan-appstart/bead-me-up-scotty/stargazers"><img src="https://img.shields.io/github/stars/brendan-appstart/bead-me-up-scotty?style=flat-square&color=eab308" alt="GitHub stars"></a>
+</p>
+
+<a href="https://www.youtube.com/watch?v=hbs2Psi98yo" title="Watch the 2-minute demo">
+  <img src=".github/screens/board.png" alt="Bead Me Up, Scotty — click to watch the demo" width="860">
+</a>
+
+<p><b>▶️ <a href="https://www.youtube.com/watch?v=hbs2Psi98yo">Watch the 2-minute demo</a></b></p>
+
+<p>
+  <a href="https://bead-me-up-scotty-site.vercel.app/"><b>🌐 Website</b></a> ·
+  <a href="https://www.youtube.com/watch?v=hbs2Psi98yo"><b>▶️ Demo video</b></a> ·
+  <a href="https://github.com/brendan-appstart/bead-me-up-scotty"><b>⭐ Star the repo</b></a> ·
+  <a href="https://github.com/gastownhall/beads"><b>🧵 Beads</b></a>
+</p>
+
+<table>
+  <tr>
+    <td width="50%" align="center"><img src=".github/screens/detail.png" alt="Detail drawer with inline editing"><br/><sub><b>Detail drawer — inline edit, deps & comments</b></sub></td>
+    <td width="50%" align="center"><img src=".github/screens/graph.png" alt="Interactive dependency graph"><br/><sub><b>Live dependency graph</b></sub></td>
+  </tr>
+</table>
+
+</div>
+
+---
 
 A local, single-user web UI for **[beads](https://github.com/gastownhall/beads)**
 (`bd`) — Steve Yegge's distributed graph issue tracker. beads ships a powerful CLI
