@@ -22,7 +22,7 @@
 <p><b>▶️ <a href="https://www.youtube.com/watch?v=hbs2Psi98yo">Watch the 2-minute demo</a></b></p>
 
 <p>
-  <a href="https://bead-me-up-scotty-site.vercel.app/"><b>🌐 Website</b></a> ·
+  <a href="https://beadmeupscotty.com"><b>🌐 Website</b></a> ·
   <a href="https://www.youtube.com/watch?v=hbs2Psi98yo"><b>▶️ Demo video</b></a> ·
   <a href="https://github.com/brendan-appstart/bead-me-up-scotty"><b>⭐ Star the repo</b></a> ·
   <a href="https://github.com/gastownhall/beads"><b>🧵 Beads</b></a>
