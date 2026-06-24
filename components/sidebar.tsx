@@ -13,10 +13,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { initials, avatarColor, needsHuman } from "@/lib/beads-view";
 import { useGamification } from "@/hooks/use-beads";
+// GITHUB_REPO is shared with the build badge (where bug/feature issues are filed).
+import { GITHUB_REPO } from "@/lib/build-info";
+import { BuildBadge } from "@/components/build-badge";
 import { cn } from "@/lib/utils";
-
-// This app's own GitHub repo — where bug reports / feature requests are filed.
-const GITHUB_REPO = "brendan-appstart/bead-me-up-scotty";
 
 function githubIssueUrl(kind: "bug" | "feature"): string {
   const isBug = kind === "bug";
@@ -176,6 +176,8 @@ export function Sidebar({
             <Icon name={theme === "dark" ? "sun" : "moon"} size={15} />
           </button>
         </div>
+
+        <BuildBadge />
       </div>
     </aside>
   );
