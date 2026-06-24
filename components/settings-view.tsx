@@ -6,6 +6,8 @@ import { Icon } from "@/components/icons";
 import { useTheme } from "@/components/theme-provider";
 import { useApp } from "@/components/app-context";
 import { api, type DoctorResponse } from "@/lib/api-client";
+import { useNotificationPrefs, type NotifPrefs } from "@/hooks/use-notifications";
+import { useBoardPrefs } from "@/hooks/use-board-prefs";
 
 const inputClass =
   "h-[38px] rounded-[9px] border border-border bg-[var(--surface-2)] px-3 text-[12.5px] text-[var(--text)] outline-none focus:border-[var(--brand)]";
@@ -155,9 +157,16 @@ function SettingsForm({ data }: { data: DoctorResponse }) {
         </div>
       </Card>
 
+      <BoardCard />
+
+      <NotificationsCard />
+
+      <GamificationCard />
+
       <Card title="Keyboard shortcuts">
         <div className="flex flex-col gap-[10px]">
           {[
+            { keys: ["⌘", "K"], label: "Open the command palette" },
             { keys: ["N"], label: "Create a new bead" },
             { keys: ["/"], label: "Focus the search box" },
             { keys: ["Esc"], label: "Close the open drawer or dialog" },
@@ -194,6 +203,146 @@ function SettingsForm({ data }: { data: DoctorResponse }) {
         </button>
       </div>
     </div>
+  );
+}
+
+function BoardCard() {
+  const { prefs, setPrefs } = useBoardPrefs();
+  const opts: { value: "auto" | "always"; label: string }[] = [
+    { value: "auto", label: "Only when it has beads" },
+    { value: "always", label: "Always show" },
+  ];
+  return (
+    <Card title="Board">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <div className="text-[13px]">Blocked column</div>
+          <div className="text-[11.5px] text-[var(--text-3)]">
+            Hide the Blocked column when nothing is blocked, or keep it pinned.
+          </div>
+        </div>
+        <div className="flex flex-shrink-0 gap-1 rounded-[9px] border border-border bg-[var(--surface-2)] p-1">
+          {opts.map((o) => {
+            const active = prefs.blockedColumn === o.value;
+            return (
+              <button
+                key={o.value}
+                onClick={() => setPrefs({ ...prefs, blockedColumn: o.value })}
+                className="rounded-[7px] px-[11px] py-[6px] text-[12px] font-[550] transition-colors"
+                style={{
+                  background: active ? "var(--brand)" : "transparent",
+                  color: active ? "#fff" : "var(--text-2)",
+                }}
+              >
+                {o.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function GamificationCard() {
+  const { meta } = useApp();
+  const qc = useQueryClient();
+  const enabled = !!meta?.gamification;
+  const save = useMutation({
+    mutationFn: (v: boolean) => api.saveConfig({ gamification: v }),
+    onSuccess: () => {
+      toast.success("Settings saved");
+      qc.invalidateQueries({ queryKey: ["beads"] });
+      qc.invalidateQueries({ queryKey: ["doctor"] });
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
+  return (
+    <Card title="Gamification">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-[13px]">Productivity XP &amp; levels</div>
+          <div className="text-[11.5px] text-[var(--text-3)]">
+            Earn XP for closing beads (weighted by priority and how many they unblock);
+            a level/progress bar appears in the sidebar. Derived from bd history — opt-in.
+          </div>
+        </div>
+        <button
+          onClick={() => save.mutate(!enabled)}
+          disabled={save.isPending}
+          className="flex h-[34px] items-center gap-[7px] rounded-[9px] border border-border bg-[var(--surface-2)] px-[13px] text-[12.5px] hover:bg-[var(--surface-3)] disabled:opacity-50"
+        >
+          <Icon name={enabled ? "check" : "x"} size={14} />
+          <span>{enabled ? "Enabled" : "Disabled"}</span>
+        </button>
+      </div>
+    </Card>
+  );
+}
+
+function NotificationsCard() {
+  const { prefs, setPrefs, permission, requestPermission } = useNotificationPrefs();
+  const unsupported = permission === "unsupported";
+
+  const toggleEnabled = async () => {
+    if (!prefs.enabled) {
+      // Turning on: ask for OS permission (a no-op if already granted/denied).
+      if (permission === "default") await requestPermission();
+    }
+    setPrefs({ ...prefs, enabled: !prefs.enabled });
+  };
+
+  const cat = (key: keyof NotifPrefs, label: string) => (
+    <label className="flex cursor-pointer select-none items-center gap-[9px]">
+      <input
+        type="checkbox"
+        checked={prefs[key]}
+        disabled={!prefs.enabled}
+        onChange={(e) => setPrefs({ ...prefs, [key]: e.target.checked })}
+        className="h-4 w-4 cursor-pointer disabled:opacity-40"
+        style={{ accentColor: "var(--brand)" }}
+      />
+      <span className={`text-[13px] ${prefs.enabled ? "text-[var(--text-2)]" : "text-[var(--text-3)]"}`}>
+        {label}
+      </span>
+    </label>
+  );
+
+  return (
+    <Card title="Notifications">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-[13px]">Desktop &amp; toast notifications</div>
+          <div className="text-[11.5px] text-[var(--text-3)]">
+            {unsupported
+              ? "This browser does not support desktop notifications."
+              : "Get notified when an agent finishes or blocks a bead, or escalates one to you."}
+          </div>
+        </div>
+        <button
+          onClick={toggleEnabled}
+          disabled={unsupported}
+          className="flex h-[34px] items-center gap-[7px] rounded-[9px] border border-border bg-[var(--surface-2)] px-[13px] text-[12.5px] hover:bg-[var(--surface-3)] disabled:opacity-50"
+        >
+          <Icon name={prefs.enabled ? "check" : "x"} size={14} />
+          <span>{prefs.enabled ? "Enabled" : "Disabled"}</span>
+        </button>
+      </div>
+      {prefs.enabled && permission === "denied" && (
+        <div className="text-[11.5px] text-[#ef4444]">
+          Desktop permission is blocked in your browser — you will still see in-app toasts.
+          Re-enable notifications for this site in your browser settings for desktop alerts.
+        </div>
+      )}
+      <div className="flex flex-col gap-[8px]">
+        {cat("finished", "An agent finishes a bead")}
+        {cat("blocked", "A bead becomes blocked")}
+        {cat("escalation", "A bead is escalated to you (Needs You)")}
+      </div>
+      <div className="text-[11.5px] text-[var(--text-3)]">
+        Per-device — stored in this browser, not in beads. Your own (human) actions never notify.
+      </div>
+    </Card>
   );
 }
 

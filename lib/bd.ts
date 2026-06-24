@@ -222,6 +222,13 @@ export function createBdStore(repoPath: string): BeadsStore {
       });
     },
 
+    removeLabel(id, label, actor) {
+      return serializeWrite(repoPath, async () => {
+        await runBdRaw(["update", id, "--remove-label", label], rw(actor));
+        return show(id);
+      });
+    },
+
     archive(id, actor) {
       return serializeWrite(repoPath, async () => {
         await runBdRaw(["close", id], rw(actor));

@@ -20,6 +20,7 @@ export async function GET(_req: Request, { params }: Ctx) {
         humanActor: cfg.humanActor,
         humanAllowlist: cfg.humanAllowlist,
         pollIntervalMs: cfg.pollIntervalMs,
+        gamification: cfg.gamification,
       },
     });
   } catch (e) {

@@ -189,3 +189,44 @@
   from { transform: scale(0.9); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
 }
+
+/* Compact markdown prose for bead descriptions (components/description-content). */
+.bd-md > :first-child { margin-top: 0; }
+.bd-md > :last-child { margin-bottom: 0; }
+.bd-md p { margin: 0.5em 0; }
+.bd-md h1, .bd-md h2, .bd-md h3, .bd-md h4 { margin: 0.8em 0 0.4em; font-weight: 650; line-height: 1.25; }
+.bd-md h1 { font-size: 1.3em; }
+.bd-md h2 { font-size: 1.15em; }
+.bd-md h3 { font-size: 1.05em; }
+.bd-md ul, .bd-md ol { margin: 0.4em 0; padding-left: 1.4em; }
+.bd-md ul { list-style: disc; }
+.bd-md ol { list-style: decimal; }
+.bd-md li { margin: 0.15em 0; }
+/* GFM task lists render as a list item with a checkbox; drop the bullet. */
+.bd-md li:has(> input[type="checkbox"]) { list-style: none; margin-left: -1.2em; }
+.bd-md a { word-break: break-word; }
+.bd-md code {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.9em;
+  background: var(--surface-3);
+  padding: 0.1em 0.35em;
+  border-radius: 5px;
+}
+.bd-md pre {
+  margin: 0.6em 0;
+  padding: 10px 12px;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow-x: auto;
+}
+.bd-md pre code { background: none; padding: 0; font-size: 0.86em; }
+.bd-md blockquote {
+  margin: 0.6em 0;
+  padding-left: 0.9em;
+  border-left: 3px solid var(--border-strong);
+  color: var(--text-3);
+}
+.bd-md table { border-collapse: collapse; margin: 0.6em 0; font-size: 0.95em; }
+.bd-md th, .bd-md td { border: 1px solid var(--border); padding: 4px 8px; text-align: left; }
+.bd-md hr { margin: 0.9em 0; border: none; border-top: 1px solid var(--border); }

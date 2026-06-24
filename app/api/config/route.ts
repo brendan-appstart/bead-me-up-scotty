@@ -9,6 +9,7 @@ const patchSchema = z.object({
   humanActor: z.string().optional(),
   humanAllowlist: z.array(z.string()).optional(),
   pollIntervalMs: z.number().int().min(1000).max(300000).optional(),
+  gamification: z.boolean().optional(),
 });
 
 export async function GET() {

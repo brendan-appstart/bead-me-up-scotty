@@ -1,14 +1,18 @@
 "use client";
-import * as React from "react";
+import ReactMarkdown, { type Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { api } from "@/lib/api-client";
 
 /**
- * Minimal description renderer. The app has no full markdown renderer, so this
- * only does the one thing bead descriptions need beyond plain text: turn image
- * references into <img> tags. Everything else renders verbatim with preserved
- * whitespace. Supported image forms:
- *   ![alt](attachment://<beadId>/<file>)   → served by the attachments API
- *   ![alt](http(s)://…)                    → external image
+ * Renders a bead description as GitHub-flavored markdown (headings, lists,
+ * tables, code blocks, links, and task lists) via react-markdown + remark-gfm.
+ *
+ * Two bead-specific behaviors layered on top:
+ *  - Image refs `![alt](attachment://<beadId>/<file>)` resolve to the
+ *    attachments API; external `http(s)` images pass through.
+ *  - Task-list checkboxes (`- [ ]` / `- [x]`) are interactive when `onToggleTask`
+ *    is provided; toggling reports the checkbox's document-order index so the
+ *    caller can rewrite the source markdown (see lib/beads-view toggleTask).
  */
 const IMG_PATTERN = "!\\[([^\\]]*)\\]\\((attachment:\\/\\/[^)\\s]+|https?:\\/\\/[^)\\s]+)\\)";
 
@@ -16,50 +20,66 @@ export function DescriptionContent({
   text,
   projectId,
   className,
+  onToggleTask,
 }: {
   text: string;
   projectId: string;
   className?: string;
+  onToggleTask?: (index: number) => void;
 }) {
-  const nodes = React.useMemo(() => {
-    const re = new RegExp(IMG_PATTERN, "g");
-    const out: React.ReactNode[] = [];
-    let last = 0;
-    let m: RegExpExecArray | null;
-    let key = 0;
-    while ((m = re.exec(text)) !== null) {
-      if (m.index > last) {
-        out.push(
-          <span key={key++} className="whitespace-pre-wrap">
-            {text.slice(last, m.index)}
-          </span>,
-        );
-      }
-      const alt = m[1];
-      const raw = m[2];
-      const src = raw.startsWith("attachment://") ? api.attachments.urlFor(projectId, raw) : raw;
-      out.push(
+  // Fresh per render; react-markdown renders checkboxes in document order, so
+  // this counter assigns each the index of its source task marker.
+  const counter = { i: 0 };
+
+  const components: Components = {
+    a: ({ children, ...props }) => (
+      <a {...props} target="_blank" rel="noopener noreferrer" className="text-[var(--brand)] underline">
+        {children}
+      </a>
+    ),
+    img: ({ src, alt }) => {
+      const raw = typeof src === "string" ? src : "";
+      const resolved = raw.startsWith("attachment://") ? api.attachments.urlFor(projectId, raw) : raw;
+      return (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          key={key++}
-          src={src}
-          alt={alt}
+          src={resolved}
+          alt={alt ?? ""}
           className="my-2 block max-h-[320px] max-w-full rounded-[8px] border border-border"
-        />,
+        />
       );
-      last = m.index + m[0].length;
-    }
-    if (last < text.length) {
-      out.push(
-        <span key={key++} className="whitespace-pre-wrap">
-          {text.slice(last)}
-        </span>,
+    },
+    input: ({ type, checked }) => {
+      if (type !== "checkbox") return null;
+      const idx = counter.i++;
+      return (
+        <input
+          type="checkbox"
+          checked={!!checked}
+          disabled={!onToggleTask}
+          onChange={() => onToggleTask?.(idx)}
+          className="mr-[6px] translate-y-[2px] cursor-pointer disabled:cursor-default"
+          style={{ accentColor: "var(--brand)" }}
+        />
       );
-    }
-    return out;
-  }, [text, projectId]);
+    },
+  };
 
-  return <div className={className}>{nodes}</div>;
+  return (
+    <div className={className}>
+      <div className="bd-md">
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          // Local single-user tool with trusted content; pass URLs (incl.
+          // attachment://) through untouched so the img override can resolve them.
+          urlTransform={(url) => url}
+          components={components}
+        >
+          {text}
+        </ReactMarkdown>
+      </div>
+    </div>
+  );
 }
 
 /** Whether a description contains at least one renderable image ref. */

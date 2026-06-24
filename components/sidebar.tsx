@@ -11,7 +11,8 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
-import { initials, avatarColor } from "@/lib/beads-view";
+import { initials, avatarColor, needsHuman } from "@/lib/beads-view";
+import { useGamification } from "@/hooks/use-beads";
 import { cn } from "@/lib/utils";
 
 // This app's own GitHub repo — where bug reports / feature requests are filed.
@@ -38,6 +39,11 @@ const NAV: { key: View; label: string; icon: string }[] = [
   { key: "list", label: "List", icon: "list" },
   { key: "epics", label: "Epics", icon: "target" },
   { key: "graph", label: "Graph", icon: "graph" },
+  { key: "insights", label: "Insights", icon: "milestone" },
+  { key: "activity", label: "Activity", icon: "comment" },
+  { key: "needsyou", label: "Needs You", icon: "user" },
+  { key: "achievements", label: "Achievements", icon: "feature" },
+  { key: "publish", label: "Publish", icon: "rocket" },
   { key: "settings", label: "Settings", icon: "settings" },
 ];
 
@@ -58,6 +64,8 @@ export function Sidebar({
   const { meta, beads } = useApp();
   const actor = meta?.humanActor ?? "you";
   const epicCount = beads.filter((b) => b.issue_type === "epic").length;
+  const needsYouCount = beads.filter(needsHuman).length;
+  const game = useGamification(projectId, !!meta?.gamification);
 
   return (
     <aside className="flex w-[228px] flex-shrink-0 flex-col border-r border-border bg-[var(--surface)] p-[18px_14px]">
@@ -76,7 +84,7 @@ export function Sidebar({
       <ProjectSwitcher projectId={projectId} kind={kind} live={live} />
 
       <nav className="flex flex-col gap-[2px]">
-        {NAV.map((n) => {
+        {NAV.filter((n) => n.key !== "achievements" || meta?.gamification).map((n) => {
           const active = view === n.key;
           return (
             <button
@@ -94,12 +102,42 @@ export function Sidebar({
               {n.key === "epics" && epicCount > 0 && (
                 <span className="font-mono text-[11px] text-[var(--text-3)]">{epicCount}</span>
               )}
+              {n.key === "needsyou" && needsYouCount > 0 && (
+                <span
+                  className="min-w-[18px] rounded-full px-[6px] py-px text-center text-[11px] font-semibold text-white"
+                  style={{ background: "var(--brand)" }}
+                >
+                  {needsYouCount}
+                </span>
+              )}
             </button>
           );
         })}
       </nav>
 
       <div className="mt-auto flex flex-col gap-[10px]">
+        {meta?.gamification && game.data && (
+          <div className="rounded-[10px] border border-border bg-[var(--surface)] px-[11px] py-[9px]">
+            <div className="flex items-center justify-between text-[11.5px]">
+              <span className="font-[650]">Level {game.data.you.level}</span>
+              <span className="font-mono text-[var(--text-3)]">{game.data.you.xp} XP</span>
+            </div>
+            <div className="mt-[6px] h-[6px] overflow-hidden rounded-full bg-[var(--surface-3)]">
+              <div
+                className="h-full rounded-full transition-[width]"
+                style={{
+                  width: `${Math.round(game.data.you.progress * 100)}%`,
+                  background: "var(--brand)",
+                }}
+              />
+            </div>
+            <div className="mt-[4px] text-[10.5px] text-[var(--text-3)]">
+              {game.data.you.closed} closed ·{" "}
+              {Math.max(0, game.data.you.span - game.data.you.intoLevel)} XP to L
+              {game.data.you.level + 1}
+            </div>
+          </div>
+        )}
         <DropdownMenu>
           <DropdownMenuTrigger className="flex w-full items-center gap-[10px] rounded-[9px] border border-border bg-[var(--surface)] px-[10px] py-2 text-left text-[12.5px] font-medium text-[var(--text-2)] hover:bg-[var(--surface-2)] hover:text-[var(--text)] focus:outline-none">
             <Icon name="bug" size={16} className="flex-shrink-0" />

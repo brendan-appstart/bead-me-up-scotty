@@ -29,6 +29,7 @@ export interface BeadsStore {
   addComment(id: string, text: string, actor: string): Promise<Bead>;
   addDep(id: string, dependsOnId: string, type: DepType, actor: string): Promise<Bead>;
   removeDep(id: string, dependsOnId: string, actor: string): Promise<Bead>;
+  removeLabel(id: string, label: string, actor: string): Promise<Bead>;
   archive(id: string, actor: string): Promise<Bead>;
   doctor(): Promise<DoctorInfo>;
 }

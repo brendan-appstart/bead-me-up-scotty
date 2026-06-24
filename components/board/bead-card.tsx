@@ -17,6 +17,7 @@ import {
   initials,
   isBlocked,
   epicOf,
+  checklistProgress,
 } from "@/lib/beads-view";
 
 export function BeadCard({ bead }: { bead: Bead }) {
@@ -31,6 +32,7 @@ export function BeadCard({ bead }: { bead: Bead }) {
   const visLabels = (bead.labels ?? []).filter((l) => l !== "archived").slice(0, 2);
   const depCount = (bead.dependencies ?? []).filter((d) => d.type !== "parent-child").length;
   const commentCount = (bead.comments ?? []).length;
+  const checklist = checklistProgress(bead.description);
 
   return (
     <article
@@ -114,6 +116,16 @@ export function BeadCard({ bead }: { bead: Bead }) {
           >
             <Icon name="comment" size={13} />
             {commentCount}
+          </span>
+        )}
+        {checklist.total > 0 && (
+          <span
+            title="checklist progress"
+            className="inline-flex items-center gap-[3px] font-mono text-[11px]"
+            style={{ color: checklist.done === checklist.total ? "#16a34a" : "var(--text-3)" }}
+          >
+            <Icon name="check" size={13} />
+            {checklist.done}/{checklist.total}
           </span>
         )}
         {ep && (

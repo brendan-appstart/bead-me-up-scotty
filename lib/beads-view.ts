@@ -6,6 +6,43 @@ import { BLOCKING_DEP_TYPES } from "./schema";
  * Framework-agnostic so they can run on the server and the client.
  */
 
+/**
+ * A bead needs a human decision when it carries the `human` label (set by
+ * `bd human`) and is still actionable (not closed or deferred). Drives the
+ * "Needs You" inbox and its sidebar count badge.
+ */
+export function needsHuman(b: Bead): boolean {
+  return (b.labels ?? []).includes("human") && b.status !== "closed" && b.status !== "deferred";
+}
+
+/**
+ * GFM task-list ("- [ ]" / "- [x]") helpers. Checklists live in the bead
+ * description text itself (zero new schema), so toggling rewrites the markdown.
+ */
+const TASK_RE = /^(\s*(?:[-*+]|\d+\.)\s+)\[([ xX])\]/gm;
+
+export function checklistProgress(text?: string | null): { done: number; total: number } {
+  if (!text) return { done: 0, total: 0 };
+  const re = new RegExp(TASK_RE);
+  let done = 0;
+  let total = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    total++;
+    if (m[2].toLowerCase() === "x") done++;
+  }
+  return { done, total };
+}
+
+/** Flip the Nth task checkbox (0-based, document order) and return the new text. */
+export function toggleTask(text: string, index: number): string {
+  let i = 0;
+  return text.replace(TASK_RE, (full, prefix: string, mark: string) => {
+    if (i++ !== index) return full;
+    return `${prefix}[${mark.toLowerCase() === "x" ? " " : "x"}]`;
+  });
+}
+
 export type StatusCategory = "done" | "wip" | "blocked" | "frozen" | "active";
 
 export function category(status: string): StatusCategory {

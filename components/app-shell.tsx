@@ -10,13 +10,21 @@ import { Board } from "@/components/board/board";
 import { ListView } from "@/components/list-view";
 import { EpicsView } from "@/components/epics-view";
 import { GraphView } from "@/components/graph-view";
+import { InsightsView } from "@/components/insights-view";
+import { ActivityView } from "@/components/activity-view";
+import { NeedsYouView } from "@/components/needs-you-view";
+import { AchievementsView } from "@/components/achievements-view";
+import { PublishView } from "@/components/publish-view";
 import { SettingsView } from "@/components/settings-view";
 import { BeadDetailDrawer } from "@/components/bead-detail-drawer";
 import { CreateBeadModal } from "@/components/create-bead-modal";
+import { CommandPalette } from "@/components/command-palette";
+import { NotificationWatcher } from "@/components/notification-watcher";
 
 export function AppShell({ projectId }: { projectId: string }) {
   const [view, setView] = React.useState<View>("board");
   const [openId, setOpenId] = React.useState<string | null>(null);
+  const [palette, setPalette] = React.useState(false);
   const [create, setCreate] = React.useState<{ open: boolean; parent: string }>({
     open: false,
     parent: "",
@@ -32,11 +40,17 @@ export function AppShell({ projectId }: { projectId: string }) {
   const openDetail = React.useCallback((id: string) => setOpenId(id), []);
   const openCreate = React.useCallback((parent = "") => setCreate({ open: true, parent }), []);
 
-  // keyboard: n = new, / = focus search, Esc = close overlays
+  // keyboard: Cmd/Ctrl+K = command palette, n = new, / = focus search, Esc = close overlays
   React.useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
       const typing = tag === "input" || tag === "textarea" || tag === "select";
+      // Cmd/Ctrl+K toggles the palette — works even while typing in a field.
+      if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        setPalette((p) => !p);
+        return;
+      }
       if (e.key === "Escape") {
         setOpenId(null);
         setCreate((c) => ({ ...c, open: false }));
@@ -100,6 +114,11 @@ export function AppShell({ projectId }: { projectId: string }) {
               {view === "list" && <ListView />}
               {view === "epics" && <EpicsView />}
               {view === "graph" && <GraphView />}
+              {view === "insights" && <InsightsView />}
+              {view === "activity" && <ActivityView />}
+              {view === "needsyou" && <NeedsYouView />}
+              {view === "achievements" && <AchievementsView />}
+              {view === "publish" && <PublishView />}
               {view === "settings" && <SettingsView />}
             </>
           )}
@@ -113,6 +132,9 @@ export function AppShell({ projectId }: { projectId: string }) {
         parent={create.parent}
         onOpenChange={(o) => setCreate((c) => ({ ...c, open: o }))}
       />
+
+      <CommandPalette open={palette} onOpenChange={setPalette} onView={setView} />
+      <NotificationWatcher projectId={projectId} />
     </AppProvider>
   );
 }

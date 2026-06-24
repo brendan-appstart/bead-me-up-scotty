@@ -3,7 +3,17 @@ import * as React from "react";
 import type { Bead } from "@/lib/schema";
 import type { Meta } from "@/lib/api-client";
 
-export type View = "board" | "list" | "epics" | "graph" | "settings";
+export type View =
+  | "board"
+  | "list"
+  | "epics"
+  | "graph"
+  | "insights"
+  | "activity"
+  | "needsyou"
+  | "achievements"
+  | "publish"
+  | "settings";
 
 interface AppContextValue {
   projectId: string;

@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Eleventy is a CLI/Node tool we shell out to at runtime — never bundle it.
+  serverExternalPackages: ["@11ty/eleventy"],
   logging: {
     // The board refetches /beads every few seconds (poll + SSE), which floods the
     // dev console. Suppress those high-frequency poll/stream request logs only —

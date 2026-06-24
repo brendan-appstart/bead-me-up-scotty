@@ -5,10 +5,67 @@ export interface Meta {
   humanActor: string;
   humanAllowlist: string[];
   pollIntervalMs: number;
+  gamification?: boolean;
 }
 export interface BeadsResponse {
   beads: Bead[];
   meta: Meta;
+}
+
+export interface ActivityItem {
+  id: string;
+  issueId: string;
+  title: string;
+  actor: string;
+  origin: "human" | "agent";
+  action: string;
+  detail?: string;
+  at: string;
+}
+export interface ActivityResponse {
+  items: ActivityItem[];
+}
+
+export interface InsightsData {
+  days: number;
+  throughput: { date: string; human: number; agent: number; total: number }[];
+  createdClosed: { date: string; created: number; closed: number }[];
+  cycle: {
+    overall: { p50: number; p90: number; count: number };
+    human: { p50: number; p90: number; count: number };
+    agent: { p50: number; p90: number; count: number };
+  };
+  aging: { id: string; title: string; days: number; origin: "human" | "agent" }[];
+  columns: { id: string; name: string; color: string; count: number }[];
+  hasEvents: boolean;
+}
+
+export interface AssistResult {
+  description: string;
+  acceptance: string;
+  labels: string[];
+  duplicates: { id: string; title: string; reason: string }[];
+}
+
+export interface ActorStat {
+  actor: string;
+  origin: "human" | "agent";
+  xp: number;
+  closed: number;
+  currentStreak: number;
+  longestStreak: number;
+}
+export interface Badge {
+  key: string;
+  label: string;
+  description: string;
+  earned: boolean;
+}
+export interface GamificationData {
+  actors: ActorStat[];
+  totalXp: number;
+  totalClosed: number;
+  you: ActorStat & { level: number; intoLevel: number; span: number; progress: number; badges: Badge[] };
 }
 
 export interface ProjectInfo {
@@ -101,6 +158,31 @@ export const api = {
     request<Bead>(`${base(projectId)}/beads/${enc(id)}/archive`, { method: "POST" }),
   doctor: (projectId: string) => request<DoctorResponse>(`${base(projectId)}/doctor`),
 
+  activity: (projectId: string) => request<ActivityResponse>(`${base(projectId)}/activity`),
+
+  insights: (projectId: string, days: number) =>
+    request<InsightsData>(`${base(projectId)}/insights?days=${days}`),
+
+  gamification: (projectId: string) =>
+    request<GamificationData>(`${base(projectId)}/gamification`),
+
+  assist: (projectId: string, id: string) =>
+    request<AssistResult>(`${base(projectId)}/beads/${enc(id)}/assist`, { method: "POST" }),
+
+  // Act on a "Needs You" (human-labelled) bead, mirroring `bd human`.
+  human: {
+    respond: (projectId: string, id: string, text: string) =>
+      request<Bead>(`${base(projectId)}/beads/${enc(id)}/human`, {
+        method: "POST",
+        body: JSON.stringify({ action: "respond", text }),
+      }),
+    dismiss: (projectId: string, id: string) =>
+      request<Bead>(`${base(projectId)}/beads/${enc(id)}/human`, {
+        method: "POST",
+        body: JSON.stringify({ action: "dismiss" }),
+      }),
+  },
+
   // Manual per-column board ordering (stored in app config, not in beads).
   order: {
     get: (projectId: string) =>
@@ -141,6 +223,35 @@ export const api = {
         .join("/");
       return `${base(projectId)}/attachments/${encoded}`;
     },
+  },
+
+  // Publish/showcase: build a static Eleventy site from a project's beads.
+  showcase: {
+    build: (
+      projectId: string,
+      opts: {
+        template: string;
+        title: string;
+        scope: "project" | "all";
+        stats: boolean;
+        search: boolean;
+        gamification?: boolean;
+      },
+    ) =>
+      request<{ outDir: string; indexPath: string; count: number }>(`${base(projectId)}/publish`, {
+        method: "POST",
+        body: JSON.stringify({ action: "build", ...opts }),
+      }),
+    open: (projectId: string, path: string) =>
+      request<{ opened: boolean }>(`${base(projectId)}/publish`, {
+        method: "POST",
+        body: JSON.stringify({ action: "open", path }),
+      }),
+    deploy: (projectId: string, path: string) =>
+      request<{ deployed: boolean; url?: string; error?: string; hint?: string }>(`${base(projectId)}/publish`, {
+        method: "POST",
+        body: JSON.stringify({ action: "deploy", path }),
+      }),
   },
 
   saveConfig: (patch: Record<string, unknown>) =>

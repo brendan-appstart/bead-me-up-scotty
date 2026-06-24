@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f6f6f8; --surface:#ffffff; --surface-2:#f1f1f4; --surface-3:#e9e9ee;
+    --border:#e7e7ec; --border-strong:#d6d6dd;
+    --text:#16161a; --text-2:#62626d; --text-3:#9a9aa5;
+    --accent:#6d5ef0; --accent-2:#5546e0; --accent-weak:#efedfd;
+    --green:#16a34a; --amber:#d97706; --red:#ef4444; --blue:#3b82f6; --slate:#64748b; --cyan:#0891b2; --pink:#db2777;
+    --shadow:0 1px 2px rgba(20,20,30,.05),0 1px 1px rgba(20,20,30,.04);
+    --shadow-md:0 4px 16px -6px rgba(20,20,40,.12),0 2px 6px -3px rgba(20,20,40,.08);
+    --shadow-lg:0 18px 44px -12px rgba(20,20,40,.22);
+    --grid-line:#ececf1;
+  }
+  [data-theme="dark"]{
+    --bg:#0a0a0d; --surface:#141417; --surface-2:#1c1c21; --surface-3:#26262d;
+    --border:#26262d; --border-strong:#34343d;
+    --text:#f2f2f5; --text-2:#a2a2ad; --text-3:#6c6c77;
+    --accent:#8b7cf8; --accent-2:#9c8ffa; --accent-weak:#211d3a;
+    --green:#22c55e; --amber:#f59e0b; --red:#f87171; --blue:#60a5fa; --slate:#94a3b8; --cyan:#22d3ee; --pink:#f472b6;
+    --shadow:0 1px 2px rgba(0,0,0,.4); --shadow-md:0 6px 20px -8px rgba(0,0,0,.5); --shadow-lg:0 24px 56px -16px rgba(0,0,0,.65);
+    --grid-line:#222228;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{font-family:'Geist',system-ui,sans-serif;-webkit-font-smoothing:antialiased;background:var(--bg);color:var(--text)}
+  ::selection{background:var(--accent-weak)}
+  .rp-scroll::-webkit-scrollbar{width:10px;height:10px}
+  .rp-scroll::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:8px;border:3px solid transparent;background-clip:content-box}
+  .rp-scroll::-webkit-scrollbar-track{background:transparent}
+  input,select,button{font-family:inherit}
+  @keyframes rpFade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes rpPulse{0%,100%{opacity:1}50%{opacity:.45}}
+</style>
+</helmet>
+
+<div data-theme="{{ theme }}" class="rp-scroll" style="height:100vh;overflow-y:auto;background:var(--bg);color:var(--text);font-size:14px">
+  <div style="max-width:1180px;margin:0 auto;padding:26px 28px 72px">
+
+    <!-- HEADER -->
+    <header style="display:flex;align-items:flex-end;gap:18px;margin-bottom:22px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:13px">
+        <div style="width:40px;height:40px;border-radius:11px;background:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 4px 14px -3px var(--accent)">
+          <span style="display:flex;width:22px;height:22px;color:#fff" dangerouslySetInnerHTML="{{ logoIcon }}"></span>
+        </div>
+        <div>
+          <h1 style="margin:0;font-size:22px;font-weight:750;letter-spacing:-.025em;line-height:1.05">Delivery Report</h1>
+          <div style="font-size:12.5px;color:var(--text-3);margin-top:2px">Bead Me Up, Scotty · <span style="font-family:'Geist Mono',monospace">~/dev/beads-ui/.beads</span> · {{ asOf }}</div>
+        </div>
+      </div>
+      <div style="flex:1"></div>
+      <div style="display:flex;align-items:center;gap:9px">
+        <div style="display:flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:0 11px;height:36px;box-shadow:var(--shadow)">
+          <span style="display:flex;width:14px;height:14px;color:var(--text-3)" dangerouslySetInnerHTML="{{ calIcon }}"></span>
+          <select value="{{ range }}" onChange="{{ onRange }}" style="border:none;background:transparent;outline:none;color:var(--text-2);font-size:12.5px;cursor:pointer;font-weight:500">
+            <option value="8">Last 8 weeks</option>
+            <option value="4">Last 4 weeks</option>
+            <option value="12">Full project</option>
+          </select>
+        </div>
+        <button onClick="{{ onReplay }}" title="Replay animation" style="height:36px;display:flex;align-items:center;gap:7px;padding:0 12px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);border-radius:9px;font-size:12.5px;font-weight:500;cursor:pointer;box-shadow:var(--shadow)" style-hover="background:var(--surface-2);color:var(--text)">
+          <span style="display:flex;width:14px;height:14px" dangerouslySetInnerHTML="{{ replayIcon }}"></span><span>Replay</span>
+        </button>
+        <button onClick="{{ onToggleTheme }}" title="Toggle theme" style="width:36px;height:36px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:var(--shadow)" style-hover="background:var(--surface-2);color:var(--text)">
+          <span style="display:flex;width:15px;height:15px" dangerouslySetInnerHTML="{{ themeIcon }}"></span>
+        </button>
+      </div>
+    </header>
+
+    <!-- KPI ROW -->
+    <section style="display:grid;grid-template-columns:repeat(6,1fr);gap:13px;margin-bottom:16px">
+      <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="6">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:15px 15px 13px;box-shadow:var(--shadow);position:relative;overflow:hidden">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:11px">
+            <span style="width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:{{ k.color }};background:{{ k.tint }}">
+              <span style="display:flex;width:14px;height:14px" dangerouslySetInnerHTML="{{ k.icon }}"></span>
+            </span>
+            <span style="font-size:11px;color:var(--text-3);font-weight:550;letter-spacing:.02em;text-transform:uppercase;line-height:1.15">{{ k.label }}</span>
+          </div>
+          <div style="display:flex;align-items:baseline;gap:4px">
+            <span style="font-size:27px;font-weight:750;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1">{{ k.value }}</span>
+            <span style="font-size:13px;color:var(--text-3);font-weight:600">{{ k.unit }}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:5px;margin-top:7px;height:18px">
+            <span style="display:flex;align-items:flex-end;gap:2px;height:16px;flex:1">
+              <sc-for list="{{ k.spark }}" as="b" hint-placeholder-count="7">
+                <span style="flex:1;border-radius:2px;background:{{ k.color }};opacity:.5;height:{{ b.h }}"></span>
+              </sc-for>
+            </span>
+            <span style="font-size:11px;font-weight:600;color:{{ k.deltaColor }};white-space:nowrap">{{ k.delta }}</span>
+          </div>
+        </div>
+      </sc-for>
+    </section>
+
+    <!-- MAIN VIZ -->
+    <section style="background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-md);margin-bottom:16px;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:14px;padding:16px 18px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap">
+        <div style="min-width:200px">
+          <div style="font-size:15px;font-weight:650;letter-spacing:-.01em">{{ mainTitle }}</div>
+          <div style="font-size:11.5px;color:var(--text-3);margin-top:1px">{{ mainSub }}</div>
+        </div>
+        <div style="flex:1"></div>
+        <div style="display:inline-flex;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:3px;gap:2px">
+          <sc-for list="{{ vizTabs }}" as="t" hint-placeholder-count="4">
+            <button onClick="{{ t.onClick }}" style="{{ t.style }}">
+              <span style="display:flex;width:14px;height:14px" dangerouslySetInnerHTML="{{ t.icon }}"></span>
+              <span>{{ t.label }}</span>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="padding:18px 20px 20px">
+        <!-- TIMELINE / GANTT -->
+        <sc-if value="{{ isTimeline }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;gap:0">
+            <div style="display:flex;align-items:center;height:24px;padding-left:212px;margin-bottom:6px">
+              <div style="flex:1;display:flex">
+                <sc-for list="{{ weekCols }}" as="w" hint-placeholder-count="8">
+                  <div style="flex:1;text-align:center;font-size:10.5px;color:var(--text-3);font-family:'Geist Mono',monospace;border-left:1px solid var(--grid-line)">{{ w.label }}</div>
+                </sc-for>
+              </div>
+            </div>
+            <sc-for list="{{ gantt }}" as="g" hint-placeholder-count="6">
+              <div style="display:flex;align-items:center;height:46px">
+                <div style="width:212px;flex-shrink:0;padding-right:14px;display:flex;align-items:center;gap:9px">
+                  <span style="width:9px;height:9px;border-radius:3px;flex-shrink:0;background:{{ g.color }}"></span>
+                  <div style="min-width:0">
+                    <div style="font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.005em">{{ g.label }}</div>
+                    <div style="font-size:10.5px;color:var(--text-3);font-family:'Geist Mono',monospace">{{ g.meta }}</div>
+                  </div>
+                </div>
+                <div style="flex:1;position:relative;height:100%;display:flex">
+                  <sc-for list="{{ weekCols }}" as="w" hint-placeholder-count="8"><div style="flex:1;border-left:1px solid var(--grid-line)"></div></sc-for>
+                  <div style="{{ g.barStyle }}">
+                    <div style="{{ g.fillStyle }}"></div>
+                    <span style="position:relative;z-index:2;font-size:10.5px;font-weight:650;color:{{ g.pctColor }};padding-left:9px;white-space:nowrap">{{ g.pct }}%</span>
+                    <span style="{{ g.diamondStyle }}"></span>
+                  </div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <!-- BURNUP -->
+        <sc-if value="{{ isBurnup }}" hint-placeholder-val="0">
+          <div style="display:flex;gap:18px;align-items:stretch;flex-wrap:wrap">
+            <svg viewBox="0 0 680 264" style="width:100%;max-width:760px;flex:1;min-width:420px;height:auto;overflow:visible">
+              <sc-for list="{{ burnup.yTicks }}" as="t" hint-placeholder-count="5">
+                <line x1="40" y1="{{ t.y }}" x2="668" y2="{{ t.y }}" stroke="var(--grid-line)" stroke-width="1"></line>
+                <text x="34" y="{{ t.ty }}" text-anchor="end" font-size="10" fill="var(--text-3)" font-family="Geist Mono">{{ t.v }}</text>
+              </sc-for>
+              <sc-for list="{{ burnup.xTicks }}" as="t" hint-placeholder-count="8">
+                <text x="{{ t.x }}" y="258" text-anchor="middle" font-size="10" fill="var(--text-3)" font-family="Geist Mono">{{ t.label }}</text>
+              </sc-for>
+              <line x1="40" y1="{{ burnup.scopeY }}" x2="668" y2="{{ burnup.scopeY }}" stroke="var(--text-3)" stroke-width="1.4" stroke-dasharray="5 4"></line>
+              <text x="664" y="{{ burnup.scopeLabelY }}" text-anchor="end" font-size="10" fill="var(--text-3)">scope · {{ burnup.scope }}</text>
+              <clipPath id="rpBurn"><rect x="0" y="0" width="{{ burnup.clipW }}" height="264"></rect></clipPath>
+              <g clip-path="url(#rpBurn)">
+                <path d="{{ burnup.areaPath }}" fill="var(--accent)" opacity="0.12"></path>
+                <path d="{{ burnup.createdPath }}" fill="none" stroke="var(--text-3)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></path>
+                <path d="{{ burnup.closedPath }}" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"></path>
+                <sc-for list="{{ burnup.closedDots }}" as="d" hint-placeholder-count="8">
+                  <circle cx="{{ d.x }}" cy="{{ d.y }}" r="3.4" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"></circle>
+                </sc-for>
+              </g>
+            </svg>
+            <div style="display:flex;flex-direction:column;gap:12px;justify-content:center;min-width:170px;flex:0 0 auto">
+              <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-2)"><span style="width:18px;height:3px;border-radius:2px;background:var(--accent)"></span>Closed (cumulative)</div>
+              <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-2)"><span style="width:18px;height:3px;border-radius:2px;background:var(--text-3)"></span>Created (cumulative)</div>
+              <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-2)"><span style="width:18px;height:0;border-top:2px dashed var(--text-3)"></span>Scope</div>
+              <div style="border-top:1px solid var(--border);margin-top:4px;padding-top:12px;display:flex;flex-direction:column;gap:9px">
+                <div><div style="font-size:21px;font-weight:750;letter-spacing:-.02em">{{ burnup.projWeeks }}</div><div style="font-size:11px;color:var(--text-3)">projected weeks to done at current velocity</div></div>
+                <div><div style="font-size:21px;font-weight:750;letter-spacing:-.02em;color:var(--accent)">{{ burnup.gapPct }}%</div><div style="font-size:11px;color:var(--text-3)">scope completed to date</div></div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- EFFORT BUBBLE -->
+        <sc-if value="{{ isEffort }}" hint-placeholder-val="0">
+          <div style="display:flex;gap:18px;align-items:stretch;flex-wrap:wrap">
+            <svg viewBox="0 0 680 272" style="width:100%;max-width:760px;flex:1;min-width:420px;height:auto;overflow:visible">
+              <sc-for list="{{ effort.yTicks }}" as="t" hint-placeholder-count="4">
+                <line x1="46" y1="{{ t.y }}" x2="668" y2="{{ t.y }}" stroke="var(--grid-line)" stroke-width="1"></line>
+                <text x="40" y="{{ t.ty }}" text-anchor="end" font-size="10" fill="var(--text-3)" font-family="Geist Mono">{{ t.v }}</text>
+              </sc-for>
+              <text x="14" y="130" text-anchor="middle" font-size="10.5" fill="var(--text-3)" transform="rotate(-90 14 130)">effort (pts)</text>
+              <sc-for list="{{ effort.xCols }}" as="c" hint-placeholder-count="5">
+                <text x="{{ c.x }}" y="264" text-anchor="middle" font-size="10.5" fill="var(--text-3)" font-weight="600">{{ c.label }}</text>
+              </sc-for>
+              <sc-for list="{{ effort.bubbles }}" as="b" hint-placeholder-count="14">
+                <circle cx="{{ b.x }}" cy="{{ b.y }}" r="{{ b.r }}" fill="{{ b.fill }}" fill-opacity="0.22" stroke="{{ b.fill }}" stroke-width="1.5">
+                  <title>{{ b.title }}</title>
+                </circle>
+              </sc-for>
+            </svg>
+            <div style="display:flex;flex-direction:column;gap:11px;justify-content:center;min-width:160px;flex:0 0 auto">
+              <div style="font-size:11px;color:var(--text-3);font-weight:550;text-transform:uppercase;letter-spacing:.03em">By status</div>
+              <sc-for list="{{ effort.legend }}" as="l" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-2)"><span style="width:11px;height:11px;border-radius:50%;background:{{ l.color }};opacity:.85"></span><span style="flex:1">{{ l.label }}</span><span style="font-family:'Geist Mono',monospace;font-size:11.5px;color:var(--text-3)">{{ l.pts }}p</span></div>
+              </sc-for>
+              <div style="border-top:1px solid var(--border);margin-top:4px;padding-top:11px">
+                <div style="font-size:21px;font-weight:750;letter-spacing:-.02em">{{ effort.remaining }}<span style="font-size:13px;color:var(--text-3);font-weight:600"> pts left</span></div>
+                <div style="font-size:11px;color:var(--text-3)">of {{ effort.total }} total · bubble size = effort</div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- THROUGHPUT -->
+        <sc-if value="{{ isThroughput }}" hint-placeholder-val="0">
+          <div style="display:flex;gap:18px;align-items:stretch;flex-wrap:wrap">
+            <svg viewBox="0 0 680 264" style="width:100%;max-width:760px;flex:1;min-width:420px;height:auto;overflow:visible">
+              <sc-for list="{{ throughput.yTicks }}" as="t" hint-placeholder-count="4">
+                <line x1="34" y1="{{ t.y }}" x2="668" y2="{{ t.y }}" stroke="var(--grid-line)" stroke-width="1"></line>
+                <text x="28" y="{{ t.ty }}" text-anchor="end" font-size="10" fill="var(--text-3)" font-family="Geist Mono">{{ t.v }}</text>
+              </sc-for>
+              <sc-for list="{{ throughput.bars }}" as="b" hint-placeholder-count="8">
+                <rect x="{{ b.x }}" y="{{ b.y }}" width="{{ b.w }}" height="{{ b.h }}" rx="4" fill="{{ b.fill }}"><title>{{ b.title }}</title></rect>
+                <text x="{{ b.cx }}" y="258" text-anchor="middle" font-size="10" fill="var(--text-3)" font-family="Geist Mono">{{ b.label }}</text>
+              </sc-for>
+              <line x1="34" y1="{{ throughput.avgY }}" x2="668" y2="{{ throughput.avgY }}" stroke="var(--amber)" stroke-width="1.6" stroke-dasharray="5 4"></line>
+              <text x="664" y="{{ throughput.avgLabelY }}" text-anchor="end" font-size="10" fill="var(--amber)" font-weight="600">avg {{ throughput.avg }}/wk</text>
+            </svg>
+            <div style="display:flex;flex-direction:column;gap:11px;justify-content:center;min-width:160px;flex:0 0 auto">
+              <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-2)"><span style="width:13px;height:13px;border-radius:4px;background:var(--accent)"></span>Beads closed / week</div>
+              <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-2)"><span style="width:18px;height:0;border-top:2px dashed var(--amber)"></span>Average velocity</div>
+              <div style="border-top:1px solid var(--border);margin-top:4px;padding-top:12px;display:flex;flex-direction:column;gap:9px">
+                <div><div style="font-size:21px;font-weight:750;letter-spacing:-.02em">{{ throughput.best }}</div><div style="font-size:11px;color:var(--text-3)">best week ({{ throughput.bestWk }})</div></div>
+                <div><div style="font-size:21px;font-weight:750;letter-spacing:-.02em;color:{{ throughput.trendColor }}">{{ throughput.trend }}</div><div style="font-size:11px;color:var(--text-3)">4-week momentum</div></div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </section>
+
+    <!-- CHART GRID -->
+    <section style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+
+      <!-- STATUS DONUT -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);padding:18px 20px">
+        <div style="font-size:13.5px;font-weight:650;margin-bottom:2px">Status mix</div>
+        <div style="font-size:11.5px;color:var(--text-3);margin-bottom:8px">Where every open bead sits right now</div>
+        <div style="display:flex;align-items:center;gap:20px">
+          <div style="position:relative;width:160px;height:160px;flex-shrink:0">
+            <svg viewBox="0 0 160 160" style="width:160px;height:160px;transform:rotate(-90deg)">
+              <circle cx="80" cy="80" r="60" fill="none" stroke="var(--surface-3)" stroke-width="20"></circle>
+              <sc-for list="{{ donut.segs }}" as="s" hint-placeholder-count="5">
+                <circle cx="80" cy="80" r="60" fill="none" stroke="{{ s.color }}" stroke-width="20" stroke-dasharray="{{ s.dash }}" stroke-dashoffset="{{ s.offset }}" stroke-linecap="butt"></circle>
+              </sc-for>
+            </svg>
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+              <div style="font-size:30px;font-weight:780;letter-spacing:-.03em;line-height:1">{{ donut.donePct }}<span style="font-size:15px">%</span></div>
+              <div style="font-size:10.5px;color:var(--text-3);text-transform:uppercase;letter-spacing:.04em;font-weight:600">complete</div>
+            </div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:9px">
+            <sc-for list="{{ donut.legend }}" as="l" hint-placeholder-count="5">
+              <div style="display:flex;align-items:center;gap:9px">
+                <span style="width:9px;height:9px;border-radius:3px;flex-shrink:0;background:{{ l.color }}"></span>
+                <span style="flex:1;font-size:12.5px;color:var(--text-2)">{{ l.label }}</span>
+                <span style="font-size:12.5px;font-weight:650;font-variant-numeric:tabular-nums">{{ l.count }}</span>
+                <span style="font-size:11px;color:var(--text-3);width:34px;text-align:right;font-family:'Geist Mono',monospace">{{ l.pct }}%</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      <!-- PRIORITY -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);padding:18px 20px">
+        <div style="font-size:13.5px;font-weight:650;margin-bottom:2px">Priority distribution</div>
+        <div style="font-size:11.5px;color:var(--text-3);margin-bottom:14px">Open work weighted toward what matters</div>
+        <div style="display:flex;flex-direction:column;gap:13px">
+          <sc-for list="{{ priority }}" as="p" hint-placeholder-count="5">
+            <div style="display:flex;align-items:center;gap:11px">
+              <span style="width:74px;flex-shrink:0;display:flex;align-items:center;gap:7px">
+                <span style="width:8px;height:8px;border-radius:50%;background:{{ p.color }}"></span>
+                <span style="font-size:12px;font-weight:600;color:var(--text-2)">{{ p.label }}</span>
+              </span>
+              <div style="flex:1;height:18px;border-radius:6px;background:var(--surface-2);overflow:hidden;position:relative">
+                <div style="{{ p.barStyle }}"></div>
+              </div>
+              <span style="width:26px;text-align:right;font-size:12.5px;font-weight:650;font-variant-numeric:tabular-nums">{{ p.count }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <!-- HUMAN vs AGENT -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);padding:18px 20px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
+          <div style="font-size:13.5px;font-weight:650">Human vs agent</div>
+          <span style="font-size:10px;font-weight:600;color:var(--accent);background:var(--accent-weak);border-radius:5px;padding:2px 6px">signature metric</span>
+        </div>
+        <div style="font-size:11.5px;color:var(--text-3);margin-bottom:15px">Who is filing and finishing the work</div>
+        <div style="display:flex;gap:16px;margin-bottom:16px">
+          <sc-for list="{{ origin.cards }}" as="o" hint-placeholder-count="2">
+            <div style="flex:1;border:1px solid var(--border);border-radius:12px;padding:13px;background:var(--surface-2)">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px">
+                <span style="width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:{{ o.color }};background:{{ o.tint }}"><span style="display:flex;width:15px;height:15px" dangerouslySetInnerHTML="{{ o.icon }}"></span></span>
+                <span style="font-size:12.5px;font-weight:600">{{ o.label }}</span>
+              </div>
+              <div style="display:flex;align-items:baseline;gap:5px"><span style="font-size:25px;font-weight:750;letter-spacing:-.03em">{{ o.count }}</span><span style="font-size:11.5px;color:var(--text-3)">beads · {{ o.pct }}%</span></div>
+              <div style="font-size:11px;color:var(--text-3);margin-top:3px">{{ o.closed }} closed · {{ o.rate }}% done</div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:flex;height:13px;border-radius:7px;overflow:hidden;gap:2px;margin-bottom:9px">
+          <div style="{{ origin.humanBar }}"></div>
+          <div style="{{ origin.agentBar }}"></div>
+        </div>
+        <div style="font-size:11.5px;color:var(--text-3);line-height:1.45">Agents authored <strong style="color:var(--text-2)">{{ origin.agentPct }}%</strong> of all beads — {{ origin.note }}</div>
+      </div>
+
+      <!-- ASSIGNEE WORKLOAD -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);padding:18px 20px">
+        <div style="font-size:13.5px;font-weight:650;margin-bottom:2px">Workload by assignee</div>
+        <div style="font-size:11.5px;color:var(--text-3);margin-bottom:14px">Stacked by current status</div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <sc-for list="{{ workload }}" as="w" hint-placeholder-count="5">
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="width:96px;flex-shrink:0;display:flex;align-items:center;gap:7px">
+                <span style="width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:650;color:#fff;flex-shrink:0;background:{{ w.color }}">{{ w.initials }}</span>
+                <span style="font-size:12px;font-weight:550;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ w.name }}</span>
+              </span>
+              <div style="flex:1;height:16px;border-radius:5px;background:var(--surface-2);overflow:hidden;display:flex">
+                <div style="{{ w.doneStyle }}" title="done"></div>
+                <div style="{{ w.wipStyle }}" title="in progress"></div>
+                <div style="{{ w.openStyle }}" title="open"></div>
+                <div style="{{ w.blockStyle }}" title="blocked"></div>
+              </div>
+              <span style="width:22px;text-align:right;font-size:12.5px;font-weight:650;font-variant-numeric:tabular-nums">{{ w.total }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:flex;gap:14px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);flex-wrap:wrap">
+          <sc-for list="{{ workloadLegend }}" as="l" hint-placeholder-count="4">
+            <span style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-3)"><span style="width:9px;height:9px;border-radius:3px;background:{{ l.color }}"></span>{{ l.label }}</span>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+
+    <!-- EPIC PROGRESS + RISK -->
+    <section style="display:grid;grid-template-columns:1.4fr 1fr;gap:16px">
+      <!-- EPIC PROGRESS -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);padding:18px 20px">
+        <div style="font-size:13.5px;font-weight:650;margin-bottom:2px">Epic progress</div>
+        <div style="font-size:11.5px;color:var(--text-3);margin-bottom:16px">Closed ÷ children, live</div>
+        <div style="display:flex;flex-direction:column;gap:15px">
+          <sc-for list="{{ epicBars }}" as="e" hint-placeholder-count="6">
+            <div>
+              <div style="display:flex;align-items:center;gap:9px;margin-bottom:6px">
+                <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--text-3);flex-shrink:0">{{ e.id }}</span>
+                <span style="font-size:12.5px;font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.005em">{{ e.title }}</span>
+                <span style="{{ e.chipStyle }}">{{ e.statusLabel }}</span>
+                <span style="font-size:12.5px;font-weight:700;font-variant-numeric:tabular-nums;width:38px;text-align:right">{{ e.pct }}%</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px">
+                <div style="flex:1;height:9px;border-radius:6px;background:var(--surface-2);overflow:hidden">
+                  <div style="{{ e.barStyle }}"></div>
+                </div>
+                <span style="font-size:11px;color:var(--text-3);font-family:'Geist Mono',monospace;width:54px;text-align:right">{{ e.closed }}/{{ e.total }}</span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <!-- RISK -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);padding:18px 20px;display:flex;flex-direction:column">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
+          <span style="display:flex;width:15px;height:15px;color:var(--red)" dangerouslySetInnerHTML="{{ alertIcon }}"></span>
+          <div style="font-size:13.5px;font-weight:650">Needs attention</div>
+        </div>
+        <div style="font-size:11.5px;color:var(--text-3);margin-bottom:14px">{{ risk.summary }}</div>
+        <div style="display:flex;flex-direction:column;gap:8px;flex:1">
+          <sc-for list="{{ risk.items }}" as="r" hint-placeholder-count="5">
+            <div style="display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--surface-2)">
+              <span style="display:flex;width:15px;height:15px;flex-shrink:0;color:{{ r.color }}" dangerouslySetInnerHTML="{{ r.icon }}"></span>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:12.5px;font-weight:550;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.005em">{{ r.title }}</div>
+                <div style="font-size:10.5px;color:var(--text-3);font-family:'Geist Mono',monospace">{{ r.meta }}</div>
+              </div>
+              <span style="{{ r.tagStyle }}">{{ r.tag }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+
+    <div style="text-align:center;margin-top:24px;font-size:11px;color:var(--text-3);font-family:'Geist Mono',monospace">Generated from bd list --json · {{ totalBeads }} beads · read-only snapshot</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1180,&quot;height&quot;:1280},&quot;defaultTheme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  ICONS = {
+    logo:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><circle cx="6" cy="6" r="2.4"/><circle cx="18" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/><circle cx="18" cy="18" r="2.4"/><path d="M8.3 6h7.4M6 8.3v7.4M18 8.3v7.4M8.3 18h7.4"/></svg>`,
+    sun:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4.5"/><line x1="12" y1="19.5" x2="12" y2="22"/><line x1="2" y1="12" x2="4.5" y2="12"/><line x1="19.5" y1="12" x2="22" y2="12"/><line x1="4.9" y1="4.9" x2="6.6" y2="6.6"/><line x1="17.4" y1="17.4" x2="19.1" y2="19.1"/><line x1="4.9" y1="19.1" x2="6.6" y2="17.4"/><line x1="17.4" y1="6.6" x2="19.1" y2="4.9"/></svg>`,
+    moon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>`,
+    cal:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><rect x="3" y="4.5" width="18" height="16" rx="2.5"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2.5" x2="8" y2="6"/><line x1="16" y1="2.5" x2="16" y2="6"/></svg>`,
+    replay:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><path d="M3 12a9 9 0 1 0 2.6-6.3"/><polyline points="3 3 3 8 8 8"/></svg>`,
+    timeline:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="18" x2="17" y2="18"/></svg>`,
+    burnup:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><polyline points="3 16 9 11 13 14 21 5"/><polyline points="15 5 21 5 21 11"/></svg>`,
+    effort:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><circle cx="7" cy="14" r="3"/><circle cx="16" cy="8" r="4"/><circle cx="17" cy="17" r="2"/></svg>`,
+    bars:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><line x1="6" y1="20" x2="6" y2="12"/><line x1="12" y1="20" x2="12" y2="5"/><line x1="18" y1="20" x2="18" y2="9"/></svg>`,
+    layers:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><polygon points="12 3 21 8 12 13 3 8 12 3"/><polyline points="3 13 12 18 21 13"/></svg>`,
+    check:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><polyline points="20 6 9 17 4 12"/></svg>`,
+    spin:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><path d="M21 12a9 9 0 1 1-6.2-8.5"/></svg>`,
+    block:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><circle cx="12" cy="12" r="9"/><line x1="5.6" y1="5.6" x2="18.4" y2="18.4"/></svg>`,
+    bolt:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><polygon points="13 2 4 14 11 14 10 22 20 9 13 9 13 2"/></svg>`,
+    user:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
+    bot:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><rect x="4" y="8" width="16" height="12" rx="3"/><line x1="12" y1="4" x2="12" y2="8"/><circle cx="12" cy="3" r="1.1" fill="currentColor"/><line x1="9" y1="13.5" x2="9" y2="15"/><line x1="15" y1="13.5" x2="15" y2="15"/><line x1="2" y1="13" x2="4" y2="13"/><line x1="20" y1="13" x2="22" y2="13"/></svg>`,
+    alert:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><path d="M10.3 3.6 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.6a2 2 0 0 0-3.4 0z"/><line x1="12" y1="9" x2="12" y2="13.5"/><line x1="12" y1="17" x2="12" y2="17"/></svg>`,
+    bug:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><rect x="8" y="6" width="8" height="13" rx="4"/><path d="M8 11H4M16 11h4M8 15H4M16 15h4M9 6.5 7.5 4M15 6.5 16.5 4"/></svg>`,
+    flame:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><path d="M12 2s5 4.5 5 9a5 5 0 0 1-10 0c0-1.6.8-3 1.5-4 .2 1.2 1 2 2 2 .3-3 1.5-5 1.5-7z"/></svg>`,
+    clock:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>`,
+  };
+  HUMANS=["stevey","dana"];
+  AVA=["#6d5ef0","#0ea5e9","#16a34a","#d97706","#db2777","#0891b2","#7c3aed"];
+  WEEKS=8;
+
+  state={ theme:null, viz:"timeline", range:"8", prog:0 };
+
+  // compact dataset: [id,title,type,status,prio,by,assignee,parent]
+  ROWS=[
+    ["bd-9f2a","Adapter & schema","epic","in_progress",1,"stevey","stevey",null],
+    ["bd-3c71","Board read","epic","in_progress",1,"stevey","stevey",null],
+    ["bd-7e40","Write basics","epic","open",2,"stevey","dana",null],
+    ["bd-b18d","Flow & epics","epic","deferred",2,"stevey","",null],
+    ["bd-c552","Dependencies & graph","epic","deferred",3,"claude-agent","",null],
+    ["bd-1a09","Polish & ship","epic","deferred",3,"stevey","",null],
+    ["bd-9f2a.1","bd adapter: execFile + JSON envelope","task","closed",0,"claude-agent","claude-agent","bd-9f2a"],
+    ["bd-9f2a.2","Zod schemas for Bead / Dependency","task","closed",1,"stevey","stevey","bd-9f2a"],
+    ["bd-9f2a.3","Config module (repo path, actor)","task","in_progress",2,"stevey","stevey","bd-9f2a"],
+    ["bd-9f2a.4","bd doctor / version preflight","chore","open",2,"amp-bot","amp-bot","bd-9f2a"],
+    ["bd-9f2a.5","Serialize writes through mutex queue","task","open",1,"stevey","stevey","bd-9f2a"],
+    ["bd-3c71.1","Board columns + card component","feature","in_progress",1,"cursor-agent","cursor-agent","bd-3c71"],
+    ["bd-3c71.2","Top bar filters + text search","feature","open",2,"stevey","","bd-3c71"],
+    ["bd-3c71.3","Origin badge (human vs agent)","feature","closed",2,"stevey","dana","bd-3c71"],
+    ["bd-3c71.4","Detail drawer (read-only)","feature","open",2,"claude-agent","claude-agent","bd-3c71"],
+    ["bd-3c71.5","Empty / loading / error states","chore","deferred",3,"stevey","","bd-3c71"],
+    ["bd-7e40.1","Create modal + bd create wiring","feature","open",1,"stevey","stevey","bd-7e40"],
+    ["bd-7e40.2","Inline edit (changed fields only)","feature","deferred",2,"amp-bot","","bd-7e40"],
+    ["bd-7e40.3","Comments thread + composer","feature","open",2,"stevey","dana","bd-7e40"],
+    ["bd-7e40.4","Attribution stamping (BEADS_ACTOR)","task","closed",1,"stevey","stevey","bd-7e40"],
+    ["bd-7e40.5","Optimistic updates + toasts","task","deferred",2,"claude-agent","","bd-7e40"],
+    ["bd-b18d.1","Backlog ↔ Ready drag-and-drop","feature","deferred",2,"stevey","","bd-b18d"],
+    ["bd-b18d.2","Kanban status columns","feature","deferred",3,"stevey","","bd-b18d"],
+    ["bd-b18d.3","Archive = close + label archived","chore","deferred",3,"amp-bot","","bd-b18d"],
+    ["bd-b18d.4","Epic progress bars","feature","deferred",3,"stevey","","bd-b18d"],
+    ["bd-c552.1","React Flow graph scaffold","spike","deferred",3,"claude-agent","","bd-c552"],
+    ["bd-c552.2","Drag-to-link with cycle check","feature","deferred",3,"stevey","","bd-c552"],
+    ["bd-c552.3","bd dep cycles validation","task","deferred",3,"cursor-agent","","bd-c552"],
+    ["bd-1a09.1","Keyboard nav (n, /, j, k, e)","chore","deferred",4,"stevey","","bd-1a09"],
+    ["bd-1a09.2","Playwright e2e flows","chore","deferred",4,"amp-bot","","bd-1a09"],
+    ["bd-1a09.3","README + setup docs","story","deferred",4,"stevey","","bd-1a09"],
+    ["bd-44b1","Decision: Backlog = deferred status","decision","closed",1,"stevey","stevey",null],
+    ["bd-8d3e","Bug: ready queue shows deferred beads","bug","open",0,"claude-agent","stevey",null],
+    ["bd-2f9c","Bug: drag-drop flickers on rollback","bug","blocked",1,"cursor-agent","cursor-agent",null],
+    ["bd-0e21","Spike: dnd-kit vs native HTML5 DnD","spike","closed",2,"stevey","stevey",null],
+    ["bd-6b55","Chore: CI cache for bd binary","chore","in_progress",3,"amp-bot","amp-bot",null],
+  ];
+
+  hash(s){let h=0;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return h;}
+  beads(){
+    if(this._b) return this._b;
+    const FIB=[1,2,3,5,8];
+    this._b=this.ROWS.map(r=>{
+      const [id,title,issue_type,status,priority,created_by,assignee,parent]=r;
+      const h=this.hash(id);
+      const effort=issue_type==="epic"?0:FIB[h%5];
+      const cw=1+(h%5); // created week 1..5
+      let clw=null;
+      if(status==="closed") clw=Math.min(this.WEEKS, Math.max(cw+1, 3+(h%4)));
+      return {id,title,issue_type,status,priority,created_by,assignee,parent,effort,createdWeek:cw,closedWeek:clw,blocked:status==="blocked"};
+    });
+    return this._b;
+  }
+  tasks(){return this.beads().filter(b=>b.issue_type!=="epic");}
+  epics(){return this.beads().filter(b=>b.issue_type==="epic");}
+  isHuman(n){return this.HUMANS.includes(n);}
+  origin(b){return this.isHuman(b.created_by)?"human":"agent";}
+  childrenOf(id){return this.beads().filter(b=>b.parent===id);}
+  cat(s){if(s==="closed")return"done";if(s==="in_progress")return"wip";if(s==="blocked")return"blocked";if(s==="deferred")return"frozen";return"ready";}
+  catColor(s){return{done:"var(--green)",wip:"var(--amber)",blocked:"var(--red)",frozen:"var(--slate)",ready:"var(--blue)"}[this.cat(s)];}
+  statusLabel(s){return{open:"Open",in_progress:"In progress",blocked:"Blocked",deferred:"Deferred",closed:"Closed"}[s]||s;}
+  prioColor(p){return["var(--red)","#f97316","var(--amber)","var(--blue)","var(--slate)"][p];}
+  prioLabel(p){return["P0 Critical","P1 High","P2 Medium","P3 Low","P4 Backlog"][p];}
+  avatarColor(n){if(!n)return"#9aa0aa";return this.AVA[this.hash(n)%this.AVA.length];}
+  initials(n){if(!n)return"?";const p=n.split(/[-_ .]/).filter(Boolean);return(p.length>=2?p[0][0]+p[1][0]:n.slice(0,2)).toUpperCase();}
+  short(n){if(!n)return"unassigned";return n.replace(/-(agent|bot)$/,"");}
+
+  // ---------- animation ----------
+  startAnim(){
+    if(this._raf) cancelAnimationFrame(this._raf);
+    if(this._fb) clearTimeout(this._fb);
+    const dur=750,t0=performance.now();
+    const ease=t=>1-Math.pow(1-t,3);
+    const step=(now)=>{
+      const t=Math.min(1,(now-t0)/dur);
+      this.setState({prog:ease(t)});
+      if(t<1) this._raf=requestAnimationFrame(step);
+      else if(this._fb){clearTimeout(this._fb);this._fb=null;}
+    };
+    this.setState({prog:0});
+    this._raf=requestAnimationFrame(step);
+    // Fallback: timeouts fire even when rAF is throttled (e.g. background/capture),
+    // guaranteeing the report rests at its fully-rendered state.
+    this._fb=setTimeout(()=>{this.setState({prog:1});this._fb=null;if(this._raf)cancelAnimationFrame(this._raf);},950);
+  }
+  componentDidMount(){this.startAnim();}
+  componentWillUnmount(){if(this._raf)cancelAnimationFrame(this._raf);if(this._fb)clearTimeout(this._fb);}
+
+  // ---------- KPIs ----------
+  kpisVM(p){
+    const tasks=this.tasks();
+    const total=tasks.length;
+    const done=tasks.filter(b=>b.status==="closed").length;
+    const wip=tasks.filter(b=>b.status==="in_progress").length;
+    const blocked=this.beads().filter(b=>b.status==="blocked").length;
+    const closedByWk=this.closedPerWeek();
+    const vel=(closedByWk.slice(-4).reduce((a,b)=>a+b,0)/4);
+    const agent=this.beads().filter(b=>this.origin(b)==="agent").length;
+    const agentPct=Math.round(agent/this.beads().length*100);
+    const donePct=Math.round(done/total*100);
+    const spark=(arr,max)=>arr.map(v=>({h:Math.max(8,Math.round((v/(max||1))*100*p))+"%"}));
+    const cw=this.createdPerWeek();
+    const mk=(label,icon,color,tint,value,unit,spark,delta,deltaColor,delay)=>({label,icon:{__html:this.ICONS[icon]},color,tint,value,unit,spark,delta,deltaColor,delay});
+    const maxC=Math.max(...closedByWk,1);
+    return [
+      mk("Total beads","layers","var(--accent)","var(--accent-weak)",Math.round(total*p),"",spark(cw,Math.max(...cw,1)),"+"+cw.slice(-1)[0]+" this wk","var(--text-3)","0s"),
+      mk("Completion","check","var(--green)","color-mix(in srgb,var(--green) 14%,transparent)",Math.round(donePct*p),"%",spark(this.closedCum(),total),done+"/"+total,"var(--green)",".05s"),
+      mk("In progress","spin","var(--amber)","color-mix(in srgb,var(--amber) 14%,transparent)",Math.round(wip*p),"",spark(closedByWk,maxC),"active","var(--text-3)",".1s"),
+      mk("Blocked","block","var(--red)","color-mix(in srgb,var(--red) 14%,transparent)",Math.round(blocked*p),"",spark([1,0,1,1,0,1,blocked],2),"needs unblock","var(--red)",".15s"),
+      mk("Velocity","bolt","var(--blue)","color-mix(in srgb,var(--blue) 14%,transparent)",(vel*p).toFixed(1),"/wk",spark(closedByWk,maxC),"4-wk avg","var(--text-3)",".2s"),
+      mk("Agent share","bot","var(--accent-2)","var(--accent-weak)",Math.round(agentPct*p),"%",spark([2,3,2,4,3,5,agent],Math.max(agent,5)),agent+" beads","var(--text-3)",".25s"),
+    ];
+  }
+
+  // ---------- time series ----------
+  createdPerWeek(){const a=Array(this.WEEKS).fill(0);this.beads().forEach(b=>{if(b.createdWeek>=1&&b.createdWeek<=this.WEEKS)a[b.createdWeek-1]++;});return a;}
+  closedPerWeek(){const a=Array(this.WEEKS).fill(0);this.beads().forEach(b=>{if(b.closedWeek)a[b.closedWeek-1]++;});return a;}
+  createdCum(){const w=this.createdPerWeek();const o=[];let s=0;w.forEach(v=>{s+=v;o.push(s);});return o;}
+  closedCum(){const w=this.closedPerWeek();const o=[];let s=0;w.forEach(v=>{s+=v;o.push(s);});return o;}
+
+  weekLabels(){return Array.from({length:this.WEEKS},(_,i)=>"W"+(i+1));}
+
+  // ---------- gantt ----------
+  ganttVM(p){
+    const spans={"bd-9f2a":[1,3],"bd-3c71":[2,5],"bd-7e40":[4,6],"bd-b18d":[5,7],"bd-c552":[6,8],"bd-1a09":[7,8]};
+    const W=this.WEEKS;
+    return this.epics().map(e=>{
+      const kids=this.childrenOf(e.id);
+      const closed=kids.filter(k=>k.status==="closed").length;
+      const pct=kids.length?Math.round(closed/kids.length*100):0;
+      const [s,en]=spans[e.id]||[1,W];
+      const left=((s-1)/W)*100;
+      const width=((en-s+1)/W)*100*p;
+      const color=this.catColor(e.status);
+      const dark=this.state.theme==="dark";
+      return {
+        id:e.id,label:e.title,color,
+        meta:"W"+s+"–W"+en+" · "+kids.length+" beads",
+        pct,pctColor:pct>22?"#fff":"var(--text-2)",
+        barStyle:{position:"absolute",top:"9px",height:"28px",left:left+"%",width:width+"%",borderRadius:"7px",background:"color-mix(in srgb,"+color+" 22%,transparent)",border:"1px solid color-mix(in srgb,"+color+" 45%,transparent)",display:"flex",alignItems:"center",overflow:"visible",transition:"none"},
+        fillStyle:{position:"absolute",left:0,top:0,bottom:0,width:pct+"%",borderRadius:"6px",background:color,opacity:.92},
+        diamondStyle:{position:"absolute",right:"-6px",top:"50%",width:"11px",height:"11px",transform:"translateY(-50%) rotate(45deg)",background:color,border:"2px solid var(--surface)",borderRadius:"2px"},
+      };
+    });
+  }
+
+  // ---------- burnup ----------
+  burnupVM(p){
+    const W=680,H=264,L=40,R=668,T=16,B=234;
+    const cc=this.createdCum(),clc=this.closedCum();
+    const total=Math.max(...cc,1);
+    const x=i=>L+(i/(this.WEEKS-1))*(R-L);
+    const y=v=>B-(v/total)*(B-T);
+    const labels=this.weekLabels();
+    const lineP=arr=>arr.map((v,i)=>(i?"L":"M")+x(i).toFixed(1)+" "+y(v).toFixed(1)).join(" ");
+    const closedPath=lineP(clc);
+    const createdPath=lineP(cc);
+    const areaPath=clc.map((v,i)=>(i?"L":"M")+x(i).toFixed(1)+" "+y(v).toFixed(1)).join(" ")+" L"+x(this.WEEKS-1).toFixed(1)+" "+B+" L"+L+" "+B+" Z";
+    const yTicks=[0,.25,.5,.75,1].map(f=>{const v=Math.round(total*f);const yy=y(v);return{y:yy,ty:yy+3,v};});
+    const xTicks=labels.map((l,i)=>({x:x(i),label:l}));
+    const closedDots=clc.map((v,i)=>({x:x(i),y:y(v)}));
+    const doneNow=clc[clc.length-1];
+    const vel=this.closedPerWeek().slice(-4).reduce((a,b)=>a+b,0)/4;
+    const remaining=total-doneNow;
+    const projWeeks=vel>0?Math.ceil(remaining/vel):"—";
+    return {
+      clipW:(L+(R-L)*p).toFixed(1),
+      areaPath,createdPath,closedPath,closedDots,yTicks,xTicks,
+      scope:total,scopeY:y(total),scopeLabelY:y(total)-5,
+      gapPct:Math.round(doneNow/total*100),
+      projWeeks:projWeeks,
+    };
+  }
+
+  // ---------- effort bubble ----------
+  effortVM(p){
+    const W=680,T=16,B=234,L=46,R=668;
+    const maxE=13;
+    const cols=[0,1,2,3,4];
+    const cx=pr=>L+((pr+0.5)/5)*(R-L);
+    const y=e=>B-(e/maxE)*(B-T);
+    const bubbles=this.tasks().map(b=>{
+      const h=this.hash(b.id);
+      const jit=((h%40)-20)*0.5;
+      const c=this.catColor(b.status);
+      return {x:(cx(b.priority)+jit).toFixed(1),y:y(b.effort).toFixed(1),r:(5+b.effort*1.5).toFixed(1),fill:c,title:b.id+" · "+b.title+" · "+b.effort+"p · "+this.statusLabel(b.status)};
+    });
+    // animate radius via prog
+    bubbles.forEach(b=>{b.r=(Number(b.r)*p).toFixed(1);});
+    const yTicks=[0,4,8,12].map(v=>{const yy=y(v);return{y:yy,ty:yy+3,v};});
+    const xCols=cols.map(pr=>({x:cx(pr),label:"P"+pr}));
+    const byCat={};
+    this.tasks().forEach(b=>{const c=this.cat(b.status);byCat[c]=(byCat[c]||0)+b.effort;});
+    const legMap=[["done","Done","var(--green)"],["wip","In progress","var(--amber)"],["ready","Ready/open","var(--blue)"],["blocked","Blocked","var(--red)"],["frozen","Deferred","var(--slate)"]];
+    const legend=legMap.filter(m=>byCat[m[0]]).map(m=>({label:m[1],color:m[2],pts:byCat[m[0]]||0}));
+    const total=this.tasks().reduce((a,b)=>a+b.effort,0);
+    const done=this.tasks().filter(b=>b.status==="closed").reduce((a,b)=>a+b.effort,0);
+    return {bubbles,yTicks,xCols,legend,total,remaining:total-done};
+  }
+
+  // ---------- throughput ----------
+  throughputVM(p){
+    const W=680,T=16,B=234,L=34,R=668;
+    const data=this.closedPerWeek();
+    const max=Math.max(...data,1);
+    const n=data.length;
+    const slot=(R-L)/n;
+    const bw=slot*0.58;
+    const y=v=>B-(v/max)*(B-T);
+    const labels=this.weekLabels();
+    const bars=data.map((v,i)=>{
+      const fullH=B-y(v);const h=fullH*p;
+      const x=L+i*slot+(slot-bw)/2;
+      return {x:x.toFixed(1),y:(B-h).toFixed(1),w:bw.toFixed(1),h:h.toFixed(1),cx:(x+bw/2).toFixed(1),label:labels[i],fill:i>=n-1?"var(--accent)":"color-mix(in srgb,var(--accent) 78%,transparent)",title:labels[i]+": "+v+" closed"};
+    });
+    const avg=data.reduce((a,b)=>a+b,0)/n;
+    const yTicks=[0,Math.ceil(max/2),max].map(v=>{const yy=y(v);return{y:yy,ty:yy+3,v};});
+    const best=Math.max(...data);const bestWk=labels[data.indexOf(best)];
+    const recent=data.slice(-2).reduce((a,b)=>a+b,0)/2;const prior=data.slice(-4,-2).reduce((a,b)=>a+b,0)/2;
+    const diff=recent-prior;
+    return {bars,yTicks,avg:avg.toFixed(1),avgY:y(avg),avgLabelY:y(avg)-5,best,bestWk,trend:(diff>=0?"+":"")+diff.toFixed(1),trendColor:diff>=0?"var(--green)":"var(--red)"};
+  }
+
+  // ---------- donut ----------
+  donutVM(p){
+    const tasks=this.tasks();
+    const cats=[["done","Done","var(--green)"],["wip","In progress","var(--amber)"],["ready","Ready / open","var(--blue)"],["blocked","Blocked","var(--red)"],["frozen","Deferred","var(--slate)"]];
+    const counts={};tasks.forEach(b=>{const c=this.cat(b.status);counts[c]=(counts[c]||0)+1;});
+    const total=tasks.length;
+    const C=2*Math.PI*60;
+    let acc=0;
+    const segs=[];const legend=[];
+    cats.forEach(([k,label,color])=>{
+      const n=counts[k]||0;if(n===0){legend.push({label,color,count:0,pct:0});return;}
+      const frac=n/total;
+      const seg=frac*C*p;
+      segs.push({color,dash:seg.toFixed(2)+" "+(C-seg).toFixed(2),offset:(-acc*C).toFixed(2)});
+      acc+=frac;
+      legend.push({label,color,count:n,pct:Math.round(frac*100)});
+    });
+    return {segs,legend,donePct:Math.round((counts.done||0)/total*100*p)};
+  }
+
+  // ---------- priority ----------
+  priorityVM(p){
+    const tasks=this.tasks();
+    const max=Math.max(...[0,1,2,3,4].map(pr=>tasks.filter(b=>b.priority===pr).length),1);
+    return [0,1,2,3,4].map(pr=>{
+      const items=tasks.filter(b=>b.priority===pr);
+      const n=items.length;const color=this.prioColor(pr);
+      return {label:"P"+pr,color,count:n,barStyle:{height:"100%",width:(n/max*100*p)+"%",borderRadius:"6px",background:color,transition:"none"}};
+    });
+  }
+
+  // ---------- origin ----------
+  originVM(p){
+    const all=this.beads();
+    const make=(kind,label,icon,color,tint)=>{
+      const items=all.filter(b=>this.origin(b)===kind);
+      const closed=items.filter(b=>b.status==="closed").length;
+      return {kind,label,icon:{__html:this.ICONS[icon]},color,tint,count:items.length,pct:Math.round(items.length/all.length*100),closed,rate:items.length?Math.round(closed/items.length*100):0};
+    };
+    const human=make("human","Human","user","var(--text-2)","var(--surface-3)");
+    const agent=make("agent","Agent","bot","var(--accent)","var(--accent-weak)");
+    const hPct=human.count/all.length*100,aPct=agent.count/all.length*100;
+    return {
+      cards:[human,agent],
+      humanBar:{width:(hPct*p)+"%",background:"var(--slate)",transition:"none"},
+      agentBar:{width:(aPct*p)+"%",background:"var(--accent)",transition:"none"},
+      agentPct:agent.pct,
+      note:agent.pct>=50?"agents are now the primary authors":"humans still lead authorship",
+    };
+  }
+
+  // ---------- workload ----------
+  workloadVM(p){
+    const tasks=this.tasks().filter(b=>b.assignee);
+    const names=[...new Set(tasks.map(b=>b.assignee))];
+    const rows=names.map(name=>{
+      const items=tasks.filter(b=>b.assignee===name);
+      const done=items.filter(b=>b.status==="closed").length;
+      const wip=items.filter(b=>b.status==="in_progress").length;
+      const blk=items.filter(b=>b.status==="blocked").length;
+      const open=items.length-done-wip-blk;
+      const total=items.length;
+      const seg=(v,color)=>({height:"100%",width:(v/total*100*p)+"%",background:color,transition:"none"});
+      return {name:this.short(name),initials:this.initials(name),color:this.avatarColor(name),total,done,wip,open,blk,_t:total,
+        doneStyle:seg(done,"var(--green)"),wipStyle:seg(wip,"var(--amber)"),openStyle:seg(open,"var(--blue)"),blockStyle:seg(blk,"var(--red)")};
+    }).sort((a,b)=>b._t-a._t);
+    return rows;
+  }
+
+  // ---------- epic bars ----------
+  epicBarsVM(p){
+    return this.epics().map(e=>{
+      const kids=this.childrenOf(e.id);
+      const closed=kids.filter(k=>k.status==="closed").length;
+      const total=kids.length;const pct=total?Math.round(closed/total*100):0;
+      const color=this.catColor(e.status);
+      const cc=this.catColor(e.status);
+      return {id:e.id,title:e.title,statusLabel:this.statusLabel(e.status),
+        chipStyle:{fontSize:"10px",fontWeight:600,padding:"2px 7px",borderRadius:"20px",color:cc,background:"color-mix(in srgb,"+cc+" 16%,transparent)",border:"1px solid color-mix(in srgb,"+cc+" 33%,transparent)",flexShrink:0},
+        pct,closed,total,
+        barStyle:{height:"100%",width:(pct*p)+"%",borderRadius:"6px",background:pct===100?"var(--green)":"var(--accent)",transition:"none"}};
+    });
+  }
+
+  // ---------- risk ----------
+  riskVM(){
+    const items=[];
+    this.beads().filter(b=>b.status==="blocked").forEach(b=>items.push({...b,kind:"blocked"}));
+    this.tasks().filter(b=>b.priority===0&&b.status!=="closed").forEach(b=>items.push({...b,kind:"crit"}));
+    this.tasks().filter(b=>b.status==="deferred"&&b.priority<=2).slice(0,2).forEach(b=>items.push({...b,kind:"stale"}));
+    const seen=new Set();const uniq=items.filter(b=>{if(seen.has(b.id))return false;seen.add(b.id);return true;}).slice(0,6);
+    const map={blocked:{icon:"block",color:"var(--red)",tag:"Blocked",tagC:"var(--red)"},crit:{icon:"flame",color:"#f97316",tag:"P0",tagC:"#f97316"},stale:{icon:"clock",color:"var(--slate)",tag:"Stale",tagC:"var(--slate)"}};
+    return {
+      summary:uniq.length+" beads flagged · blocked, critical or stalling",
+      items:uniq.map(b=>{const m=map[b.kind];return {title:b.title,meta:b.id+" · "+this.statusLabel(b.status)+" · "+this.short(b.assignee||"unassigned"),icon:{__html:this.ICONS[m.icon]},color:m.color,tag:m.tag,tagStyle:{fontSize:"10px",fontWeight:700,padding:"3px 8px",borderRadius:"6px",color:m.tagC,background:"color-mix(in srgb,"+m.tagC+" 15%,transparent)",flexShrink:0}};}),
+    };
+  }
+
+  renderVals(){
+    const I=n=>({__html:this.ICONS[n]});
+    const theme=this.state.theme||this.props.defaultTheme||"light";
+    const p=this.state.prog;
+    const viz=this.state.viz;
+    const tabsDef=[["timeline","Timeline","timeline"],["burnup","Burnup","burnup"],["effort","Effort","effort"],["throughput","Throughput","bars"]];
+    const vizTabs=tabsDef.map(([k,label,icon])=>{
+      const active=viz===k;
+      return {label,icon:I(icon),onClick:()=>this.setState({viz:k}),
+        style:{display:"flex",alignItems:"center",gap:"6px",padding:"6px 12px",borderRadius:"7px",border:"none",cursor:"pointer",fontSize:"12.5px",fontWeight:active?600:500,background:active?"var(--surface)":"transparent",color:active?"var(--text)":"var(--text-3)",boxShadow:active?"var(--shadow)":"none"}};
+    });
+    const titles={timeline:["Milestone timeline","Epics M0–M5 across the project, fill = completion"],burnup:["Scope burnup","Cumulative created vs closed against total scope"],effort:["Effort landscape","Every bead by priority and story points · size = effort"],throughput:["Weekly throughput","Beads closed per week vs rolling average"]};
+
+    return {
+      theme, asOf:"as of Jun 24, 2026",
+      logoIcon:I("logo"), calIcon:I("cal"), replayIcon:I("replay"), alertIcon:I("alert"),
+      themeIcon:I(theme==="dark"?"sun":"moon"),
+      onToggleTheme:()=>this.setState({theme:theme==="dark"?"light":"dark"}),
+      onReplay:()=>this.startAnim(),
+      range:this.state.range, onRange:e=>this.setState({range:e.target.value}),
+      totalBeads:this.beads().length,
+
+      kpis:this.kpisVM(p),
+
+      vizTabs, mainTitle:titles[viz][0], mainSub:titles[viz][1],
+      isTimeline:viz==="timeline", isBurnup:viz==="burnup", isEffort:viz==="effort", isThroughput:viz==="throughput",
+      weekCols:this.weekLabels().map(l=>({label:l})),
+      gantt:this.ganttVM(p),
+      burnup:this.burnupVM(p),
+      effort:this.effortVM(p),
+      throughput:this.throughputVM(p),
+
+      donut:this.donutVM(p),
+      priority:this.priorityVM(p),
+      origin:this.originVM(p),
+      workload:this.workloadVM(p),
+      workloadLegend:[{label:"Done",color:"var(--green)"},{label:"In progress",color:"var(--amber)"},{label:"Open",color:"var(--blue)"},{label:"Blocked",color:"var(--red)"}],
+      epicBars:this.epicBarsVM(p),
+      risk:this.riskVM(),
+    };
+  }
+}
+</script>
+</body>
+</html>

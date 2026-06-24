@@ -31,6 +31,8 @@ export interface AppConfig {
    * ordered bead ids. Lets users drag beads within a column to set work order.
    */
   orders: Record<string, Record<string, string[]>>;
+  /** Opt-in: show the gamification XP/level layer (off by default). */
+  gamification: boolean;
 }
 
 /**
@@ -77,6 +79,7 @@ function defaults(): AppConfig {
     pollIntervalMs: 30000,
     projects: [],
     orders: {},
+    gamification: false,
   };
 }
 
@@ -200,6 +203,7 @@ export function getConfig(): AppConfig {
       onDisk?.orders && typeof onDisk.orders === "object" && !Array.isArray(onDisk.orders)
         ? (onDisk.orders as Record<string, Record<string, string[]>>)
         : {},
+    gamification: typeof onDisk?.gamification === "boolean" ? onDisk.gamification : d.gamification,
   };
 
   // One-time migration: back-fill the registry from the legacy single repoPath
@@ -225,7 +229,7 @@ export function getConfig(): AppConfig {
 
 /** Update global settings (actor / allowlist / poll). Project registry has its own mutators. */
 export function saveConfig(
-  patch: Partial<Pick<AppConfig, "humanActor" | "humanAllowlist" | "pollIntervalMs">>,
+  patch: Partial<Pick<AppConfig, "humanActor" | "humanAllowlist" | "pollIntervalMs" | "gamification">>,
 ): AppConfig {
   const next = { ...getConfig(), ...patch };
   persist(next);

@@ -57,7 +57,7 @@ export function CreateBeadModal({
       <DialogContent
         showCloseButton={false}
         style={{ width, maxWidth: "96vw" }}
-        className="gap-0 overflow-hidden rounded-2xl border border-border bg-[var(--surface)] p-0 shadow-[var(--shadow-lg)]"
+        className="flex max-h-[92vh] flex-col gap-0 overflow-hidden rounded-2xl border border-border bg-[var(--surface)] p-0 shadow-[var(--shadow-lg)]"
       >
         <div
           onPointerDown={startResize}
@@ -120,7 +120,7 @@ function CreateForm({ parent, onClose }: { parent: string; onClose: () => void }
   );
 
   function submit() {
-    if (!form.title.trim()) return;
+    if (!form.title.trim() || create.isPending) return;
     create.mutate(
       {
         title: form.title.trim(),
@@ -153,9 +153,26 @@ function CreateForm({ parent, onClose }: { parent: string; onClose: () => void }
     );
   }
 
+  // Cmd/Ctrl+Enter creates the bead from anywhere in the modal. A ref keeps the
+  // listener pointed at the latest closure without re-binding on every keystroke.
+  const submitRef = React.useRef(submit);
+  React.useEffect(() => {
+    submitRef.current = submit;
+  });
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        e.preventDefault();
+        submitRef.current();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+
   return (
     <>
-      <div className="flex items-center gap-[10px] border-b border-border p-[17px_20px]">
+      <div className="flex shrink-0 items-center gap-[10px] border-b border-border p-[17px_20px]">
         <div className="flex h-[30px] w-[30px] items-center justify-center rounded-[9px] bg-[var(--brand-weak)] text-[var(--brand)]">
           <Icon name="plus" size={16} />
         </div>
@@ -175,7 +192,7 @@ function CreateForm({ parent, onClose }: { parent: string; onClose: () => void }
         </button>
       </div>
 
-      <div className="flex flex-col gap-[14px] p-5">
+      <div className="flex min-h-0 flex-1 flex-col gap-[14px] overflow-y-auto p-5">
         <div className="grid grid-cols-2 gap-3">
           <label className="flex flex-col gap-[6px]">
             <span className={labelClass}>Type</span>
@@ -218,7 +235,9 @@ function CreateForm({ parent, onClose }: { parent: string; onClose: () => void }
             placeholder="What needs doing?"
             onKeyDown={(e) => {
               // Enter submits (titles are single-line); the box still grows as text wraps.
-              if (e.key === "Enter" && !e.shiftKey) {
+              // Cmd/Ctrl+Enter is owned by the modal-wide listener — skip it here so it
+              // doesn't submit twice.
+              if (e.key === "Enter" && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
                 e.preventDefault();
                 submit();
               }
@@ -339,7 +358,7 @@ function CreateForm({ parent, onClose }: { parent: string; onClose: () => void }
         </label>
       </div>
 
-      <div className="flex items-center gap-[10px] border-t border-border p-[15px_20px]">
+      <div className="flex shrink-0 items-center gap-[10px] border-t border-border p-[15px_20px]">
         <div className="flex flex-1 items-center gap-[7px] text-[11.5px] text-[var(--text-3)]">
           <Icon name="user" size={13} className="text-[var(--text-2)]" />
           <span>

@@ -12,6 +12,7 @@ import { useApp } from "@/components/app-context";
 import { useImageDrop } from "@/hooks/use-image-drop";
 import { useResizableWidth } from "@/hooks/use-resizable-width";
 import { DescriptionContent } from "@/components/description-content";
+import { AiAssistPanel } from "@/components/ai-assist-panel";
 import {
   useUpdateBead,
   useSetStatus,
@@ -32,6 +33,8 @@ import {
   epicOf,
   relTime,
   fmtDate,
+  checklistProgress,
+  toggleTask,
 } from "@/lib/beads-view";
 import { BEAD_STATUSES, BLOCKING_DEP_TYPES, type Bead, type DepType } from "@/lib/schema";
 
@@ -101,8 +104,10 @@ function DrawerBody({ bead, onClose }: { bead: Bead; onClose: () => void }) {
 
   // Inline edit of title + description (with image drop/paste on the textarea).
   const [editing, setEditing] = React.useState(false);
+  const [previewEdit, setPreviewEdit] = React.useState(false);
   const [titleDraft, setTitleDraft] = React.useState(bead.title);
   const [descDraft, setDescDraft] = React.useState(bead.description ?? "");
+  const progress = checklistProgress(bead.description);
   const descRef = React.useRef<HTMLTextAreaElement>(null);
   const fileRef = React.useRef<HTMLInputElement>(null);
   const drop = useImageDrop({
@@ -261,14 +266,34 @@ function DrawerBody({ bead, onClose }: { bead: Bead; onClose: () => void }) {
         <Section>
           <div className={`${fieldLabel} mb-[6px] flex items-center gap-2`}>
             <span>Description</span>
-            {editing && !isDemo && (
+            {progress.total > 0 && (
+              <span className="rounded-full border border-border bg-[var(--surface-2)] px-[7px] py-px font-normal normal-case tracking-normal text-[var(--text-2)]">
+                {progress.done}/{progress.total} done
+              </span>
+            )}
+            {editing && !isDemo && !previewEdit && (
               <span className="font-normal normal-case tracking-normal text-[var(--text-3)]">
                 · drop or paste images
               </span>
             )}
+            {editing && (
+              <button
+                onClick={() => setPreviewEdit((p) => !p)}
+                className="ml-auto rounded-md border border-border bg-[var(--surface-2)] px-[8px] py-[2px] text-[11px] font-normal normal-case tracking-normal text-[var(--text-2)] hover:bg-[var(--surface-3)]"
+              >
+                {previewEdit ? "Write" : "Preview"}
+              </button>
+            )}
           </div>
           {editing ? (
             <>
+              {previewEdit ? (
+                <DescriptionContent
+                  text={descDraft.trim() ? descDraft : "_Nothing to preview yet._"}
+                  projectId={projectId}
+                  className="rounded-[10px] border border-border bg-[var(--surface-2)] p-[12px_13px] text-[13.5px] leading-[1.55] text-[var(--text-2)]"
+                />
+              ) : (
               <div
                 className="relative"
                 onDrop={drop.onDrop}
@@ -280,6 +305,13 @@ function DrawerBody({ bead, onClose }: { bead: Bead; onClose: () => void }) {
                   value={descDraft}
                   onChange={(e) => setDescDraft(e.target.value)}
                   onPaste={drop.onPaste}
+                  onKeyDown={(e) => {
+                    // Cmd/Ctrl+Enter saves the edit, mirroring the create modal.
+                    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                      e.preventDefault();
+                      saveEdit();
+                    }
+                  }}
                   rows={6}
                   placeholder="Describe this bead…"
                   className={`w-full resize-y rounded-[10px] border bg-[var(--surface-2)] p-[12px_13px] text-[13.5px] leading-[1.55] text-[var(--text)] outline-none ${
@@ -292,8 +324,9 @@ function DrawerBody({ bead, onClose }: { bead: Bead; onClose: () => void }) {
                   </span>
                 )}
               </div>
+              )}
               <div className="mt-2 flex items-center gap-2">
-                {!isDemo && (
+                {!isDemo && !previewEdit && (
                   <>
                     <input
                       ref={fileRef}
@@ -332,6 +365,12 @@ function DrawerBody({ bead, onClose }: { bead: Bead; onClose: () => void }) {
             <DescriptionContent
               text={bead.description}
               projectId={projectId}
+              onToggleTask={(idx) =>
+                update.mutate({
+                  id: bead.id,
+                  patch: { description: toggleTask(bead.description ?? "", idx) },
+                })
+              }
               className="rounded-[10px] border border-border bg-[var(--surface-2)] p-[12px_13px] text-[13.5px] leading-[1.55] text-[var(--text-2)] [text-wrap:pretty]"
             />
           ) : (
@@ -339,6 +378,7 @@ function DrawerBody({ bead, onClose }: { bead: Bead; onClose: () => void }) {
               No description.
             </div>
           )}
+          {!editing && !isDemo && <AiAssistPanel bead={bead} />}
         </Section>
 
         {/* Dependencies */}

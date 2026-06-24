@@ -11,12 +11,42 @@ import { useApp } from "@/components/app-context";
 
 /** Query key is scoped per project so tabs on different projects never collide. */
 export const beadsKey = (projectId: string) => ["beads", projectId] as const;
+export const activityKey = (projectId: string) => ["activity", projectId] as const;
 
 export function useBeads(projectId: string) {
   return useQuery({
     queryKey: beadsKey(projectId),
     queryFn: () => api.list(projectId),
     refetchInterval: (q) => q.state.data?.meta.pollIntervalMs ?? 5000,
+  });
+}
+
+/** Recent activity feed for a project. Invalidated by the SSE stream on change;
+ *  the interval is just a fallback. */
+export function useActivity(projectId: string) {
+  return useQuery({
+    queryKey: activityKey(projectId),
+    queryFn: () => api.activity(projectId),
+    refetchInterval: 20000,
+  });
+}
+
+/** Flow-metrics for the Insights dashboard over a rolling window of `days`. */
+export function useInsights(projectId: string, days: number) {
+  return useQuery({
+    queryKey: ["insights", projectId, days],
+    queryFn: () => api.insights(projectId, days),
+    refetchInterval: 30000,
+  });
+}
+
+/** Gamification XP/level stats. Only enabled when the feature is opted in. */
+export function useGamification(projectId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["gamification", projectId],
+    queryFn: () => api.gamification(projectId),
+    enabled,
+    refetchInterval: 30000,
   });
 }
 
@@ -141,6 +171,33 @@ export function useRemoveDep() {
     mutationToast<{ id: string; dependsOnId: string }, Bead>(
       ({ id, dependsOnId }) => api.removeDep(projectId, id, dependsOnId),
       () => "Dependency removed · bd dep remove",
+      qc,
+      beadsKey(projectId),
+    ),
+  );
+}
+
+/** "Needs You" inbox: respond (comment + close) or dismiss (drop the human label). */
+export function useRespondHuman() {
+  const { projectId } = useApp();
+  const qc = useQueryClient();
+  return useMutation(
+    mutationToast<{ id: string; text: string }, Bead>(
+      ({ id, text }) => api.human.respond(projectId, id, text),
+      (a) => `Responded to ${a.id}`,
+      qc,
+      beadsKey(projectId),
+    ),
+  );
+}
+
+export function useDismissHuman() {
+  const { projectId } = useApp();
+  const qc = useQueryClient();
+  return useMutation(
+    mutationToast<{ id: string }, Bead>(
+      ({ id }) => api.human.dismiss(projectId, id),
+      (a) => `Dismissed ${a.id}`,
       qc,
       beadsKey(projectId),
     ),

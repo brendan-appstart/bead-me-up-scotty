@@ -13,6 +13,7 @@ import { Icon } from "@/components/icons";
 import { useApp } from "@/components/app-context";
 import { useSetStatus } from "@/hooks/use-beads";
 import { useOrder, useSetOrder } from "@/hooks/use-order";
+import { useBoardPrefs } from "@/hooks/use-board-prefs";
 import { isBlocked } from "@/lib/beads-view";
 import { FilterBar } from "@/components/filter-bar";
 import { matchesFilters, emptyFilters, type Filters } from "@/lib/filters";
@@ -25,6 +26,7 @@ export function Board() {
   const setStatus = useSetStatus();
   const { data: orderData } = useOrder(projectId);
   const setOrder = useSetOrder(projectId);
+  const { prefs: boardPrefs } = useBoardPrefs();
   const orders = React.useMemo(() => orderData?.orders ?? {}, [orderData]);
   const [filters, setFilters] = React.useState<Filters>(emptyFilters);
   const [showArchived, setShowArchived] = React.useState(false);
@@ -50,6 +52,18 @@ export function Board() {
         cards: sortCards(visible.filter((b) => c.test(b, isBlocked(b, index))), orders[c.id]),
       })),
     [visible, index, orders],
+  );
+
+  // Hide the Blocked column when it's empty, unless the user pinned it to always
+  // show (bead mo3). Drag logic below still uses the full `columns` set; a hidden
+  // Blocked column has zero cards, so nothing is ever dropped into or out of it.
+  const shownColumns = React.useMemo(
+    () =>
+      columns.filter(
+        ({ col, cards }) =>
+          col.id !== "blocked" || cards.length > 0 || boardPrefs.blockedColumn === "always",
+      ),
+    [columns, boardPrefs.blockedColumn],
   );
 
   // Which column each visible bead currently sits in (drag targets resolve here).
@@ -122,7 +136,7 @@ export function Board() {
         ) : (
           <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={onDragEnd}>
             <div className="flex h-full min-h-0 gap-4">
-              {columns.map(({ col, cards }) => (
+              {shownColumns.map(({ col, cards }) => (
                 <Column key={col.id} col={col} cards={cards} />
               ))}
             </div>
