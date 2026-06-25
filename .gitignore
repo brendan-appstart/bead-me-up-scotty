@@ -52,3 +52,7 @@ next-env.d.ts
 .dolt/
 *.db
 .beads-credential-key
+
+# Claude Code git worktrees — transient working copies of the repo, never source.
+# (Other .claude/ files like commands/ and settings.json stay tracked.)
+.claude/worktrees/

@@ -14,6 +14,9 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Design export (Claude Design runtime + prototype) — reference only.
     "design/**",
+    // Claude Code git worktrees — transient repo copies + vendored design JS,
+    // never our source. Linting them floods the output (bead kgq).
+    ".claude/**",
   ]),
 ]);
 
