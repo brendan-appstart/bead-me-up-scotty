@@ -13,7 +13,7 @@ import { api, type ProjectInfo } from "@/lib/api-client";
 export function Launcher() {
   const { data, isLoading } = useProjects();
   const [addOpen, setAddOpen] = React.useState(false);
-  const { theme, toggle } = useTheme();
+  const { mode, toggle } = useTheme();
 
   const projects = data?.projects ?? [];
   const demo = projects.find((p) => p.id === "demo");
@@ -39,7 +39,7 @@ export function Launcher() {
           title="Toggle theme"
           className="flex h-[34px] w-[34px] items-center justify-center rounded-lg border border-border bg-[var(--surface)] text-[var(--text-2)] hover:bg-[var(--surface-2)]"
         >
-          <Icon name={theme === "dark" ? "sun" : "moon"} size={15} />
+          <Icon name={mode === "dark" ? "sun" : "moon"} size={15} />
         </button>
       </header>
 

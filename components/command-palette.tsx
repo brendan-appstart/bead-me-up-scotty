@@ -2,7 +2,8 @@
 import * as React from "react";
 import { Command } from "cmdk";
 import { useRouter } from "next/navigation";
-import { useTheme } from "next-themes";
+import { useTheme } from "@/components/theme-provider";
+import { THEMES } from "@/lib/themes";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Icon } from "@/components/icons";
 import { useApp, type View } from "@/components/app-context";
@@ -40,7 +41,7 @@ function pushRecent(id: string) {
   localStorage.setItem(RECENTS_KEY, JSON.stringify(next));
 }
 
-type Page = "root" | "bead" | "status" | "priority" | "projects";
+type Page = "root" | "bead" | "status" | "priority" | "projects" | "theme";
 
 export function CommandPalette({
   open,
@@ -69,7 +70,7 @@ export function CommandPalette({
 function PaletteBody({ onView, close }: { onView: (v: View) => void; close: () => void }) {
   const { beads, index, openDetail, openCreate, projectId } = useApp();
   const router = useRouter();
-  const { resolvedTheme, setTheme } = useTheme();
+  const { mode, setTheme, toggle } = useTheme();
   const setStatus = useSetStatus();
   const update = useUpdateBead();
   const { data: projectsData } = useProjects();
@@ -136,7 +137,9 @@ function PaletteBody({ onView, close }: { onView: (v: View) => void; close: () =
                   ? "Set priority…"
                   : page === "projects"
                     ? "Switch project…"
-                    : "Search beads or run a command…"
+                    : page === "theme"
+                      ? "Pick a theme…"
+                      : "Search beads or run a command…"
           }
           className="h-12 flex-1 bg-transparent text-[14px] text-[var(--text)] outline-none placeholder:text-[var(--text-3)]"
         />
@@ -154,11 +157,18 @@ function PaletteBody({ onView, close }: { onView: (v: View) => void; close: () =
                 Create bead…
               </Item>
               <Item
-                icon={resolvedTheme === "dark" ? "sun" : "moon"}
+                icon={mode === "dark" ? "sun" : "moon"}
                 value="toggle theme dark light"
-                onSelect={() => run(() => setTheme(resolvedTheme === "dark" ? "light" : "dark"))}
+                onSelect={() => run(() => toggle())}
               >
-                Toggle theme · {resolvedTheme === "dark" ? "light" : "dark"}
+                Toggle theme · {mode === "dark" ? "light" : "dark"}
+              </Item>
+              <Item
+                icon="settings"
+                value="change theme palette dracula nord"
+                onSelect={() => { setSearch(""); setPage("theme"); }}
+              >
+                Change theme…
               </Item>
               <Item icon="logo" value="switch project" onSelect={() => { setSearch(""); setPage("projects"); }}>
                 Switch project…
@@ -268,6 +278,21 @@ function PaletteBody({ onView, close }: { onView: (v: View) => void; close: () =
                   {p.id === projectId ? " · current" : ""}
                 </Item>
               ))}
+          </Command.Group>
+        )}
+
+        {page === "theme" && (
+          <Command.Group heading="Theme">
+            {THEMES.map((t) => (
+              <Item
+                key={t.id}
+                dotColor={t.swatch[2]}
+                value={`theme ${t.name} ${t.id}`}
+                onSelect={() => run(() => setTheme(t.id))}
+              >
+                {t.name}
+              </Item>
+            ))}
           </Command.Group>
         )}
       </Command.List>

@@ -150,6 +150,140 @@
   --sidebar-ring: var(--brand);
 }
 
+/* ------------------------------------------------------------------ */
+/* Named themes (bead-me-up-scotty-81k). Each overrides only the raw   */
+/* palette vars; shadcn semantic tokens derive from them via var().    */
+/* All are dark-mode, so the .dark class is also applied by the         */
+/* provider and supplies shadow + dark semantic literals; these blocks  */
+/* outrank .dark on specificity (html[data-theme] = 0,1,1 > .dark).     */
+/* ------------------------------------------------------------------ */
+
+html[data-theme="dracula"] {
+  --bg: #282a36;
+  --surface: #2d2f3d;
+  --surface-2: #343746;
+  --surface-3: #3c3f52;
+  --border: #44475a;
+  --border-strong: #565972;
+  --text: #f8f8f2;
+  --text-2: #b9bcd0;
+  --text-3: #6272a4;
+  --brand: #bd93f9;
+  --brand-2: #caa9fa;
+  --brand-weak: #343352;
+  --drawer: #21222c;
+  --primary-foreground: #282a36;
+  --input: #44475a;
+}
+
+html[data-theme="nord"] {
+  --bg: #2e3440;
+  --surface: #353c4a;
+  --surface-2: #3b4252;
+  --surface-3: #434c5e;
+  --border: #434c5e;
+  --border-strong: #4c566a;
+  --text: #eceff4;
+  --text-2: #d8dee9;
+  --text-3: #7b8493;
+  --brand: #88c0d0;
+  --brand-2: #8fbcbb;
+  --brand-weak: #2f3b41;
+  --drawer: #2b303b;
+  --primary-foreground: #2e3440;
+  --input: #3b4252;
+}
+
+html[data-theme="solarized-dark"] {
+  --bg: #002b36;
+  --surface: #073642;
+  --surface-2: #0a4150;
+  --surface-3: #0e4d5e;
+  --border: #0e4d5e;
+  --border-strong: #586e75;
+  --text: #93a1a1;
+  --text-2: #839496;
+  --text-3: #586e75;
+  --brand: #268bd2;
+  --brand-2: #2aa198;
+  --brand-weak: #073642;
+  --drawer: #002129;
+  --primary-foreground: #002b36;
+  --input: #0e4d5e;
+}
+
+html[data-theme="gruvbox-dark"] {
+  --bg: #282828;
+  --surface: #32302f;
+  --surface-2: #3c3836;
+  --surface-3: #504945;
+  --border: #504945;
+  --border-strong: #665c54;
+  --text: #ebdbb2;
+  --text-2: #d5c4a1;
+  --text-3: #a89984;
+  --brand: #fabd2f;
+  --brand-2: #fe8019;
+  --brand-weak: #3c3530;
+  --drawer: #1d2021;
+  --primary-foreground: #282828;
+  --input: #504945;
+}
+
+html[data-theme="tokyo-night"] {
+  --bg: #1a1b26;
+  --surface: #1f2335;
+  --surface-2: #24283b;
+  --surface-3: #292e42;
+  --border: #292e42;
+  --border-strong: #3b4261;
+  --text: #c0caf5;
+  --text-2: #a9b1d6;
+  --text-3: #565f89;
+  --brand: #7aa2f7;
+  --brand-2: #bb9af7;
+  --brand-weak: #24283b;
+  --drawer: #16161e;
+  --primary-foreground: #1a1b26;
+  --input: #292e42;
+}
+
+html[data-theme="catppuccin-mocha"] {
+  --bg: #1e1e2e;
+  --surface: #282839;
+  --surface-2: #313244;
+  --surface-3: #45475a;
+  --border: #313244;
+  --border-strong: #45475a;
+  --text: #cdd6f4;
+  --text-2: #bac2de;
+  --text-3: #6c7086;
+  --brand: #cba6f7;
+  --brand-2: #b4befe;
+  --brand-weak: #2b2640;
+  --drawer: #181825;
+  --primary-foreground: #1e1e2e;
+  --input: #313244;
+}
+
+html[data-theme="rose-pine"] {
+  --bg: #191724;
+  --surface: #1f1d2e;
+  --surface-2: #26233a;
+  --surface-3: #2f2b43;
+  --border: #26233a;
+  --border-strong: #403d52;
+  --text: #e0def4;
+  --text-2: #908caa;
+  --text-3: #6e6a86;
+  --brand: #c4a7e7;
+  --brand-2: #ebbcba;
+  --brand-weak: #2a2440;
+  --drawer: #16141f;
+  --primary-foreground: #191724;
+  --input: #26233a;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

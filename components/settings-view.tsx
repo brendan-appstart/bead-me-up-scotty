@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Icon } from "@/components/icons";
 import { useTheme } from "@/components/theme-provider";
+import { THEMES } from "@/lib/themes";
 import { useApp } from "@/components/app-context";
 import { api, type DoctorResponse } from "@/lib/api-client";
 import { useNotificationPrefs, type NotifPrefs } from "@/hooks/use-notifications";
@@ -41,7 +42,7 @@ export function SettingsView() {
 }
 
 function SettingsForm({ data }: { data: DoctorResponse }) {
-  const { theme, toggle } = useTheme();
+  const { theme, setTheme } = useTheme();
   const qc = useQueryClient();
   const [actor, setActor] = React.useState(data.config.humanActor);
   const [allowlist, setAllowlist] = React.useState<string[]>(data.config.humanAllowlist);
@@ -142,18 +143,45 @@ function SettingsForm({ data }: { data: DoctorResponse }) {
             {Math.round(data.config.pollIntervalMs / 1000)}s
           </span>
         </div>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-[10px]">
           <div>
             <div className="text-[13px]">Theme</div>
-            <div className="text-[11.5px] text-[var(--text-3)]">Currently {theme}</div>
+            <div className="text-[11.5px] text-[var(--text-3)]">
+              Saved per project — each project remembers its own theme on this device.
+              Currently <span className="font-[550] text-[var(--text-2)]">{theme.name}</span>.
+            </div>
           </div>
-          <button
-            onClick={toggle}
-            className="flex h-[34px] items-center gap-[7px] rounded-[9px] border border-border bg-[var(--surface-2)] px-[13px] text-[12.5px] hover:bg-[var(--surface-3)]"
-          >
-            <Icon name={theme === "dark" ? "sun" : "moon"} size={14} />
-            <span>Switch theme</span>
-          </button>
+          <div className="grid grid-cols-2 gap-[8px] sm:grid-cols-3">
+            {THEMES.map((t) => {
+              const active = t.id === theme.id;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setTheme(t.id)}
+                  className="flex items-center gap-[9px] rounded-[10px] border p-[9px] text-left transition-colors hover:bg-[var(--surface-3)]"
+                  style={{
+                    background: "var(--surface-2)",
+                    borderColor: active ? "var(--brand)" : "var(--border)",
+                    boxShadow: active ? "0 0 0 1px var(--brand)" : "none",
+                  }}
+                >
+                  <span className="flex h-[24px] w-[24px] flex-shrink-0 overflow-hidden rounded-[7px] border border-border">
+                    {t.swatch.map((c, i) => (
+                      <span key={i} style={{ background: c, width: "33.34%" }} />
+                    ))}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[12.5px] font-[550] text-[var(--text)]">
+                      {t.name}
+                    </span>
+                    <span className="block text-[10.5px] capitalize text-[var(--text-3)]">
+                      {t.mode}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </Card>
 
