@@ -159,6 +159,8 @@ function SettingsForm({ data }: { data: DoctorResponse }) {
 
       <BoardCard />
 
+      <UpdatesCard />
+
       <NotificationsCard />
 
       <GamificationCard />
@@ -169,6 +171,7 @@ function SettingsForm({ data }: { data: DoctorResponse }) {
             { keys: ["⌘", "K"], label: "Open the command palette" },
             { keys: ["N"], label: "Create a new bead" },
             { keys: ["/"], label: "Focus the search box" },
+            { keys: ["T"], label: "Toggle light / dark theme" },
             { keys: ["Esc"], label: "Close the open drawer or dialog" },
           ].map((s) => (
             <div key={s.label} className="flex items-center justify-between">
@@ -239,6 +242,32 @@ function BoardCard() {
             );
           })}
         </div>
+      </div>
+    </Card>
+  );
+}
+
+function UpdatesCard() {
+  const { prefs, setPrefs } = useBoardPrefs();
+  const on = prefs.checkUpdates;
+  return (
+    <Card title="Software updates">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <div className="text-[13px]">Check for new versions</div>
+          <div className="text-[11.5px] text-[var(--text-3)]">
+            When running from the app’s git clone, check GitHub for newer commits on{" "}
+            <span className="font-mono">main</span> and show an update indicator in the sidebar.
+            Per-device.
+          </div>
+        </div>
+        <button
+          onClick={() => setPrefs({ ...prefs, checkUpdates: !on })}
+          className="flex h-[34px] flex-shrink-0 items-center gap-[7px] rounded-[9px] border border-border bg-[var(--surface-2)] px-[13px] text-[12.5px] hover:bg-[var(--surface-3)]"
+        >
+          <Icon name={on ? "check" : "x"} size={14} />
+          <span>{on ? "Enabled" : "Disabled"}</span>
+        </button>
       </div>
     </Card>
   );

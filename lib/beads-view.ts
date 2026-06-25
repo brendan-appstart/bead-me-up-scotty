@@ -187,3 +187,18 @@ export function fmtDate(iso?: string | null): string {
     day: "numeric",
   });
 }
+
+/** Full absolute timestamp, e.g. "Jun 24, 2026, 2:15 PM" — used as the hover
+ *  title behind relative times like "3d ago" (bead hl2). */
+export function fmtDateTime(iso?: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}

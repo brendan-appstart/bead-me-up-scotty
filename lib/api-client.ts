@@ -1,4 +1,5 @@
 import type { Bead, CreateInput, UpdateInput, DepType } from "./schema";
+import type { UpdateStatus, UpdateResult } from "./update-types";
 
 export interface Meta {
   kind: "bd" | "demo";
@@ -106,6 +107,9 @@ export interface FsResponse {
   hasBeads: boolean;
   entries: FsEntry[];
 }
+// Self-update wire types live in a shared, non-server-only module so the client
+// and lib/self-update.ts can't drift apart. Re-exported here for existing callers.
+export type { UpdateStatus, UpdateStep, UpdateResult } from "./update-types";
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
@@ -252,6 +256,13 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ action: "deploy", path }),
       }),
+  },
+
+  // Self-update (bead bgb) — app-level, not project-scoped. Named `selfUpdate`
+  // to avoid colliding with `update` (the per-bead PATCH method above).
+  selfUpdate: {
+    check: () => request<UpdateStatus>("/api/update/check"),
+    run: () => request<UpdateResult>("/api/update/run", { method: "POST", body: "{}" }),
   },
 
   saveConfig: (patch: Record<string, unknown>) =>

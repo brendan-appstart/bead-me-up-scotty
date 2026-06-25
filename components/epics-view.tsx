@@ -17,7 +17,11 @@ import {
 export function EpicsView() {
   const { beads, humanAllowlist, openCreate, openDetail } = useApp();
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
-  const epics = beads.filter((b) => b.issue_type === "epic");
+  const [hideClosed, setHideClosed] = React.useState(true);
+  const allEpics = beads.filter((b) => b.issue_type === "epic");
+  // "Filter out closed" (bead 8vm): hide closed epics (and closed children below).
+  // Progress % still counts all children, so it stays accurate.
+  const epics = hideClosed ? allEpics.filter((e) => e.status !== "closed") : allEpics;
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -25,9 +29,19 @@ export function EpicsView() {
         <div className="flex-1">
           <h1 className="m-0 text-base font-[650] tracking-[-.01em]">Epics</h1>
           <span className="text-[11.5px] text-[var(--text-3)]">
-            {epics.length} epics · progress = closed ÷ children
+            {epics.length}
+            {hideClosed && allEpics.length !== epics.length ? ` of ${allEpics.length}` : ""} epics ·
+            progress = closed ÷ children
           </span>
         </div>
+        <button
+          onClick={() => setHideClosed((v) => !v)}
+          title={hideClosed ? "Closed epics and children are hidden" : "Showing closed epics and children"}
+          className="flex h-9 items-center gap-[7px] rounded-[9px] border border-border bg-[var(--surface-2)] px-[12px] text-[12.5px] font-[550] text-[var(--text-2)] hover:bg-[var(--surface-3)]"
+        >
+          <Icon name={hideClosed ? "check" : "x"} size={14} />
+          <span>Hide closed</span>
+        </button>
         <button
           onClick={() => openCreate()}
           className="flex h-9 items-center gap-[6px] rounded-[9px] px-[14px] text-[13px] font-[550] text-white"
@@ -42,11 +56,13 @@ export function EpicsView() {
         <div className="mx-auto flex max-w-[880px] flex-col gap-[14px]">
           {epics.map((e) => {
             const { closed, total, pct } = epicProgress(e.id, beads);
-            const kids = childrenOf(e.id, beads).sort(
-              (a, b) =>
-                Number(a.status === "closed") - Number(b.status === "closed") ||
-                a.priority - b.priority,
-            );
+            const kids = childrenOf(e.id, beads)
+              .filter((k) => !hideClosed || k.status !== "closed")
+              .sort(
+                (a, b) =>
+                  Number(a.status === "closed") - Number(b.status === "closed") ||
+                  a.priority - b.priority,
+              );
             const isOpen = !!expanded[e.id];
             return (
               <section

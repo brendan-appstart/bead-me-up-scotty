@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/sheet";
 import { Icon, typeIconName } from "@/components/icons";
 import { OriginBadge } from "@/components/board/bead-card";
+import { CopyableId } from "@/components/copyable-id";
 import { useApp } from "@/components/app-context";
 import { useImageDrop } from "@/hooks/use-image-drop";
 import { useResizableWidth } from "@/hooks/use-resizable-width";
@@ -33,6 +34,7 @@ import {
   epicOf,
   relTime,
   fmtDate,
+  fmtDateTime,
   checklistProgress,
   toggleTask,
 } from "@/lib/beads-view";
@@ -85,7 +87,7 @@ export function BeadDetailDrawer({
 }
 
 function DrawerBody({ bead, onClose }: { bead: Bead; onClose: () => void }) {
-  const { index, beads, humanAllowlist, meta, projectId } = useApp();
+  const { index, beads, humanAllowlist, meta, projectId, openDetail } = useApp();
   const actor = meta?.humanActor ?? "you";
   const isDemo = meta?.kind === "demo";
 
@@ -155,7 +157,7 @@ function DrawerBody({ bead, onClose }: { bead: Bead; onClose: () => void }) {
 
       <div className="sticky top-0 z-[2] flex items-center gap-[10px] border-b border-border bg-[var(--drawer)] p-[15px_20px]">
         <span className="h-[9px] w-[9px] rounded-full" style={{ background: catColor(bead.status) }} />
-        <span className="font-mono text-[13px] text-[var(--text-2)]">{bead.id}</span>
+        <CopyableId id={bead.id} className="font-mono text-[13px] text-[var(--text-2)]" />
         <StatusChip status={bead.status} />
         <span className="flex-1" />
         <IconBtn
@@ -254,12 +256,26 @@ function DrawerBody({ bead, onClose }: { bead: Bead; onClose: () => void }) {
           </div>
           <div className="flex flex-col gap-[5px]">
             <span className={fieldLabel}>Epic</span>
-            <div className="flex h-9 items-center gap-[7px] rounded-[9px] border border-border bg-[var(--surface-2)] px-[10px] text-[var(--brand)]">
-              <Icon name="target" size={14} />
-              <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[12.5px]">
-                {ep ? ep.title : "—"}
-              </span>
-            </div>
+            {ep ? (
+              <button
+                type="button"
+                onClick={() => openDetail(ep.id)}
+                title={`Open ${ep.id}`}
+                className="flex h-9 items-center gap-[7px] rounded-[9px] border border-border bg-[var(--surface-2)] px-[10px] text-left text-[var(--brand)] hover:border-[var(--brand)] hover:bg-[var(--brand-weak)]"
+              >
+                <Icon name="target" size={14} className="flex-shrink-0" />
+                <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[12.5px]">
+                  {ep.title}
+                </span>
+                <span className="flex-1" />
+                <Icon name="chevron" size={13} className="-rotate-90 flex-shrink-0 text-[var(--text-3)]" />
+              </button>
+            ) : (
+              <div className="flex h-9 items-center gap-[7px] rounded-[9px] border border-border bg-[var(--surface-2)] px-[10px] text-[var(--text-3)]">
+                <Icon name="target" size={14} />
+                <span className="text-[12.5px]">—</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -378,7 +394,7 @@ function DrawerBody({ bead, onClose }: { bead: Bead; onClose: () => void }) {
               No description.
             </div>
           )}
-          {!editing && !isDemo && <AiAssistPanel bead={bead} />}
+          {!editing && <AiAssistPanel bead={bead} />}
         </Section>
 
         {/* Dependencies */}
@@ -497,7 +513,9 @@ function DrawerBody({ bead, onClose }: { bead: Bead; onClose: () => void }) {
                     <div className="mb-[3px] flex items-center gap-[7px]">
                       <span className="text-[12.5px] font-semibold">{c.author}</span>
                       <OriginBadge origin={co} title={co === "human" ? "Human" : "Agent"} />
-                      <span className="text-[11px] text-[var(--text-3)]">{relTime(c.created_at)}</span>
+                      <span title={fmtDateTime(c.created_at)} className="text-[11px] text-[var(--text-3)]">
+                        {relTime(c.created_at)}
+                      </span>
                     </div>
                     <div className="text-[13px] leading-[1.5] text-[var(--text-2)] [text-wrap:pretty]">
                       {c.text}

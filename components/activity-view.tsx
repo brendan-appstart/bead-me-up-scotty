@@ -4,7 +4,7 @@ import { useApp } from "@/components/app-context";
 import { useActivity } from "@/hooks/use-beads";
 import { OriginBadge } from "@/components/board/bead-card";
 import { Icon } from "@/components/icons";
-import { avatarColor, initials, relTime } from "@/lib/beads-view";
+import { avatarColor, initials, relTime, fmtDateTime } from "@/lib/beads-view";
 
 /**
  * Mission Control — live activity feed. A newest-first stream of what humans and
@@ -57,7 +57,10 @@ export function ActivityView() {
                       <div className="truncate text-[12px] text-[var(--text-3)]">{it.detail}</div>
                     )}
                   </div>
-                  <span className="flex-shrink-0 whitespace-nowrap text-[11px] text-[var(--text-3)]">
+                  <span
+                    title={fmtDateTime(it.at)}
+                    className="flex-shrink-0 whitespace-nowrap text-[11px] text-[var(--text-3)]"
+                  >
                     {relTime(it.at)}
                   </span>
                 </button>

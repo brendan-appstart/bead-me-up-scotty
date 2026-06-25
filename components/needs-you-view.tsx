@@ -5,7 +5,7 @@ import { useRespondHuman, useDismissHuman } from "@/hooks/use-beads";
 import { Icon, typeIconName } from "@/components/icons";
 import { OriginBadge } from "@/components/board/bead-card";
 import { beadOrigin } from "@/lib/attribution";
-import { needsHuman, typeColor, relTime } from "@/lib/beads-view";
+import { needsHuman, typeColor, relTime, fmtDateTime } from "@/lib/beads-view";
 import type { Bead } from "@/lib/schema";
 
 /**
@@ -65,7 +65,9 @@ function NeedsYouCard({ bead }: { bead: Bead }) {
         </button>
         <OriginBadge origin={o} title={o === "human" ? "Human" : "Agent"} />
         <span className="flex-1" />
-        <span className="text-[11px] text-[var(--text-3)]">{relTime(bead.updated_at)}</span>
+        <span title={fmtDateTime(bead.updated_at)} className="text-[11px] text-[var(--text-3)]">
+          {relTime(bead.updated_at)}
+        </span>
       </div>
       <button
         onClick={() => openDetail(bead.id)}

@@ -5,6 +5,7 @@ import { CSS } from "@dnd-kit/utilities";
 import type { Bead } from "@/lib/schema";
 import { Icon, typeIconName } from "@/components/icons";
 import { useApp } from "@/components/app-context";
+import { CopyableId } from "@/components/copyable-id";
 import { beadOrigin, originTitle } from "@/lib/attribution";
 import {
   catColor,
@@ -55,9 +56,10 @@ export function BeadCard({ bead }: { bead: Bead }) {
           style={{ background: catColor(bead.status) }}
           title={statusLabel(bead.status)}
         />
-        <span className="font-mono text-[11.5px] tracking-[-.01em] text-[var(--text-3)]">
-          {bead.id}
-        </span>
+        <CopyableId
+          id={bead.id}
+          className="font-mono text-[11.5px] tracking-[-.01em] text-[var(--text-3)]"
+        />
         <span className="flex-1" />
         <PriorityChip p={bead.priority} />
         <OriginBadge origin={o} title={originTitle(bead.created_by, o)} />

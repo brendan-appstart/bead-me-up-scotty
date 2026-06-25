@@ -30,6 +30,11 @@ export function Board() {
   const orders = React.useMemo(() => orderData?.orders ?? {}, [orderData]);
   const [filters, setFilters] = React.useState<Filters>(emptyFilters);
   const [showArchived, setShowArchived] = React.useState(false);
+  // Time-window filter for the Done column: null = all, else "closed within N days" (bead nad).
+  const [doneWindow, setDoneWindow] = React.useState<number | null>(null);
+  // Mount-time "now" for the window cutoff — captured once (day-granular, so it
+  // needn't tick) and kept out of render to satisfy the no-impure-call rule.
+  const [now] = React.useState(() => Date.now());
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -47,11 +52,19 @@ export function Board() {
   const visible = React.useMemo(() => beads.filter(matchFilters), [beads, matchFilters]);
   const columns = React.useMemo(
     () =>
-      COLUMNS.map((c) => ({
-        col: c,
-        cards: sortCards(visible.filter((b) => c.test(b, isBlocked(b, index))), orders[c.id]),
-      })),
-    [visible, index, orders],
+      COLUMNS.map((c) => {
+        let cards = visible.filter((b) => c.test(b, isBlocked(b, index)));
+        // Done column: optionally keep only beads closed within the chosen window.
+        if (c.id === "done" && doneWindow !== null) {
+          const cutoff = now - doneWindow * 86_400_000;
+          cards = cards.filter((b) => {
+            const t = Date.parse(b.closed_at || b.updated_at || "");
+            return Number.isFinite(t) && t >= cutoff;
+          });
+        }
+        return { col: c, cards: sortCards(cards, orders[c.id]) };
+      }),
+    [visible, index, orders, doneWindow, now],
   );
 
   // Hide the Blocked column when it's empty, unless the user pinned it to always
@@ -137,7 +150,29 @@ export function Board() {
           <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={onDragEnd}>
             <div className="flex h-full min-h-0 gap-4">
               {shownColumns.map(({ col, cards }) => (
-                <Column key={col.id} col={col} cards={cards} />
+                <Column
+                  key={col.id}
+                  col={col}
+                  cards={cards}
+                  control={
+                    col.id === "done" ? (
+                      <select
+                        value={doneWindow ?? ""}
+                        onChange={(e) =>
+                          setDoneWindow(e.target.value === "" ? null : Number(e.target.value))
+                        }
+                        title="Show only beads closed within this window"
+                        className="cursor-pointer rounded-[7px] border border-border bg-[var(--surface-2)] px-[7px] py-[3px] text-[11px] text-[var(--text-2)] outline-none"
+                      >
+                        <option value="">All time</option>
+                        <option value="7">Last 7 days</option>
+                        <option value="28">Last 4 weeks</option>
+                        <option value="90">Last 3 months</option>
+                        <option value="365">Last 12 months</option>
+                      </select>
+                    ) : undefined
+                  }
+                />
               ))}
             </div>
           </DndContext>

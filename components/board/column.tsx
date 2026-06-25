@@ -14,7 +14,15 @@ export interface ColumnDef {
   droppable: boolean;
 }
 
-export function Column({ col, cards }: { col: ColumnDef; cards: Bead[] }) {
+export function Column({
+  col,
+  cards,
+  control,
+}: {
+  col: ColumnDef;
+  cards: Bead[];
+  control?: React.ReactNode;
+}) {
   const { setNodeRef, isOver } = useDroppable({ id: col.id, disabled: !col.droppable });
 
   return (
@@ -26,7 +34,7 @@ export function Column({ col, cards }: { col: ColumnDef; cards: Bead[] }) {
           {cards.length}
         </span>
         <span className="flex-1" />
-        <span className="font-mono text-[10.5px] text-[var(--text-3)]">{col.cmd}</span>
+        {control ?? <span className="font-mono text-[10.5px] text-[var(--text-3)]">{col.cmd}</span>}
       </div>
 
       <div

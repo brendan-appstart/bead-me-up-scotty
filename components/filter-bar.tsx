@@ -4,7 +4,7 @@ import { Icon } from "@/components/icons";
 import { MultiSelectFilter } from "@/components/multi-select-filter";
 import { typeLabel, statusLabel, prioLabel } from "@/lib/beads-view";
 import { BEAD_TYPES, BEAD_STATUSES } from "@/lib/schema";
-import { type Filters, toggleStr, toggleNum } from "@/lib/filters";
+import { type Filters, emptyFilters, toggleStr, toggleNum } from "@/lib/filters";
 
 /**
  * Search + multi-select facet filters, shared by the Board and List views so
@@ -22,6 +22,20 @@ export function FilterBar({
   onShowArchived: (v: boolean) => void;
 }) {
   const set = (patch: Partial<Filters>) => onChange({ ...filters, ...patch });
+
+  // Count active filters (each non-empty facet + a non-empty search + archived)
+  // so we can offer a one-click reset (bead 3it).
+  const active =
+    (filters.status.length ? 1 : 0) +
+    (filters.type.length ? 1 : 0) +
+    (filters.priority.length ? 1 : 0) +
+    (filters.origin.length ? 1 : 0) +
+    (filters.search.trim() ? 1 : 0) +
+    (showArchived ? 1 : 0);
+  const clearAll = () => {
+    onChange(emptyFilters);
+    onShowArchived(false);
+  };
 
   return (
     <>
@@ -81,6 +95,16 @@ export function FilterBar({
           <Icon name="archive" size={14} />
           <span>Archived</span>
         </button>
+        {active > 0 && (
+          <button
+            onClick={clearAll}
+            title="Clear all filters"
+            className="flex h-9 items-center gap-[6px] rounded-[9px] border border-border bg-[var(--surface-2)] px-[11px] text-[12.5px] font-medium text-[var(--text-2)] hover:bg-[var(--surface-3)]"
+          >
+            <Icon name="x" size={14} />
+            <span>Clear · {active}</span>
+          </button>
+        )}
       </div>
     </>
   );

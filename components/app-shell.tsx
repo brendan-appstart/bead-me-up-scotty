@@ -3,8 +3,10 @@ import * as React from "react";
 import Link from "next/link";
 import { useBeads } from "@/hooks/use-beads";
 import { useBeadsStream } from "@/hooks/use-beads-stream";
+import { useLastView } from "@/hooks/use-last-view";
+import { useTheme } from "@/components/theme-provider";
 import { makeIndex } from "@/lib/beads-view";
-import { AppProvider, type View } from "@/components/app-context";
+import { AppProvider } from "@/components/app-context";
 import { Sidebar } from "@/components/sidebar";
 import { Board } from "@/components/board/board";
 import { ListView } from "@/components/list-view";
@@ -22,7 +24,8 @@ import { CommandPalette } from "@/components/command-palette";
 import { NotificationWatcher } from "@/components/notification-watcher";
 
 export function AppShell({ projectId }: { projectId: string }) {
-  const [view, setView] = React.useState<View>("board");
+  const [view, setView] = useLastView(projectId);
+  const { toggle: toggleTheme } = useTheme();
   const [openId, setOpenId] = React.useState<string | null>(null);
   const [palette, setPalette] = React.useState(false);
   const [create, setCreate] = React.useState<{ open: boolean; parent: string }>({
@@ -40,7 +43,7 @@ export function AppShell({ projectId }: { projectId: string }) {
   const openDetail = React.useCallback((id: string) => setOpenId(id), []);
   const openCreate = React.useCallback((parent = "") => setCreate({ open: true, parent }), []);
 
-  // keyboard: Cmd/Ctrl+K = command palette, n = new, / = focus search, Esc = close overlays
+  // keyboard: Cmd/Ctrl+K = command palette, n = new, / = focus search, t = toggle theme, Esc = close overlays
   React.useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
@@ -65,10 +68,14 @@ export function AppShell({ projectId }: { projectId: string }) {
         e.preventDefault();
         document.querySelector<HTMLInputElement>('input[data-search]')?.focus();
       }
+      if (e.key === "t" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        toggleTheme();
+      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [openCreate]);
+  }, [openCreate, toggleTheme]);
 
   const errorMessage = error ? (error as Error).message : undefined;
 

@@ -16,6 +16,7 @@ import { useGamification } from "@/hooks/use-beads";
 // GITHUB_REPO is shared with the build badge (where bug/feature issues are filed).
 import { GITHUB_REPO } from "@/lib/build-info";
 import { BuildBadge } from "@/components/build-badge";
+import { UpdateIndicator } from "@/components/update-indicator";
 import { cn } from "@/lib/utils";
 
 function githubIssueUrl(kind: "bug" | "feature"): string {
@@ -177,6 +178,7 @@ export function Sidebar({
           </button>
         </div>
 
+        <UpdateIndicator />
         <BuildBadge />
       </div>
     </aside>

@@ -103,5 +103,24 @@ export function demoBeads(): Bead[] {
     D("bd-8d3e", "Bug: ready queue shows deferred beads", "bug", "open", 0, "claude-agent", "stevey", null, { description: "bd ready should exclude deferred; some deferred beads leak into Ready in the UI cache.", related: ["bd-3c71.1"], comments: [cm("claude-agent", "Repro: defer a bead, it stays in Ready until refetch.", "2026-06-16T08:00:00Z")] }),
     D("bd-2f9c", "Bug: drag-drop flickers on rollback", "bug", "blocked", 1, "cursor-agent", "cursor-agent", null, { description: "Optimistic move then adapter error causes a visible flicker on rollback.", related: ["bd-b18d.1"] }),
     D("bd-5a77", "Switch integration to a REST API", "task", "closed", 3, "amp-bot", "amp-bot", null, { description: "Superseded — beads has no HTTP API; we shell out to the CLI.", labels: ["archived"], closed_at: "2026-06-07T10:00:00Z" }),
+
+    // ── Showcase beads for the newer features (Needs-You, checklists, Insights, Achievements) ──
+    // Needs-You inbox: agent-escalated decisions (the `human` label, still open).
+    D("bd-hmn1", "Need a human call: which OAuth provider for sign-in?", "decision", "open", 1, "claude-agent", "stevey", null, { description: "I can wire Clerk, Auth0, or Descope. Clerk is the native Marketplace option — but you own this call before I build the middleware.", labels: ["human"], created_at: "2026-06-24T08:30:00Z", updated_at: "2026-06-24T08:30:00Z" }),
+    D("bd-hmn2", "Decision needed: drop the legacy CSV export?", "decision", "open", 2, "cursor-agent", "", null, { description: "Usage is near zero and it blocks the new report template. OK to remove it?", labels: ["human"], created_at: "2026-06-24T09:10:00Z", updated_at: "2026-06-24T09:10:00Z" }),
+    // Markdown + interactive checklist in the description.
+    D("bd-ck1", "Ship the onboarding flow", "feature", "in_progress", 1, "stevey", "stevey", null, { description: "Guided first-run experience.\n\n## Acceptance criteria\n- [x] Detect first launch\n- [x] Welcome step with the project picker\n- [ ] Sample project seeding\n- [ ] Dismiss + don't-show-again\n- [ ] Docs link\n\nSee the **[spec](https://beadmeupscotty.com)** for the full flow.", created_at: "2026-06-20T10:00:00Z", updated_at: "2026-06-24T11:00:00Z", comments: [cm("dana", "Love it — keep the welcome step to one screen.", "2026-06-24T11:30:00Z")] }),
+    // Recent consecutive closes by the human actor → streak, throughput, XP, badges.
+    D("bd-win1", "Fix flaky drag-drop rollback", "bug", "closed", 1, "stevey", "stevey", null, { description: "Coalesce optimistic moves so rollback no longer flickers.", created_at: "2026-06-19T09:00:00Z", closed_at: "2026-06-21T16:30:00Z" }),
+    D("bd-win2", "Speed up board first paint", "task", "closed", 2, "stevey", "stevey", null, { description: "Memoize the index and lazy-load the graph bundle.", created_at: "2026-06-20T09:00:00Z", closed_at: "2026-06-22T14:00:00Z" }),
+    D("bd-win3", "Land the search index everything waited on", "task", "closed", 0, "stevey", "stevey", null, { description: "Unblocks the filter rollout.", blocks: ["bd-3c71.2"], created_at: "2026-06-21T09:00:00Z", closed_at: "2026-06-23T13:00:00Z" }),
+    D("bd-win4", "Polish the empty states", "chore", "closed", 2, "stevey", "stevey", null, { description: "Friendly skeletons and zero-states across views.", created_at: "2026-06-23T09:00:00Z", closed_at: "2026-06-24T10:00:00Z" }),
+    D("bd-win5", "Tidy the settings layout", "chore", "closed", 2, "stevey", "stevey", null, { description: "Group attribution, freshness, and theme into cards.", created_at: "2026-06-23T15:00:00Z", closed_at: "2026-06-24T12:00:00Z" }),
+    // A closed epic → Epic Slayer badge.
+    D("bd-epic-x", "Onboarding & polish (M6)", "epic", "closed", 1, "stevey", "stevey", null, { description: "First-run onboarding, empty states, and a performance pass.", created_at: "2026-06-15T09:00:00Z", closed_at: "2026-06-24T10:30:00Z" }),
+    // Agent closes so the leaderboard has real competition.
+    D("bd-ag1", "Auto-label stale beads", "task", "closed", 2, "claude-agent", "claude-agent", null, { description: "Nightly sweep tags beads with no activity in 14 days.", created_at: "2026-06-18T09:00:00Z", closed_at: "2026-06-22T20:00:00Z" }),
+    D("bd-ag2", "Generate the weekly digest", "task", "closed", 3, "cursor-agent", "cursor-agent", null, { description: "Summarize closed work into a shareable digest.", created_at: "2026-06-19T09:00:00Z", closed_at: "2026-06-23T21:00:00Z" }),
+    D("bd-ag3", "Backfill missing assignees", "chore", "closed", 3, "claude-agent", "claude-agent", null, { description: "Infer assignee from the last status-change actor.", created_at: "2026-06-20T09:00:00Z", closed_at: "2026-06-24T07:00:00Z" }),
   ];
 }

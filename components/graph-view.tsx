@@ -10,6 +10,7 @@ import {
   type Edge,
   type Connection,
   type NodeProps,
+  type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Icon, typeIconName } from "@/components/icons";
@@ -109,6 +110,9 @@ function layout(beads: Bead[], onOpen: (id: string) => void): { nodes: Node[]; e
 export function GraphView() {
   const { beads, openDetail } = useApp();
   const addDep = useAddDep();
+  // Recenter/fit the graph on the current nodes (bead mpe).
+  const rf = React.useRef<ReactFlowInstance | null>(null);
+  const center = React.useCallback(() => rf.current?.fitView({ padding: 0.2, duration: 400 }), []);
 
   const { nodes, edges } = React.useMemo(
     () => layout(beads.filter((b) => !(b.labels ?? []).includes("archived")), openDetail),
@@ -126,12 +130,22 @@ export function GraphView() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="flex-shrink-0 border-b border-border bg-[var(--surface)] p-[14px_22px]">
-        <h1 className="m-0 text-base font-[650] tracking-[-.01em]">Dependency graph</h1>
-        <span className="text-[11.5px] text-[var(--text-3)]">
-          <span className="font-mono">bd dep tree</span> · drag a node handle onto another to link
-          (cycle-checked by bd)
-        </span>
+      <header className="flex flex-shrink-0 items-center gap-3 border-b border-border bg-[var(--surface)] p-[14px_22px]">
+        <div className="flex-1">
+          <h1 className="m-0 text-base font-[650] tracking-[-.01em]">Dependency graph</h1>
+          <span className="text-[11.5px] text-[var(--text-3)]">
+            <span className="font-mono">bd dep tree</span> · drag a node handle onto another to link
+            (cycle-checked by bd)
+          </span>
+        </div>
+        <button
+          onClick={center}
+          title="Center the graph on all issues"
+          className="flex h-9 flex-shrink-0 items-center gap-[6px] rounded-[9px] border border-border bg-[var(--surface-2)] px-[12px] text-[12.5px] font-[550] text-[var(--text-2)] hover:bg-[var(--surface-3)]"
+        >
+          <Icon name="target" size={15} />
+          <span>Center</span>
+        </button>
       </header>
       <div className="relative min-h-0 flex-1">
         <ReactFlow
@@ -139,6 +153,9 @@ export function GraphView() {
           edges={edges}
           nodeTypes={nodeTypes}
           onConnect={onConnect}
+          onInit={(inst) => {
+            rf.current = inst;
+          }}
           fitView
           proOptions={{ hideAttribution: true }}
         >

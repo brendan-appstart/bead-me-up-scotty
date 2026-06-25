@@ -12,8 +12,10 @@ const PREFS_KEY = "bmus.board";
 export type BlockedColumnMode = "auto" | "always";
 export interface BoardPrefs {
   blockedColumn: BlockedColumnMode;
+  /** Check GitHub for a newer app version and show the update indicator (bead bgb). */
+  checkUpdates: boolean;
 }
-const DEFAULTS: BoardPrefs = { blockedColumn: "auto" };
+const DEFAULTS: BoardPrefs = { blockedColumn: "auto", checkUpdates: true };
 
 export function loadBoardPrefs(): BoardPrefs {
   if (typeof window === "undefined") return DEFAULTS;

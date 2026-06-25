@@ -18,6 +18,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { Icon, typeIconName } from "@/components/icons";
 import { useApp } from "@/components/app-context";
 import { PriorityChip, OriginBadge } from "@/components/board/bead-card";
+import { CopyableId } from "@/components/copyable-id";
 import { FilterBar } from "@/components/filter-bar";
 import { useOrder, useSetOrder } from "@/hooks/use-order";
 import { useSetStatus } from "@/hooks/use-beads";
@@ -32,6 +33,7 @@ import {
   initials,
   isBlocked,
   relTime,
+  fmtDateTime,
 } from "@/lib/beads-view";
 import { type Bead } from "@/lib/schema";
 
@@ -225,9 +227,10 @@ function Row({
         className="flex-shrink-0"
         style={{ color: typeColor(bead.issue_type) }}
       />
-      <span className="w-[150px] flex-shrink-0 truncate font-mono text-[11.5px] text-[var(--text-3)]">
-        {bead.id}
-      </span>
+      <CopyableId
+        id={bead.id}
+        className="w-[150px] flex-shrink-0 truncate font-mono text-[11.5px] text-[var(--text-3)]"
+      />
       <span className="min-w-0 flex-1 truncate text-[13.5px] font-[550] text-[var(--text)]">
         {bead.title}
       </span>
@@ -256,7 +259,10 @@ function Row({
           {bead.assignee || "Unassigned"}
         </span>
       </span>
-      <span className="hidden w-[64px] flex-shrink-0 text-right font-mono text-[11px] text-[var(--text-3)] xl:inline">
+      <span
+        title={fmtDateTime(bead.updated_at)}
+        className="hidden w-[64px] flex-shrink-0 text-right font-mono text-[11px] text-[var(--text-3)] xl:inline"
+      >
         {relTime(bead.updated_at)}
       </span>
     </button>
