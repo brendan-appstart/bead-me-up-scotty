@@ -85,9 +85,13 @@ function parseExport(jsonl: string): Bead[] {
   return beads;
 }
 
-// ---- write serialization (embedded Dolt is single-writer *per database*) ----
-// Keyed by repoPath so same-project writes serialize (safe) while writes to
-// different projects run in parallel.
+// ---- bd serialization (embedded Dolt is single-writer *per database*) ----
+// EVERY bd invocation — including read-only `export`/`show` — rewrites the
+// embedded-Dolt store, so reads MUST serialize with writes too. Running them
+// concurrently corrupts persists ("Unable to write SST file …") and collides on
+// compaction ("Another write batch or compaction is already active").
+// Keyed by repoPath so same-project bd calls serialize while different projects
+// run in parallel.
 const writeChains = new Map<string, Promise<unknown>>();
 function serializeWrite<T>(repoPath: string, fn: () => Promise<T>): Promise<T> {
   const prev = writeChains.get(repoPath) ?? Promise.resolve();
@@ -118,6 +122,8 @@ export async function isBdAvailable(repoPath: string): Promise<boolean> {
 export function createBdStore(repoPath: string): BeadsStore {
   const ro = { repoPath };
   const rw = (actor: string) => ({ repoPath, actor });
+  // Collapse concurrent list() callers (the polling views) onto one in-flight export.
+  let inflightList: Promise<Bead[]> | null = null;
 
   async function show(id: string): Promise<Bead> {
     // bd 1.0.5 `show <id> --json` returns its envelope `data` as an ARRAY even
@@ -134,17 +140,29 @@ export function createBdStore(repoPath: string): BeadsStore {
     kind: "bd",
 
     async list() {
-      const out = await runBdRaw(["export", "--json"], ro);
-      return parseExport(out);
+      // Dedupe concurrent callers onto one in-flight export, and serialize that
+      // export with all other bd ops so reads can't collide with writes/compaction.
+      if (inflightList) return inflightList;
+      inflightList = serializeWrite(repoPath, async () =>
+        parseExport(await runBdRaw(["export", "--json"], ro)),
+      );
+      try {
+        return await inflightList;
+      } finally {
+        inflightList = null;
+      }
     },
 
     async get(id) {
-      try {
-        return await show(id);
-      } catch (e) {
-        if (e instanceof BdError && e.code === "not_found") return null;
-        throw e;
-      }
+      // Serialized too — `bd show` rewrites the store like any other invocation.
+      return serializeWrite(repoPath, async () => {
+        try {
+          return await show(id);
+        } catch (e) {
+          if (e instanceof BdError && e.code === "not_found") return null;
+          throw e;
+        }
+      });
     },
 
     create(input: CreateInput, actor: string) {
