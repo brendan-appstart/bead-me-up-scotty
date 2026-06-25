@@ -43,6 +43,19 @@ export function AppShell({ projectId }: { projectId: string }) {
   const openDetail = React.useCallback((id: string) => setOpenId(id), []);
   const openCreate = React.useCallback((parent = "") => setCreate({ open: true, parent }), []);
 
+  // Jump to the Epics screen and focus an epic (bead 55b). The nonce makes each
+  // request distinct so clicking the same epic again re-triggers the scroll.
+  const [focusEpic, setFocusEpic] = React.useState<{ id: string; nonce: number } | null>(null);
+  const focusNonce = React.useRef(0);
+  const openEpic = React.useCallback(
+    (epicId: string) => {
+      setOpenId(null); // close the detail drawer
+      setView("epics");
+      setFocusEpic({ id: epicId, nonce: (focusNonce.current += 1) });
+    },
+    [setView],
+  );
+
   // keyboard: Cmd/Ctrl+K = command palette, n = new, / = focus search, t = toggle theme, Esc = close overlays
   React.useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -91,6 +104,7 @@ export function AppShell({ projectId }: { projectId: string }) {
         error: errorMessage,
         openDetail,
         openCreate,
+        openEpic,
       }}
     >
       <div className="flex h-full overflow-hidden bg-background text-foreground text-sm">
@@ -119,7 +133,7 @@ export function AppShell({ projectId }: { projectId: string }) {
             <>
               {view === "board" && <Board />}
               {view === "list" && <ListView />}
-              {view === "epics" && <EpicsView />}
+              {view === "epics" && <EpicsView focusEpic={focusEpic} />}
               {view === "graph" && <GraphView />}
               {view === "insights" && <InsightsView />}
               {view === "activity" && <ActivityView />}

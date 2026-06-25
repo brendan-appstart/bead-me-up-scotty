@@ -14,14 +14,30 @@ import {
   epicProgress,
 } from "@/lib/beads-view";
 
-export function EpicsView() {
+export function EpicsView({ focusEpic }: { focusEpic?: { id: string; nonce: number } | null }) {
   const { beads, humanAllowlist, openCreate, openDetail } = useApp();
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
   const [hideClosed, setHideClosed] = React.useState(true);
   const allEpics = beads.filter((b) => b.issue_type === "epic");
   // "Filter out closed" (bead 8vm): hide closed epics (and closed children below).
-  // Progress % still counts all children, so it stays accurate.
-  const epics = hideClosed ? allEpics.filter((e) => e.status !== "closed") : allEpics;
+  // Progress % still counts all children, so it stays accurate. A focused epic —
+  // jumped to from a bead's detail drawer (bead 55b) — is always shown.
+  const epics = allEpics.filter(
+    (e) => !hideClosed || e.status !== "closed" || e.id === focusEpic?.id,
+  );
+
+  // On a focus request, scroll the target epic into view and flash it. DOM-only
+  // side effects (no setState) keep this a clean effect; the nonce re-triggers it
+  // even when the same epic is requested twice.
+  React.useEffect(() => {
+    if (!focusEpic) return;
+    const el = document.querySelector<HTMLElement>(`[data-epic-id="${CSS.escape(focusEpic.id)}"]`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    el.classList.add("epic-flash");
+    const t = setTimeout(() => el.classList.remove("epic-flash"), 1600);
+    return () => clearTimeout(t);
+  }, [focusEpic]);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -63,10 +79,12 @@ export function EpicsView() {
                   Number(a.status === "closed") - Number(b.status === "closed") ||
                   a.priority - b.priority,
               );
-            const isOpen = !!expanded[e.id];
+            // Auto-expand the epic we jumped to (until the user toggles it).
+            const isOpen = expanded[e.id] ?? e.id === focusEpic?.id;
             return (
               <section
                 key={e.id}
+                data-epic-id={e.id}
                 className="overflow-hidden rounded-[14px] border border-border bg-[var(--surface)] shadow-[var(--shadow)]"
               >
                 <div

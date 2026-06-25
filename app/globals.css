@@ -230,3 +230,10 @@
 .bd-md table { border-collapse: collapse; margin: 0.6em 0; font-size: 0.95em; }
 .bd-md th, .bd-md td { border: 1px solid var(--border); padding: 4px 8px; text-align: left; }
 .bd-md hr { margin: 0.9em 0; border: none; border-top: 1px solid var(--border); }
+
+/* Brief highlight when jumping to an epic from a bead's detail drawer (bead 55b). */
+@keyframes epicFlash {
+  0% { box-shadow: 0 0 0 3px var(--brand); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+.epic-flash { animation: epicFlash 1.5s ease-out; }

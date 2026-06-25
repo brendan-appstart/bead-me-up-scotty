@@ -87,7 +87,7 @@ export function BeadDetailDrawer({
 }
 
 function DrawerBody({ bead, onClose }: { bead: Bead; onClose: () => void }) {
-  const { index, beads, humanAllowlist, meta, projectId, openDetail } = useApp();
+  const { index, beads, humanAllowlist, meta, projectId, openEpic } = useApp();
   const actor = meta?.humanActor ?? "you";
   const isDemo = meta?.kind === "demo";
 
@@ -259,8 +259,8 @@ function DrawerBody({ bead, onClose }: { bead: Bead; onClose: () => void }) {
             {ep ? (
               <button
                 type="button"
-                onClick={() => openDetail(ep.id)}
-                title={`Open ${ep.id}`}
+                onClick={() => openEpic(ep.id)}
+                title={`Jump to ${ep.id} on the Epics screen`}
                 className="flex h-9 items-center gap-[7px] rounded-[9px] border border-border bg-[var(--surface-2)] px-[10px] text-left text-[var(--brand)] hover:border-[var(--brand)] hover:bg-[var(--brand-weak)]"
               >
                 <Icon name="target" size={14} className="flex-shrink-0" />

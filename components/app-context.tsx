@@ -25,6 +25,8 @@ interface AppContextValue {
   error?: string;
   openDetail: (id: string) => void;
   openCreate: (parent?: string) => void;
+  /** Jump to the Epics screen and focus a specific epic (bead 55b). */
+  openEpic: (epicId: string) => void;
 }
 
 const AppContext = React.createContext<AppContextValue | null>(null);
