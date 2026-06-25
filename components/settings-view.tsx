@@ -41,7 +41,7 @@ export function SettingsView() {
 }
 
 function SettingsForm({ data }: { data: DoctorResponse }) {
-  const { theme, toggle } = useTheme();
+  const { theme, mode, toggle } = useTheme();
   const qc = useQueryClient();
   const [actor, setActor] = React.useState(data.config.humanActor);
   const [allowlist, setAllowlist] = React.useState<string[]>(data.config.humanAllowlist);
@@ -145,13 +145,13 @@ function SettingsForm({ data }: { data: DoctorResponse }) {
         <div className="flex items-center justify-between">
           <div>
             <div className="text-[13px]">Theme</div>
-            <div className="text-[11.5px] text-[var(--text-3)]">Currently {theme}</div>
+            <div className="text-[11.5px] text-[var(--text-3)]">Currently {theme.name}</div>
           </div>
           <button
             onClick={toggle}
             className="flex h-[34px] items-center gap-[7px] rounded-[9px] border border-border bg-[var(--surface-2)] px-[13px] text-[12.5px] hover:bg-[var(--surface-3)]"
           >
-            <Icon name={theme === "dark" ? "sun" : "moon"} size={14} />
+            <Icon name={mode === "dark" ? "sun" : "moon"} size={14} />
             <span>Switch theme</span>
           </button>
         </div>

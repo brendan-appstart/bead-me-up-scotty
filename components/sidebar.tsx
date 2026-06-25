@@ -61,7 +61,7 @@ export function Sidebar({
   projectId: string;
   live?: boolean;
 }) {
-  const { theme, toggle } = useTheme();
+  const { mode, toggle } = useTheme();
   const { meta, beads } = useApp();
   const actor = meta?.humanActor ?? "you";
   const epicCount = beads.filter((b) => b.issue_type === "epic").length;
@@ -174,7 +174,7 @@ export function Sidebar({
             title="Toggle theme"
             className="flex h-[30px] w-[30px] items-center justify-center rounded-lg border border-border bg-[var(--surface)] text-[var(--text-2)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
           >
-            <Icon name={theme === "dark" ? "sun" : "moon"} size={15} />
+            <Icon name={mode === "dark" ? "sun" : "moon"} size={15} />
           </button>
         </div>
 
