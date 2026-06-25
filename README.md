@@ -15,15 +15,15 @@
   <a href="https://github.com/brendan-appstart/bead-me-up-scotty/stargazers"><img src="https://img.shields.io/github/stars/brendan-appstart/bead-me-up-scotty?style=flat-square&color=eab308" alt="GitHub stars"></a>
 </p>
 
-<a href="https://www.youtube.com/watch?v=hbs2Psi98yo" title="Watch the 2-minute demo">
+<a href="https://youtu.be/0zpg_FRX-wE" title="Watch the 2-minute demo">
   <img src=".github/screens/board.png" alt="Bead Me Up, Scotty — click to watch the demo" width="860">
 </a>
 
-<p><b>▶️ <a href="https://www.youtube.com/watch?v=hbs2Psi98yo">Watch the 2-minute demo</a></b></p>
+<p><b>▶️ <a href="https://youtu.be/0zpg_FRX-wE">Watch the 2-minute demo</a></b></p>
 
 <p>
   <a href="https://beadmeupscotty.com"><b>🌐 Website</b></a> ·
-  <a href="https://www.youtube.com/watch?v=hbs2Psi98yo"><b>▶️ Demo video</b></a> ·
+  <a href="https://youtu.be/0zpg_FRX-wE"><b>▶️ Demo video</b></a> ·
   <a href="https://github.com/brendan-appstart/bead-me-up-scotty"><b>⭐ Star the repo</b></a> ·
   <a href="https://github.com/gastownhall/beads"><b>🧵 Beads</b></a>
 </p>
