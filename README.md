@@ -113,28 +113,20 @@ docker build -t bead-me-up-scotty .
 docker run -p 3000:3000 bead-me-up-scotty      # → http://localhost:3000
 ```
 
-This runs in **demo mode** by default (no `bd` binary inside the container).
-To use real data, mount your project directory and point `BEADS_REPO` at it:
+The image includes the `bd` CLI, so real data works out of the box — just
+mount your project directory and point `BEADS_REPO` at it:
 
 ```bash
 BEADS_REPO=/path/to/project
-docker run -p 3000:3000 \
+docker run -d -p 3000:3000 \
   --name beads_ui \
   -v $BEADS_REPO:/data \
   -e BEADS_REPO=/data \
   bead-me-up-scotty
 ```
 
-If `bd` is on your host `PATH`, you can also mount the binary and point to it
-with `BD_BIN`:
-
-```bash
-docker run -p 3000:3000 \
-  -v /path/to/project:/data \
-  -v /usr/local/bin/bd:/usr/local/bin/bd \
-  -e BEADS_REPO=/data \
-  bead-me-up-scotty
-```
+On Linux, if `bd` fails with permission errors writing to the mounted `.beads`
+directory, run as your host user: `--user $(id -u):$(id -g)`.
 
 ## Install globally
 
