@@ -106,6 +106,36 @@ npm run dev            # http://localhost:3000
 Set the human actor / allowlist, repo path, and theme in **Settings** (stored
 under your OS config dir, not in beads).
 
+### Docker
+
+```bash
+docker build -t bead-me-up-scotty .
+docker run -p 3000:3000 bead-me-up-scotty      # → http://localhost:3000
+```
+
+This runs in **demo mode** by default (no `bd` binary inside the container).
+To use real data, mount your project directory and point `BEADS_REPO` at it:
+
+```bash
+BEADS_REPO=/path/to/project
+docker run -p 3000:3000 \
+  --name beads_ui \
+  -v $BEADS_REPO:/data \
+  -e BEADS_REPO=/data \
+  bead-me-up-scotty
+```
+
+If `bd` is on your host `PATH`, you can also mount the binary and point to it
+with `BD_BIN`:
+
+```bash
+docker run -p 3000:3000 \
+  -v /path/to/project:/data \
+  -v /usr/local/bin/bd:/usr/local/bin/bd \
+  -e BEADS_REPO=/data \
+  bead-me-up-scotty
+```
+
 ## Install globally
 
 Install once from a clone, then run `scotty` (or `bead-me-up-scotty`) from **any**

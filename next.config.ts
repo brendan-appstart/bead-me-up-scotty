@@ -15,6 +15,7 @@ const BUILD_NUMBER = process.env.BUILD_NUMBER || git("git rev-list --count HEAD"
 const BUILD_SHA = process.env.BUILD_SHA || git("git rev-parse --short=7 HEAD");
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   // Inlined into the bundle (client + server) so the build badge can read them.
   env: {
     NEXT_PUBLIC_BUILD_NUMBER: BUILD_NUMBER,
