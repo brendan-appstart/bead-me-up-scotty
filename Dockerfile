@@ -47,10 +47,14 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
+ENV HOME=/home/nextjs
+ENV XDG_CONFIG_HOME=/home/nextjs/.config
 
-# Run as a non-root user for security
+# Run as a non-root user for security and give bd a real home/config dir
 RUN groupadd --system --gid 1001 nodejs \
- && useradd  --system --uid 1001 --gid nodejs nextjs
+ && useradd --system --uid 1001 --gid nodejs --create-home --home-dir /home/nextjs nextjs \
+ && mkdir -p /home/nextjs/.config \
+ && chown -R nextjs:nodejs /home/nextjs
 
 # Copy the standalone server, static assets, and public files
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./

@@ -125,8 +125,10 @@ docker run -d -p 3000:3000 \
   bead-me-up-scotty
 ```
 
-On Linux, if `bd` fails with permission errors writing to the mounted `.beads`
-directory, run as your host user: `--user $(id -u):$(id -g)`.
+The container runs as a non-root `nextjs` user with `HOME=/home/nextjs` and
+`XDG_CONFIG_HOME=/home/nextjs/.config`, so `bd` and app settings have a valid
+runtime config directory. On Linux, if `bd` fails with permission errors writing
+to the mounted `.beads` directory, run as your host user: `--user $(id -u):$(id -g)`.
 
 ## Install globally
 
