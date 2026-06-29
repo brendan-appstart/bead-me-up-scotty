@@ -106,6 +106,30 @@ npm run dev            # http://localhost:3000
 Set the human actor / allowlist, repo path, and theme in **Settings** (stored
 under your OS config dir, not in beads).
 
+### Docker
+
+```bash
+docker build -t bead-me-up-scotty .
+docker run -p 3000:3000 bead-me-up-scotty      # → http://localhost:3000
+```
+
+The image includes the `bd` CLI, so real data works out of the box — just
+mount your project directory and point `BEADS_REPO` at it:
+
+```bash
+BEADS_REPO=/path/to/project
+docker run -d -p 3000:3000 \
+  --name beads_ui \
+  -v $BEADS_REPO:/data \
+  -e BEADS_REPO=/data \
+  bead-me-up-scotty
+```
+
+The container runs as a non-root `nextjs` user with `HOME=/home/nextjs` and
+`XDG_CONFIG_HOME=/home/nextjs/.config`, so `bd` and app settings have a valid
+runtime config directory. On Linux, if `bd` fails with permission errors writing
+to the mounted `.beads` directory, run as your host user: `--user $(id -u):$(id -g)`.
+
 ## Install globally
 
 Install once from a clone, then run `scotty` (or `bead-me-up-scotty`) from **any**

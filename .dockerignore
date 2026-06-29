@@ -1,0 +1,34 @@
+node_modules
+.next
+.git
+.gitignore
+.beads
+.dolt
+*.db
+.beads-credential-key
+
+# Docs, design, and agent config — not needed in the image
+design/
+docs/
+.agents/
+.claude/
+.codex/
+.github/
+*.md
+LICENSE
+
+# Scripts and global launcher — not needed in container (we run server.js directly)
+scripts/
+bin/
+
+# Misc
+graphify-out/
+.env*
+.DS_Store
+*.pem
+*.tsbuildinfo
+next-env.d.ts
+coverage/
+build/
+out/
+.vercel
