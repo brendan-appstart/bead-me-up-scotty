@@ -128,7 +128,24 @@ docker run -d -p 3000:3000 \
 The container runs as a non-root `nextjs` user with `HOME=/home/nextjs` and
 `XDG_CONFIG_HOME=/home/nextjs/.config`, so `bd` and app settings have a valid
 runtime config directory. On Linux, if `bd` fails with permission errors writing
-to the mounted `.beads` directory, run as your host user: `--user $(id -u):$(id -g)`.
+to the mounted `.beads` directory, run as your host user: `--user $(id -u):$(id -g)`
+(the config dirs are world-writable, so settings keep working). Settings live
+inside the container, so they are lost when it is recreated — bind-mount the
+config dir to keep them:
+
+```bash
+-v "$HOME/.config/bead-me-up-scotty:/home/nextjs/.config/bead-me-up-scotty"
+```
+
+Container limitations:
+
+- The image has no `git`, so Dolt remote sync (`refs/dolt/data`) and `bd init`
+  don't work inside it — run those on the host. UI edits (create/update/close)
+  work fine; they just won't auto-push until you sync from the host.
+- **Refine with AI** shells out to the Claude Code CLI, which isn't bundled;
+  the button shows an error in the container.
+- The bundled `bd` version is pinned in the Dockerfile (`ARG BD_VERSION`);
+  override with `--build-arg BD_VERSION=<version>` to match your host.
 
 ## Install globally
 

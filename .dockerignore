@@ -23,6 +23,7 @@ bin/
 
 # Misc
 graphify-out/
+.venv/
 .env*
 .DS_Store
 *.pem
