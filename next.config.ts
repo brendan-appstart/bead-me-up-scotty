@@ -15,6 +15,12 @@ const BUILD_NUMBER = process.env.BUILD_NUMBER || git("git rev-list --count HEAD"
 const BUILD_SHA = process.env.BUILD_SHA || git("git rev-parse --short=7 HEAD");
 
 const nextConfig: NextConfig = {
+  // Standalone output is opt-in (set in the Dockerfile builder stage): the
+  // local launchers (npm start, scripts/serve.mjs, bin/bead-me-up-scotty.mjs)
+  // all run `next start`, which does not support standalone output, and
+  // package.json `files` ships `.next` — an unconditional standalone build
+  // would pack .next/standalone/node_modules into every global install.
+  ...(process.env.NEXT_STANDALONE ? { output: "standalone" as const } : {}),
   // Inlined into the bundle (client + server) so the build badge can read them.
   env: {
     NEXT_PUBLIC_BUILD_NUMBER: BUILD_NUMBER,
