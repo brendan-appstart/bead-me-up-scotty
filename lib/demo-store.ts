@@ -1,5 +1,5 @@
 import "server-only";
-import type { Bead, CreateInput, UpdateInput, DepType, Dependency } from "./schema";
+import { beadSchema, type Bead, type CreateInput, type UpdateInput, type DepType, type Dependency } from "./schema";
 import type { BeadsStore, DoctorInfo } from "./store";
 import { demoBeads } from "./demo-data";
 
@@ -30,7 +30,7 @@ export const demoStore: BeadsStore = {
     const id = "bd-" + Math.random().toString(16).slice(2, 6);
     const dependencies: Dependency[] = [];
     if (input.parent) dependencies.push({ issue_id: id, depends_on_id: input.parent, type: "parent-child" });
-    const bead: Bead = {
+    const bead = beadSchema.parse({
       id,
       title: input.title.trim(),
       issue_type: input.issue_type,
@@ -46,7 +46,7 @@ export const demoStore: BeadsStore = {
       dependencies,
       comments: [],
       parent: input.parent || null,
-    };
+    });
     beads = [...beads, bead];
     return bead;
   },
