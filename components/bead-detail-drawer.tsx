@@ -517,9 +517,11 @@ function DrawerBody({ bead, onClose }: { bead: Bead; onClose: () => void }) {
                         {relTime(c.created_at)}
                       </span>
                     </div>
-                    <div className="text-[13px] leading-[1.5] text-[var(--text-2)] [text-wrap:pretty]">
-                      {c.text}
-                    </div>
+                    <DescriptionContent
+                      text={c.text}
+                      projectId={projectId}
+                      className="text-[13px] leading-[1.5] text-[var(--text-2)] [text-wrap:pretty]"
+                    />
                   </div>
                 </div>
               );
