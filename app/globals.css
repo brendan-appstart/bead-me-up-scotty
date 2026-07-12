@@ -371,3 +371,31 @@ html[data-theme="rose-pine"] {
   100% { box-shadow: 0 0 0 0 transparent; }
 }
 .epic-flash { animation: epicFlash 1.5s ease-out; }
+
+/* React Flow zoom/fit/interactivity controls (bead bzl / gh-5).
+   The library's default control bar is light-on-white and becomes invisible on
+   dark themes. Re-skin it with the same theme tokens the graph already uses so
+   it stays legible in every theme. The `.react-flow` prefix outranks React
+   Flow's single-class defaults regardless of stylesheet import order, and the
+   tokens auto-switch between :root (light) and .dark. */
+.react-flow .react-flow__controls {
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  overflow: hidden;
+}
+.react-flow .react-flow__controls-button {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-2);
+}
+.react-flow .react-flow__controls-button:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.react-flow .react-flow__controls-button:last-child {
+  border-bottom: none;
+}
+.react-flow .react-flow__controls-button svg {
+  fill: currentColor;
+}
