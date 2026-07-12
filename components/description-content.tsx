@@ -15,6 +15,11 @@ import { api } from "@/lib/api-client";
  *    caller can rewrite the source markdown (see lib/beads-view toggleTask).
  */
 const IMG_PATTERN = "!\\[([^\\]]*)\\]\\((attachment:\\/\\/[^)\\s]+|https?:\\/\\/[^)\\s]+)\\)";
+const SAFE_URL_PATTERN = /^(https?:|mailto:|attachment:\/\/)/i;
+
+function safeUrlTransform(url: string): string {
+  return SAFE_URL_PATTERN.test(url) ? url : "";
+}
 
 export function DescriptionContent({
   text,
@@ -70,9 +75,9 @@ export function DescriptionContent({
       <div className="bd-md">
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
-          // Local single-user tool with trusted content; pass URLs (incl.
-          // attachment://) through untouched so the img override can resolve them.
-          urlTransform={(url) => url}
+          // Preserve attachment:// refs for local images, but reject executable
+          // or local-file schemes when comments/descriptions render user text.
+          urlTransform={safeUrlTransform}
           components={components}
         >
           {text}
