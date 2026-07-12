@@ -202,19 +202,29 @@ function Row({
   });
   const o = beadOrigin(bead, humanAllowlist);
   const labels = (bead.labels ?? []).filter((l) => l !== "archived").slice(0, 2);
+  const openFromKeyboard = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.target !== e.currentTarget) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onOpen();
+    }
+  };
   return (
-    <button
+    <div
       ref={setNodeRef}
       {...listeners}
       {...attributes}
+      role="button"
+      tabIndex={0}
       onClick={onOpen}
+      onKeyDown={openFromKeyboard}
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
         opacity: isDragging ? 0.4 : 1,
         zIndex: isDragging ? 10 : undefined,
       }}
-      className="flex w-full touch-none items-center gap-3 rounded-[10px] border border-border bg-[var(--surface)] px-[13px] py-[9px] text-left transition-[border-color,box-shadow] hover:border-[var(--border-strong)] hover:shadow-[var(--shadow)]"
+      className="flex w-full cursor-pointer touch-none items-center gap-3 rounded-[10px] border border-border bg-[var(--surface)] px-[13px] py-[9px] text-left transition-[border-color,box-shadow] hover:border-[var(--border-strong)] hover:shadow-[var(--shadow)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]"
     >
       <span
         className="h-[9px] w-[9px] flex-shrink-0 rounded-full"
@@ -265,6 +275,6 @@ function Row({
       >
         {relTime(bead.updated_at)}
       </span>
-    </button>
+    </div>
   );
 }
