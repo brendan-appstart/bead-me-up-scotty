@@ -85,6 +85,32 @@ export const demoStore: BeadsStore = {
     b.updated_at = nowIso();
     return { ...b };
   },
+  async createGate(blocks, reason, actor) {
+    const target = find(blocks);
+    const id = "gate-" + Math.random().toString(16).slice(2, 6);
+    const gate = beadSchema.parse({
+      id,
+      title: "Gate: human",
+      issue_type: "gate",
+      await_type: "human",
+      status: "open",
+      priority: 2,
+      created_by: actor,
+      description: `Ad-hoc gate blocking ${blocks}${reason ? `\n\nReason: ${reason}` : ""}`,
+      created_at: nowIso(),
+      updated_at: nowIso(),
+      closed_at: null,
+      labels: [],
+      dependencies: [],
+      comments: [],
+    });
+    beads = [...beads, gate];
+    // The target now waits on the gate; isBlocked() derives blocked-ness from
+    // this dep, and clears once the gate is closed (approved).
+    target.dependencies = [...(target.dependencies ?? []), { issue_id: blocks, depends_on_id: id, type: "blocks" }];
+    target.updated_at = nowIso();
+    return { ...gate };
+  },
   async removeLabel(id, label) {
     const b = find(id);
     b.labels = (b.labels ?? []).filter((l) => l !== label);

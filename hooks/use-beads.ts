@@ -177,6 +177,20 @@ export function useRemoveDep() {
   );
 }
 
+/** Create a human approval gate blocking `id` (bd gate create --type human). */
+export function useCreateGate() {
+  const { projectId } = useApp();
+  const qc = useQueryClient();
+  return useMutation(
+    mutationToast<{ id: string; reason?: string }, Bead>(
+      ({ id, reason }) => api.createGate(projectId, id, reason),
+      (_a, res) => `Created approval gate ${res.id} · bd gate create`,
+      qc,
+      beadsKey(projectId),
+    ),
+  );
+}
+
 /** "Needs You" inbox: respond (comment + close) or dismiss (drop the human label). */
 export function useRespondHuman() {
   const { projectId } = useApp();
