@@ -87,6 +87,7 @@ export const beadSchema = z
     id: z.string(),
     title: z.string(),
     description: z.string().optional().default(""),
+    notes: z.string().optional().default(""),
     status: statusSchema,
     priority: z.coerce.number().int().min(0).max(4).default(2),
     issue_type: typeSchema,

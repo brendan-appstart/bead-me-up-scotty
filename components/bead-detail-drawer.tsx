@@ -43,6 +43,8 @@ import { BEAD_STATUSES, BLOCKING_DEP_TYPES, type Bead, type DepType } from "@/li
 const selectClass =
   "h-9 cursor-pointer rounded-[9px] border border-border bg-[var(--surface-2)] px-[9px] text-[13px] text-[var(--text)] outline-none";
 const fieldLabel = "text-[11px] font-[550] uppercase tracking-[.03em] text-[var(--text-3)]";
+const detailContentClass =
+  "rounded-[10px] border border-border bg-[var(--surface-2)] p-[12px_13px] text-[13.5px] leading-[1.55] text-[var(--text-2)] [text-wrap:pretty]";
 
 export function BeadDetailDrawer({
   openId,
@@ -140,6 +142,7 @@ function DrawerBody({ bead, onClose }: { bead: Bead; onClose: () => void }) {
   const o = beadOrigin(bead, humanAllowlist);
   const ep = epicOf(bead, index);
   const deps = (bead.dependencies ?? []).filter((d) => d.type !== "parent-child");
+  const notes = bead.notes?.trim() ?? "";
   const comments = bead.comments ?? [];
   const activity = [
     { label: `Created by ${bead.created_by || "unknown"}`, time: fmtDate(bead.created_at) },
@@ -387,7 +390,7 @@ function DrawerBody({ bead, onClose }: { bead: Bead; onClose: () => void }) {
                   patch: { description: toggleTask(bead.description ?? "", idx) },
                 })
               }
-              className="rounded-[10px] border border-border bg-[var(--surface-2)] p-[12px_13px] text-[13.5px] leading-[1.55] text-[var(--text-2)] [text-wrap:pretty]"
+              className={detailContentClass}
             />
           ) : (
             <div className="rounded-[10px] border border-border bg-[var(--surface-2)] p-[12px_13px] text-[13.5px] leading-[1.55] text-[var(--text-3)]">
@@ -495,6 +498,17 @@ function DrawerBody({ bead, onClose }: { bead: Bead; onClose: () => void }) {
           </div>
         </Section>
 
+        {notes && (
+          <Section>
+            <Header icon="list" label="Notes" />
+            <DescriptionContent
+              text={notes}
+              projectId={projectId}
+              className={detailContentClass}
+            />
+          </Section>
+        )}
+
         {/* Comments */}
         <Section>
           <Header icon="comment" label="Comments" count={comments.length} />
@@ -582,12 +596,14 @@ function Section({ children }: { children: React.ReactNode }) {
   return <div className="mb-[18px]">{children}</div>;
 }
 
-function Header({ icon, label, count }: { icon: string; label: string; count: number }) {
+function Header({ icon, label, count }: { icon: string; label: string; count?: number }) {
   return (
     <div className="mb-[9px] flex items-center gap-2">
       <Icon name={icon} size={15} className="text-[var(--text-2)]" />
       <span className="text-[13px] font-semibold">{label}</span>
-      <span className="font-mono text-[11px] text-[var(--text-3)]">{count}</span>
+      {count !== undefined && (
+        <span className="font-mono text-[11px] text-[var(--text-3)]">{count}</span>
+      )}
     </div>
   );
 }
