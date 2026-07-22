@@ -63,5 +63,17 @@
   },
   "overrides": {
     "postcss": "^8.5.15"
+  },
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": ">=26.4",
+      "onFail": "warn"
+    },
+    "packageManager": {
+      "name": "npm",
+      "version": ">=11.9",
+      "onFail": "warn"
+    }
   }
 }
