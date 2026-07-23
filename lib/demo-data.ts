@@ -13,6 +13,8 @@ import type { Bead, Comment, Dependency } from "./schema";
 interface Extra {
   description?: string;
   notes?: string;
+  design?: string;
+  acceptance_criteria?: string;
   created_at?: string;
   updated_at?: string;
   closed_at?: string;
@@ -47,6 +49,8 @@ function D(
     created_by,
     description: extra.description ?? "",
     notes: extra.notes ?? "",
+    design: extra.design ?? "",
+    acceptance_criteria: extra.acceptance_criteria ?? "",
     created_at: extra.created_at ?? "2026-06-09T10:00:00Z",
     updated_at: extra.updated_at ?? "2026-06-14T15:00:00Z",
     closed_at: status === "closed" ? extra.closed_at ?? "2026-06-15T11:00:00Z" : null,

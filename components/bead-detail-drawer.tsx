@@ -149,6 +149,8 @@ function DrawerBody({ bead, onClose }: { bead: Bead; onClose: () => void }) {
   const ep = epicOf(bead, index);
   const deps = (bead.dependencies ?? []).filter((d) => d.type !== "parent-child");
   const notes = bead.notes?.trim() ?? "";
+  const design = bead.design?.trim() ?? "";
+  const acceptance = bead.acceptance_criteria?.trim() ?? "";
   const comments = bead.comments ?? [];
   const activity = [
     { label: `Created by ${bead.created_by || "unknown"}`, time: fmtDate(bead.created_at) },
@@ -565,6 +567,28 @@ function DrawerBody({ bead, onClose }: { bead: Bead; onClose: () => void }) {
               ))}
           </div>
         </Section>
+
+        {design && (
+          <Section>
+            <Header icon="pencil" label="Design" />
+            <DescriptionContent
+              text={design}
+              projectId={projectId}
+              className={detailContentClass}
+            />
+          </Section>
+        )}
+
+        {acceptance && (
+          <Section>
+            <Header icon="target" label="Acceptance criteria" />
+            <DescriptionContent
+              text={acceptance}
+              projectId={projectId}
+              className={detailContentClass}
+            />
+          </Section>
+        )}
 
         {notes && (
           <Section>
