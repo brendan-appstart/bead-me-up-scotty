@@ -105,6 +105,13 @@ export const beadSchema = z
     dependent_count: z.number().optional(),
     comment_count: z.number().optional(),
     parent: z.string().nullable().optional(),
+    /**
+     * Gate sub-type from `bd gate create --type <t>` (human | timer | gh:run |
+     * gh:pr | bead). Present only on issue_type "gate". Preserved here — zod
+     * strips unknown keys — so the UI can surface human-approval gates that are
+     * waiting on a person (bead 8qc / gh-6).
+     */
+    await_type: z.string().optional(),
   });
 export type Bead = z.infer<typeof beadSchema>;
 

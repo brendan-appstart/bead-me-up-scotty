@@ -158,6 +158,11 @@ export const api = {
       method: "DELETE",
       body: JSON.stringify({ depends_on_id }),
     }),
+  createGate: (projectId: string, id: string, reason?: string) =>
+    request<Bead>(`${base(projectId)}/beads/${enc(id)}/gate`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    }),
   archive: (projectId: string, id: string) =>
     request<Bead>(`${base(projectId)}/beads/${enc(id)}/archive`, { method: "POST" }),
   doctor: (projectId: string) => request<DoctorResponse>(`${base(projectId)}/doctor`),

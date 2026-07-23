@@ -16,6 +16,33 @@ export function needsHuman(b: Bead): boolean {
 }
 
 /**
+ * A human-approval gate: an `issue_type === "gate"` bead created by
+ * `bd gate create --type human`. Unlike `bd human` (a label on a normal bead),
+ * a gate is its own bead whose sub-type lives in `await_type`, so it never
+ * carries the `human` label and `needsHuman()` misses it.
+ */
+export function isHumanGate(b: Bead): boolean {
+  return b.issue_type === "gate" && b.await_type === "human";
+}
+
+/**
+ * A human-approval gate that is unresolved and not itself blocked — its own
+ * blockers (if any) are all closed, so a person can approve/resolve it now.
+ * These belong on the "Needs You" inbox alongside `needsHuman()` beads
+ * (bead 8qc / gh-6). Resolving = closing the gate, which unblocks its dependents.
+ */
+export function readyHumanGate(b: Bead, index: Map<string, Bead>): boolean {
+  return isHumanGate(b) && b.status !== "closed" && !isBlocked(b, index);
+}
+
+/** Beads that this gate blocks (they depend on it via a blocking dep). */
+export function gateBlocks(gateId: string, beads: Bead[]): Bead[] {
+  return beads.filter((b) =>
+    (b.dependencies ?? []).some((d) => d.depends_on_id === gateId && BLOCKING_DEP_TYPES.includes(d.type as never)),
+  );
+}
+
+/**
  * GFM task-list ("- [ ]" / "- [x]") helpers. Checklists live in the bead
  * description text itself (zero new schema), so toggling rewrites the markdown.
  */

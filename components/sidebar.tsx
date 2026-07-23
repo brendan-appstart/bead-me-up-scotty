@@ -11,7 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
-import { initials, avatarColor, needsHuman } from "@/lib/beads-view";
+import { initials, avatarColor, needsHuman, readyHumanGate } from "@/lib/beads-view";
 import { useGamification } from "@/hooks/use-beads";
 // GITHUB_REPO is shared with the build badge (where bug/feature issues are filed).
 import { GITHUB_REPO } from "@/lib/build-info";
@@ -62,10 +62,12 @@ export function Sidebar({
   live?: boolean;
 }) {
   const { mode, toggle } = useTheme();
-  const { meta, beads } = useApp();
+  const { meta, beads, index } = useApp();
   const actor = meta?.humanActor ?? "you";
   const epicCount = beads.filter((b) => b.issue_type === "epic").length;
-  const needsYouCount = beads.filter(needsHuman).length;
+  // "Needs You" = agent-flagged beads (bd human) + ready human-approval gates.
+  const needsYouCount =
+    beads.filter(needsHuman).length + beads.filter((b) => readyHumanGate(b, index)).length;
   const game = useGamification(projectId, !!meta?.gamification);
 
   return (

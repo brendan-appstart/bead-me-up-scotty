@@ -22,6 +22,7 @@ import {
   useRemoveDep,
   useArchiveBead,
   useDeleteBead,
+  useCreateGate,
 } from "@/hooks/use-beads";
 import { beadOrigin, originOf, originTitle } from "@/lib/attribution";
 import {
@@ -32,6 +33,7 @@ import {
   avatarColor,
   initials,
   epicOf,
+  isHumanGate,
   relTime,
   fmtDate,
   fmtDateTime,
@@ -100,11 +102,15 @@ function DrawerBody({ bead, onClose }: { bead: Bead; onClose: () => void }) {
   const removeDep = useRemoveDep();
   const archive = useArchiveBead();
   const del = useDeleteBead();
+  const createGate = useCreateGate();
 
   const [draft, setDraft] = React.useState("");
   const [addingDep, setAddingDep] = React.useState(false);
   const [depTarget, setDepTarget] = React.useState("");
   const [depType, setDepType] = React.useState<DepType>("blocks");
+  const [addingGate, setAddingGate] = React.useState(false);
+  const [gateReason, setGateReason] = React.useState("");
+  const gateBead = isHumanGate(bead);
 
   // Inline edit of title + description (with image drop/paste on the textarea).
   const [editing, setEditing] = React.useState(false);
@@ -197,6 +203,23 @@ function DrawerBody({ bead, onClose }: { bead: Bead; onClose: () => void }) {
           </span>
           <OriginBadge origin={o} title={originTitle(bead.created_by, o)} withLabel />
         </div>
+
+        {gateBead && bead.status !== "closed" && (
+          <div className="mb-4 flex items-center gap-3 rounded-[10px] border border-[var(--brand)]/40 bg-[var(--brand-weak)] p-[11px_13px]">
+            <Icon name="gate" size={16} style={{ color: "var(--brand)" }} className="flex-shrink-0" />
+            <span className="flex-1 text-[12.5px] leading-[1.45] text-[var(--text-2)]">
+              Human approval gate. Approving closes it and unblocks everything waiting on it.
+            </span>
+            <button
+              disabled={setStatus.isPending}
+              onClick={() => setStatus.mutate({ id: bead.id, status: "closed" })}
+              className="flex h-8 flex-shrink-0 items-center gap-[6px] rounded-lg px-3 text-[12.5px] font-[550] text-white disabled:opacity-50"
+              style={{ background: "var(--brand)" }}
+            >
+              <Icon name="check" size={14} /> Approve
+            </button>
+          </div>
+        )}
 
         {editing ? (
           <>
@@ -495,6 +518,51 @@ function DrawerBody({ bead, onClose }: { bead: Bead; onClose: () => void }) {
                 <span>Add dependency</span>
               </button>
             )}
+
+            {/* Require a human approval gate before this bead can proceed
+                (bd gate create --type human --blocks <this>). Resolved from the
+                gate's own drawer or the Needs You inbox. */}
+            {!gateBead && bead.status !== "closed" &&
+              (addingGate ? (
+                <div className="flex items-center gap-[7px] rounded-[9px] border border-border bg-[var(--surface)] p-[9px_11px]">
+                  <input
+                    autoFocus
+                    value={gateReason}
+                    onChange={(e) => setGateReason(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !createGate.isPending) {
+                        createGate.mutate({ id: bead.id, reason: gateReason.trim() || undefined });
+                        setAddingGate(false);
+                        setGateReason("");
+                      }
+                      if (e.key === "Escape") setAddingGate(false);
+                    }}
+                    placeholder="Reason (optional) — e.g. needs design sign-off"
+                    className="h-8 flex-1 rounded-[9px] border border-border bg-[var(--surface-2)] px-[9px] text-[12.5px] text-[var(--text)] outline-none focus:border-[var(--brand)]"
+                  />
+                  <button
+                    disabled={createGate.isPending}
+                    onClick={() => {
+                      createGate.mutate({ id: bead.id, reason: gateReason.trim() || undefined });
+                      setAddingGate(false);
+                      setGateReason("");
+                    }}
+                    className="flex h-8 flex-shrink-0 items-center rounded-md px-3 text-[12px] font-[550] text-white disabled:opacity-50"
+                    style={{ background: "var(--brand)" }}
+                  >
+                    Create gate
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setAddingGate(true)}
+                  title="Block this bead on a human approval gate"
+                  className="flex items-center gap-[7px] rounded-[9px] border border-dashed border-[var(--border-strong)] p-[8px_11px] text-[12.5px] font-medium text-[var(--text-2)] hover:border-[var(--brand)] hover:text-[var(--brand)]"
+                >
+                  <Icon name="gate" size={14} />
+                  <span>Require approval</span>
+                </button>
+              ))}
           </div>
         </Section>
 

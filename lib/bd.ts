@@ -240,6 +240,16 @@ export function createBdStore(repoPath: string): BeadsStore {
       });
     },
 
+    createGate(blocks, reason, actor) {
+      return serializeWrite(repoPath, async () => {
+        const args = ["gate", "create", "--type", "human", "--blocks", blocks];
+        if (reason) args.push("--reason", reason);
+        // `bd gate create --json` returns the created gate object (incl. its id).
+        const created = await runBdJson<{ id: string }>(args, rw(actor));
+        return show(created.id);
+      });
+    },
+
     removeLabel(id, label, actor) {
       return serializeWrite(repoPath, async () => {
         await runBdRaw(["update", id, "--remove-label", label], rw(actor));
