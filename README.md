@@ -113,6 +113,11 @@ docker build -t bead-me-up-scotty .
 docker run -p 3000:3000 bead-me-up-scotty      # → http://localhost:3000
 ```
 
+> The build runs `npm ci`, which needs the committed `package-lock.json` for
+> reproducible installs. The lockfile is tracked in the repo (a `.gitignore`
+> negation keeps it that way even if your global gitignore excludes lockfiles),
+> so a clean clone builds without a prior `npm install`.
+
 The image includes the `bd` CLI, so real data works out of the box — just
 mount your project directory and point `BEADS_REPO` at it:
 

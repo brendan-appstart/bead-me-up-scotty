@@ -2,6 +2,9 @@
 
 # dependencies
 /node_modules
+# Keep the lockfile tracked: the Docker build runs `npm ci`, which requires it.
+# Overrides a `package-lock.json` entry in a contributor's global gitignore.
+!package-lock.json
 /.pnp
 .pnp.*
 .yarn/*
