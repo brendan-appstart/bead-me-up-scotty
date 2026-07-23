@@ -29,6 +29,9 @@
 # local onboarding doc (generated, not app source)
 /ONBOARDING.md
 
+# local GitHub-issue triage notes and draft responses (working artifacts, not app source)
+/gh-issues-responses/
+
 # misc
 .DS_Store
 *.pem
