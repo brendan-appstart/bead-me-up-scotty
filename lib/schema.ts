@@ -62,7 +62,8 @@ export type Priority = (typeof PRIORITIES)[number];
 const statusSchema = z.string();
 const typeSchema = z.string();
 
-export const dependencySchema = z
+/** Flat dependency link records, as emitted by `bd export --json`. */
+const flatDepSchema = z
   .object({
     issue_id: z.string().optional(),
     depends_on_id: z.string(),
@@ -70,7 +71,24 @@ export const dependencySchema = z
     created_by: z.string().optional(),
     created_at: z.string().optional(),
   });
-export type Dependency = z.infer<typeof dependencySchema>;
+
+/**
+ * `bd show --json` instead expands each dependency into the full target bead
+ * ({ id, title, status, …, dependency_type }). Normalize that shape to the
+ * flat link record so consumers see a single canonical Dependency type
+ * (gh-12). The two shapes are disjoint: flat has depends_on_id/type, expanded
+ * has id/dependency_type. The expanded record's created_at/created_by belong
+ * to the target bead, not the link, so they are intentionally not mapped.
+ */
+const expandedDepSchema = z
+  .object({ id: z.string(), dependency_type: z.string() })
+  .transform((d): z.infer<typeof flatDepSchema> => ({
+    depends_on_id: d.id,
+    type: d.dependency_type,
+  }));
+
+export const dependencySchema = z.union([flatDepSchema, expandedDepSchema]);
+export type Dependency = z.infer<typeof flatDepSchema>;
 
 export const commentSchema = z
   .object({

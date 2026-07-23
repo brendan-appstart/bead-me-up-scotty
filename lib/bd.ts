@@ -132,7 +132,12 @@ export function createBdStore(repoPath: string): BeadsStore {
     const rec = Array.isArray(data) ? data[0] : data;
     if (!rec) throw new BdError(`bead ${id} not found`, "not_found");
     const parsed = beadSchema.safeParse(rec);
-    if (!parsed.success) throw new BdError(`could not parse bead ${id}`);
+    if (!parsed.success) {
+      const detail = parsed.error.issues
+        .map((i) => `${i.path.join(".")}: ${i.message}`)
+        .join("; ");
+      throw new BdError(`could not parse bead ${id}: ${detail}`, "parse_error");
+    }
     return parsed.data;
   }
 

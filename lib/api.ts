@@ -16,7 +16,10 @@ export function fail(err: unknown) {
     );
   }
   if (err instanceof BdError) {
-    const status = err.code === "not_found" ? 404 : 400;
+    // parse_error means bd's output drifted from our schema — a server-side
+    // integration failure, not a bad client request.
+    const status =
+      err.code === "not_found" ? 404 : err.code === "parse_error" ? 500 : 400;
     return NextResponse.json({ error: err.message, code: err.code }, { status });
   }
   if (err instanceof ConfigError) {
