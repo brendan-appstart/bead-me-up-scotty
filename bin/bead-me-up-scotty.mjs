@@ -73,6 +73,16 @@ function parseArgs(argv) {
     opts.port = Number.isInteger(env) && env > 0 ? env : 3000;
   }
   opts.host = opts.host || process.env.HOST || "localhost";
+  // The host ends up in a spawn() command line (browser open) and a URL;
+  // restrict it to hostname/IP characters so it can't carry shell metacharacters.
+  if (!/^[A-Za-z0-9.:[\]-]+$/.test(opts.host)) {
+    console.error(`Invalid host: ${JSON.stringify(opts.host)}`);
+    process.exit(1);
+  }
+  if (!Number.isInteger(opts.port) || opts.port < 1 || opts.port > 65535) {
+    console.error(`Invalid port: ${String(opts.port)} (expected 1-65535)`);
+    process.exit(1);
+  }
   return opts;
 }
 
@@ -145,7 +155,9 @@ function openBrowser(url) {
       args = [url];
     } else if (process.platform === "win32") {
       cmd = "cmd";
-      args = ["/c", "start", '""', url];
+      // cmd.exe re-parses its command line, so caret-escape metacharacters —
+      // otherwise a hostile URL could break out of the `start` argument.
+      args = ["/c", "start", '""', url.replace(/[&|^<>]/g, "^$&")];
     } else {
       cmd = "xdg-open";
       args = [url];
@@ -254,7 +266,9 @@ async function main() {
   }
 
   const target = opts.open ? await targetPath(host, port) : "/";
-  const fullUrl = `http://${host}:${port}${target}`;
+  // Canonicalize through the URL parser — throws on anything that isn't a
+  // well-formed http origin, so no raw user input reaches openBrowser().
+  const fullUrl = new URL(target, `http://${host}:${port}`).href;
   console.log(`\n  Bead Me Up, Scotty → ${fullUrl}\n  (Ctrl+C to stop)\n`);
   if (opts.open) openBrowser(fullUrl);
 }
