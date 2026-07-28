@@ -62,7 +62,7 @@ export function Sidebar({
   live?: boolean;
 }) {
   const { mode, toggle } = useTheme();
-  const { meta, beads, index } = useApp();
+  const { meta, beads, index, readOnly } = useApp();
   const actor = meta?.humanActor ?? "you";
   const epicCount = beads.filter((b) => b.issue_type === "epic").length;
   // "Needs You" = agent-flagged beads (bd human) + ready human-approval gates.
@@ -85,6 +85,16 @@ export function Sidebar({
       </div>
 
       <ProjectSwitcher projectId={projectId} kind={kind} live={live} />
+
+      {readOnly && (
+        <div
+          className="mx-2 mb-3 flex items-center gap-[7px] rounded-[9px] border border-border bg-[var(--surface-2)] px-[10px] py-[6px] text-[11.5px] font-semibold text-[var(--text-2)]"
+          title="SCOTTY_READ_ONLY is set: this board is a viewer; writes go through the bd CLI"
+        >
+          <Icon name="gate" size={13} className="flex-shrink-0" />
+          <span>Read-only viewer</span>
+        </div>
+      )}
 
       <nav className="flex flex-col gap-[2px]">
         {NAV.filter((n) => n.key !== "achievements" || meta?.gamification).map((n) => {

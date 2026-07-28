@@ -55,6 +55,17 @@ export class ConfigError extends Error {
   }
 }
 
+/**
+ * Viewer mode: SCOTTY_READ_ONLY=1 (or "true") makes the app a pure read-only
+ * pane over the beads store — every project-data mutation is refused
+ * server-side (see middleware.ts) and the write affordances are hidden in the
+ * UI. Useful when bd CLI owns all writes and the board must not diverge.
+ */
+export function isReadOnly(): boolean {
+  const v = process.env.SCOTTY_READ_ONLY;
+  return v === "1" || v === "true";
+}
+
 function configDir(): string {
   const base = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config");
   return path.join(base, "bead-me-up-scotty");

@@ -22,7 +22,7 @@ import { Column } from "./column";
 import type { Bead } from "@/lib/schema";
 
 export function Board() {
-  const { beads, index, humanAllowlist, openCreate, loading, projectId } = useApp();
+  const { beads, index, humanAllowlist, openCreate, loading, projectId, readOnly } = useApp();
   const setStatus = useSetStatus();
   const { data: orderData } = useOrder(projectId);
   const setOrder = useSetOrder(projectId);
@@ -93,6 +93,7 @@ export function Board() {
   }, [columns]);
 
   function onDragEnd(e: DragEndEvent) {
+    if (readOnly) return;
     const activeId = String(e.active.id);
     const overRaw = e.over?.id ? String(e.over.id) : null;
     if (!overRaw) return;
@@ -140,14 +141,16 @@ export function Board() {
           onShowArchived={setShowArchived}
         />
 
-        <button
-          onClick={() => openCreate()}
-          className="flex h-9 flex-shrink-0 items-center gap-[6px] rounded-[9px] px-[14px] text-[13px] font-[550] text-white"
-          style={{ background: "var(--brand)", boxShadow: "0 2px 8px -2px var(--brand)" }}
-        >
-          <Icon name="plus" size={15} />
-          <span>New</span>
-        </button>
+        {!readOnly && (
+          <button
+            onClick={() => openCreate()}
+            className="flex h-9 flex-shrink-0 items-center gap-[6px] rounded-[9px] px-[14px] text-[13px] font-[550] text-white"
+            style={{ background: "var(--brand)", boxShadow: "0 2px 8px -2px var(--brand)" }}
+          >
+            <Icon name="plus" size={15} />
+            <span>New</span>
+          </button>
+        )}
       </header>
 
       <div className="bd-scroll min-h-0 flex-1 overflow-x-auto overflow-y-hidden p-[18px_22px]">

@@ -108,7 +108,7 @@ function layout(beads: Bead[], onOpen: (id: string) => void): { nodes: Node[]; e
 }
 
 export function GraphView() {
-  const { beads, openDetail } = useApp();
+  const { beads, openDetail, readOnly } = useApp();
   const addDep = useAddDep();
   // Recenter/fit the graph on the current nodes (bead mpe).
   const rf = React.useRef<ReactFlowInstance | null>(null);
@@ -121,11 +121,12 @@ export function GraphView() {
 
   const onConnect = React.useCallback(
     (c: Connection) => {
+      if (readOnly) return;
       if (c.source && c.target && c.source !== c.target) {
         addDep.mutate({ id: c.source, dependsOnId: c.target, type: "blocks" });
       }
     },
-    [addDep],
+    [addDep, readOnly],
   );
 
   return (
@@ -152,6 +153,7 @@ export function GraphView() {
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
+          nodesConnectable={!readOnly}
           onConnect={onConnect}
           onInit={(inst) => {
             rf.current = inst;

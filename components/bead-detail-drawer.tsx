@@ -133,7 +133,7 @@ function DrawerBody({
   onBack?: () => void;
   onClose: () => void;
 }) {
-  const { index, beads, humanAllowlist, meta, projectId, pushDetail, openCreate } =
+  const { index, beads, humanAllowlist, meta, projectId, pushDetail, openCreate, readOnly } =
     useApp();
   const actor = meta?.humanActor ?? "you";
   const isDemo = meta?.kind === "demo";
@@ -264,27 +264,33 @@ function DrawerBody({
         <CopyableId id={bead.id} className="font-mono text-[13px] text-[var(--text-2)]" />
         <StatusChip status={bead.status} />
         <span className="flex-1" />
-        <IconBtn
-          title={editing ? "Stop editing" : "Edit title & description"}
-          onClick={editing ? cancelEdit : startEdit}
-        >
-          <Icon name="pencil" size={15} />
-        </IconBtn>
-        <IconBtn title="Archive (close + label)" onClick={() => archive.mutate(bead.id)}>
-          <Icon name="archive" size={15} />
-        </IconBtn>
-        <IconBtn
-          title="Delete"
-          danger
-          onClick={() => {
-            if (confirm(`Delete ${bead.id}? This calls bd delete.`)) {
-              del.mutate(bead.id);
-              onClose();
-            }
-          }}
-        >
-          <Icon name="trash" size={15} />
-        </IconBtn>
+        {!readOnly && (
+          <IconBtn
+            title={editing ? "Stop editing" : "Edit title & description"}
+            onClick={editing ? cancelEdit : startEdit}
+          >
+            <Icon name="pencil" size={15} />
+          </IconBtn>
+        )}
+        {!readOnly && (
+          <IconBtn title="Archive (close + label)" onClick={() => archive.mutate(bead.id)}>
+            <Icon name="archive" size={15} />
+          </IconBtn>
+        )}
+        {!readOnly && (
+          <IconBtn
+            title="Delete"
+            danger
+            onClick={() => {
+              if (confirm(`Delete ${bead.id}? This calls bd delete.`)) {
+                del.mutate(bead.id);
+                onClose();
+              }
+            }}
+          >
+            <Icon name="trash" size={15} />
+          </IconBtn>
+        )}
         <IconBtn title="Close" onClick={onClose}>
           <Icon name="x" size={15} />
         </IconBtn>
@@ -593,7 +599,7 @@ function DrawerBody({
               No description.
             </div>
           )}
-          {!editing && <AiAssistPanel bead={bead} />}
+          {!editing && !readOnly && <AiAssistPanel bead={bead} />}
         </Section>
 
         {/* Dependencies */}
@@ -821,13 +827,15 @@ function DrawerBody({
             {kids.length === 0 && (
               <div className="px-[2px] py-1 text-[12px] text-[var(--text-3)]">No subtasks yet.</div>
             )}
-            <button
-              onClick={() => openCreate({ parent: bead.id })}
-              className="flex items-center gap-[7px] rounded-[9px] border border-dashed border-[var(--border-strong)] p-[8px_11px] text-[12.5px] font-medium text-[var(--text-2)] hover:border-[var(--brand)] hover:text-[var(--brand)]"
-            >
-              <Icon name="plus" size={14} />
-              <span>Add subtask</span>
-            </button>
+            {!readOnly && (
+              <button
+                onClick={() => openCreate({ parent: bead.id })}
+                className="flex items-center gap-[7px] rounded-[9px] border border-dashed border-[var(--border-strong)] p-[8px_11px] text-[12.5px] font-medium text-[var(--text-2)] hover:border-[var(--brand)] hover:text-[var(--brand)]"
+              >
+                <Icon name="plus" size={14} />
+                <span>Add subtask</span>
+              </button>
+            )}
           </div>
         </Section>
 
