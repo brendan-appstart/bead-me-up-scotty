@@ -24,11 +24,15 @@ function storageKey(projectId: string | null): string {
  * Node >= 22 exposes a `globalThis.localStorage` stub during SSR that lacks the
  * Storage methods unless the process was started with `--localstorage-file`
  * (calling `getItem` on it throws "is not a function"), so the object is only
- * usable if it actually implements Storage.
+ * usable if it actually implements Storage. Both methods are checked, not just
+ * `getItem`: the read path and the two `setItem` writers share this one guard,
+ * so a partial stub would still throw on save.
  */
 function getStore(): Storage | undefined {
   const store = (globalThis as { localStorage?: Storage }).localStorage;
-  return typeof store?.getItem === "function" ? store : undefined;
+  return typeof store?.getItem === "function" && typeof store.setItem === "function"
+    ? store
+    : undefined;
 }
 
 function projectIdFromPath(pathname: string | null): string | null {
