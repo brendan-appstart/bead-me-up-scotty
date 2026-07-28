@@ -172,10 +172,25 @@ export function isBlocked(b: Bead, index: Map<string, Bead>): boolean {
   );
 }
 
+/**
+ * The unresolved things actually holding this bead up — for naming blockers on a
+ * card, so it must not name something the user doesn't experience as a blocker.
+ *
+ * `parent-child` is excluded even though bd counts it in BLOCKING_DEP_TYPES for
+ * ready-queue purposes: the edge points from a child to its epic, so including
+ * it makes every blocked child report its own parent epic alongside the real
+ * blocker ("blocked by <the epic it lives in>"), which is noise at best and
+ * misdirection at worst. Hierarchy is shown as hierarchy elsewhere.
+ *
+ * Note this is deliberately wider than `isBlocked`, which only counts `blocks`.
+ * A bead reaches a "blocked" surface either by status or by a `blocks` edge, and
+ * once there, every unresolved gate on it is worth naming.
+ */
 export function blockingDeps(b: Bead, index: Map<string, Bead>): string[] {
   return (b.dependencies ?? [])
     .filter(
       (d) =>
+        d.type !== "parent-child" &&
         BLOCKING_DEP_TYPES.includes(d.type as never) &&
         (index.get(d.depends_on_id)?.status ?? "open") !== "closed",
     )
