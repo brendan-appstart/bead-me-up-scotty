@@ -9,6 +9,8 @@ export interface Meta {
   gamification?: boolean;
   /** Viewer mode (SCOTTY_READ_ONLY): the server refuses writes; the UI hides them. */
   readOnly?: boolean;
+  /** Label prefix (SCOTTY_LANE_PREFIX) that partitions work into Focus-view lane chips. */
+  lanePrefix?: string | null;
 }
 export interface BeadsResponse {
   beads: Bead[];

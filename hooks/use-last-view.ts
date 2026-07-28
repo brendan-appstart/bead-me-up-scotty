@@ -3,6 +3,7 @@ import * as React from "react";
 import type { View } from "@/components/app-context";
 
 const VIEWS: View[] = [
+  "focus",
   "board",
   "list",
   "epics",
@@ -21,8 +22,8 @@ const EVT = "bmus:view";
 /**
  * Remembers the active view per project in localStorage (bead 433). Uses
  * useSyncExternalStore so it's SSR-safe: the server and the first client render
- * both return "board" (matching the server HTML), then it syncs to the stored
- * value — no setState-in-effect and no hydration mismatch. Falls back to "board"
+ * both return "focus" (matching the server HTML), then it syncs to the stored
+ * value — no setState-in-effect and no hydration mismatch. Falls back to "focus"
  * for unknown/removed view ids.
  */
 export function useLastView(projectId: string): [View, (v: View) => void] {
@@ -37,9 +38,9 @@ export function useLastView(projectId: string): [View, (v: View) => void] {
   }, []);
   const getSnapshot = React.useCallback((): View => {
     const v = localStorage.getItem(key);
-    return isView(v) ? v : "board";
+    return isView(v) ? v : "focus";
   }, [key]);
-  const view = React.useSyncExternalStore(subscribe, getSnapshot, () => "board" as View);
+  const view = React.useSyncExternalStore(subscribe, getSnapshot, () => "focus" as View);
   const setView = React.useCallback(
     (v: View) => {
       localStorage.setItem(key, v);

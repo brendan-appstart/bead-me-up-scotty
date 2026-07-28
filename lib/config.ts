@@ -74,6 +74,16 @@ export function isReadOnly(request?: Request): boolean {
   return v === "1" || v === "true";
 }
 
+/**
+ * Focus-view lane chips: SCOTTY_LANE_PREFIX names a label prefix (e.g. "ctx:")
+ * whose values partition work into lanes/teams/areas. When set, the Focus view
+ * offers one filter chip per lane label found on the visible beads. Unset →
+ * no chips (the feature is invisible).
+ */
+export function lanePrefix(): string | null {
+  return process.env.SCOTTY_LANE_PREFIX || null;
+}
+
 function configDir(): string {
   const base = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config");
   return path.join(base, "bead-me-up-scotty");
