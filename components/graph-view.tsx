@@ -76,43 +76,33 @@ function layout(beads: Bead[], onOpen: (id: string) => void): { nodes: Node[]; e
   const COL = 230;
   const ROW = 116;
 
+  // React Flow keys by node id, so a bead placed twice corrupts the canvas. A
+  // bead can reach this loop twice two ways: as a child of two epics, and — the
+  // one that's easy to miss — as an epic that is itself another epic's child,
+  // which gets pushed once by its parent's iteration and again as its own
+  // column. One id set covers both.
+  const placedIds = new Set<string>();
+  const place = (b: Bead, x: number, y: number) => {
+    if (placedIds.has(b.id)) return;
+    placedIds.add(b.id);
+    nodes.push({ id: b.id, type: "bead", position: { x, y }, data: { bead: b, onOpen } });
+  };
+
   epics.forEach((e, ci) => {
-    nodes.push({
-      id: e.id,
-      type: "bead",
-      position: { x: ci * COL, y: 0 },
-      data: { bead: e, onOpen },
-    });
-    childrenOf(e.id, visible).forEach((k, ri) => {
-      if (nodes.some((n) => n.id === k.id)) return;
-      nodes.push({
-        id: k.id,
-        type: "bead",
-        position: { x: ci * COL, y: (ri + 1) * ROW },
-        data: { bead: k, onOpen },
-      });
-    });
+    place(e, ci * COL, 0);
+    childrenOf(e.id, visible).forEach((k, ri) => place(k, ci * COL, (ri + 1) * ROW));
   });
 
   // Whatever isn't under a visible epic wraps into a grid instead of one
   // endless column, so fitView keeps the nodes at a readable scale.
-  const placedUnderEpics = new Set(nodes.map((n) => n.id));
-  const loose = visible.filter((b) => b.issue_type !== "epic" && !placedUnderEpics.has(b.id));
+  const loose = visible.filter((b) => b.issue_type !== "epic" && !placedIds.has(b.id));
   const looseCol = epics.length;
   const LOOSE_ROWS = 14;
-  loose.forEach((b, i) => {
-    nodes.push({
-      id: b.id,
-      type: "bead",
-      position: {
-        x: (looseCol + Math.floor(i / LOOSE_ROWS)) * COL,
-        y: (i % LOOSE_ROWS) * ROW,
-      },
-      data: { bead: b, onOpen },
-    });
-  });
+  loose.forEach((b, i) =>
+    place(b, (looseCol + Math.floor(i / LOOSE_ROWS)) * COL, (i % LOOSE_ROWS) * ROW),
+  );
 
-  const placed = new Set(nodes.map((n) => n.id));
+  const placed = placedIds;
   const edges: Edge[] = [];
   for (const b of visible) {
     if (!placed.has(b.id)) continue;
@@ -143,10 +133,15 @@ export function GraphView() {
   const rf = React.useRef<ReactFlowInstance | null>(null);
   const center = React.useCallback(() => rf.current?.fitView({ padding: 0.2, duration: 400 }), []);
 
-  const { nodes, edges } = React.useMemo(
-    () => layout(beads.filter((b) => !(b.labels ?? []).includes("archived")), openDetail),
-    [beads, openDetail],
-  );
+  // Pruning is what keeps a large project legible, but it also means the canvas
+  // can be far smaller than the backlog — on a mostly-finished project it can be
+  // empty. Silence there reads as "the graph is broken", which is the very
+  // complaint the pruning was added to fix, so always say what was left out.
+  const { nodes, edges, considered } = React.useMemo(() => {
+    const shown = beads.filter((b) => !(b.labels ?? []).includes("archived"));
+    return { ...layout(shown, openDetail), considered: shown.length };
+  }, [beads, openDetail]);
+  const hidden = considered - nodes.length;
 
   const onConnect = React.useCallback(
     (c: Connection) => {
@@ -166,6 +161,14 @@ export function GraphView() {
           <span className="text-[11.5px] text-[var(--text-3)]">
             <span className="font-mono">bd dep tree</span> · drag a node handle onto another to link
             (cycle-checked by bd)
+            {hidden > 0 && (
+              <>
+                {" · "}
+                <span title="A dependency graph only shows live structure: closed beads, and open beads with no epic and no links, are left out.">
+                  {nodes.length} of {considered} shown, {hidden} hidden
+                </span>
+              </>
+            )}
           </span>
         </div>
         <button
@@ -193,6 +196,18 @@ export function GraphView() {
           <Background gap={22} color="var(--border)" />
           <Controls />
         </ReactFlow>
+        {nodes.length === 0 && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
+            <div className="max-w-[360px] rounded-[12px] border border-border bg-[var(--surface)] p-[16px_18px] text-center shadow-[var(--shadow)]">
+              <div className="text-[13px] font-[650] text-[var(--text)]">No live dependencies</div>
+              <p className="m-0 mt-[6px] text-[12px] leading-[1.5] text-[var(--text-2)]">
+                {considered === 0
+                  ? "This project has no beads yet."
+                  : `All ${considered} beads are closed, or have no epic and no links. The graph shows live structure only — open work in an epic, or joined by a dependency.`}
+              </p>
+            </div>
+          </div>
+        )}
         <div className="pointer-events-none absolute bottom-[18px] left-1/2 flex -translate-x-1/2 gap-[18px] rounded-[11px] border border-border bg-[var(--surface)] p-[9px_16px] text-[11.5px] text-[var(--text-2)] shadow-[var(--shadow)]">
           <span className="flex items-center gap-[6px]">
             <span className="h-[2px] w-[18px] bg-[#ef4444]" />
