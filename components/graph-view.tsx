@@ -46,11 +46,31 @@ function BeadNode({ data }: NodeProps) {
 const nodeTypes = { bead: BeadNode };
 
 function layout(beads: Bead[], onOpen: (id: string) => void): { nodes: Node[]; edges: Edge[] } {
-  const present = new Set(beads.map((b) => b.id));
-  const epics = beads.filter((b) => b.issue_type === "epic");
-  const loose = beads.filter(
-    (b) => b.issue_type !== "epic" && !(b.dependencies ?? []).some((d) => d.type === "parent-child"),
+  // On a real project the unpruned graph drowns itself: closed and link-less
+  // beads stack into one column tens of thousands of px tall, and fitView
+  // zooms the whole canvas to sub-pixel scale — it *looks* empty. Show only
+  // the live dependency structure: open beads that are epics, epic children,
+  // or participants in at least one link.
+  const active = beads.filter((b) => b.status !== "closed");
+  const activeIds = new Set(active.map((b) => b.id));
+  const linked = new Set<string>();
+  for (const b of active) {
+    for (const d of b.dependencies ?? []) {
+      if (d.type === "parent-child") continue;
+      if (activeIds.has(d.depends_on_id)) {
+        linked.add(b.id);
+        linked.add(d.depends_on_id);
+      }
+    }
+  }
+  const visible = active.filter(
+    (b) =>
+      b.issue_type === "epic" ||
+      linked.has(b.id) ||
+      (b.dependencies ?? []).some((d) => d.type === "parent-child" && activeIds.has(d.depends_on_id)),
   );
+  const present = new Set(visible.map((b) => b.id));
+  const epics = visible.filter((b) => b.issue_type === "epic");
 
   const nodes: Node[] = [];
   const COL = 230;
@@ -63,7 +83,8 @@ function layout(beads: Bead[], onOpen: (id: string) => void): { nodes: Node[]; e
       position: { x: ci * COL, y: 0 },
       data: { bead: e, onOpen },
     });
-    childrenOf(e.id, beads).forEach((k, ri) => {
+    childrenOf(e.id, visible).forEach((k, ri) => {
+      if (nodes.some((n) => n.id === k.id)) return;
       nodes.push({
         id: k.id,
         type: "bead",
@@ -73,19 +94,27 @@ function layout(beads: Bead[], onOpen: (id: string) => void): { nodes: Node[]; e
     });
   });
 
+  // Whatever isn't under a visible epic wraps into a grid instead of one
+  // endless column, so fitView keeps the nodes at a readable scale.
+  const placedUnderEpics = new Set(nodes.map((n) => n.id));
+  const loose = visible.filter((b) => b.issue_type !== "epic" && !placedUnderEpics.has(b.id));
   const looseCol = epics.length;
-  loose.forEach((b, ri) => {
+  const LOOSE_ROWS = 14;
+  loose.forEach((b, i) => {
     nodes.push({
       id: b.id,
       type: "bead",
-      position: { x: looseCol * COL, y: ri * ROW },
+      position: {
+        x: (looseCol + Math.floor(i / LOOSE_ROWS)) * COL,
+        y: (i % LOOSE_ROWS) * ROW,
+      },
       data: { bead: b, onOpen },
     });
   });
 
   const placed = new Set(nodes.map((n) => n.id));
   const edges: Edge[] = [];
-  for (const b of beads) {
+  for (const b of visible) {
     if (!placed.has(b.id)) continue;
     for (const d of b.dependencies ?? []) {
       if (!present.has(d.depends_on_id) || !placed.has(d.depends_on_id)) continue;
