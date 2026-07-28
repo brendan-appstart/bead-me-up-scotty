@@ -7,6 +7,8 @@ export interface Meta {
   humanAllowlist: string[];
   pollIntervalMs: number;
   gamification?: boolean;
+  /** Label prefix (SCOTTY_LANE_PREFIX) that partitions work into Focus-view lane chips. */
+  lanePrefix?: string | null;
 }
 export interface BeadsResponse {
   beads: Bead[];
