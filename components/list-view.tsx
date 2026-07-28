@@ -53,7 +53,7 @@ function rankOf(order: string[] | undefined, id: string): number {
 }
 
 export function ListView() {
-  const { beads, index, humanAllowlist, openDetail, openCreate, openEpic, loading, projectId } =
+  const { beads, index, humanAllowlist, openDetail, openCreate, openEpic, loading, projectId, readOnly } =
     useApp();
   const setStatus = useSetStatus();
   const { data: orderData } = useOrder(projectId);
@@ -121,6 +121,7 @@ export function ListView() {
   }, [rows, colById]);
 
   function onDragEnd(e: DragEndEvent) {
+    if (readOnly) return;
     const activeId = String(e.active.id);
     const overId = e.over?.id ? String(e.over.id) : null;
     if (!overId || overId === activeId) return;
@@ -163,14 +164,16 @@ export function ListView() {
           onShowArchived={setShowArchived}
         />
 
-        <button
-          onClick={() => openCreate()}
-          className="flex h-9 flex-shrink-0 items-center gap-[6px] rounded-[9px] px-[14px] text-[13px] font-[550] text-white"
-          style={{ background: "var(--brand)", boxShadow: "0 2px 8px -2px var(--brand)" }}
-        >
-          <Icon name="plus" size={15} />
-          <span>New</span>
-        </button>
+        {!readOnly && (
+          <button
+            onClick={() => openCreate()}
+            className="flex h-9 flex-shrink-0 items-center gap-[6px] rounded-[9px] px-[14px] text-[13px] font-[550] text-white"
+            style={{ background: "var(--brand)", boxShadow: "0 2px 8px -2px var(--brand)" }}
+          >
+            <Icon name="plus" size={15} />
+            <span>New</span>
+          </button>
+        )}
       </header>
 
       <div className="bd-scroll min-h-0 flex-1 overflow-y-auto p-[12px_22px]">

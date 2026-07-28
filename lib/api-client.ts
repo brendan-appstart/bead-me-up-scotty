@@ -7,6 +7,8 @@ export interface Meta {
   humanAllowlist: string[];
   pollIntervalMs: number;
   gamification?: boolean;
+  /** Viewer mode (SCOTTY_READ_ONLY): the server refuses writes; the UI hides them. */
+  readOnly?: boolean;
 }
 export interface BeadsResponse {
   beads: Bead[];

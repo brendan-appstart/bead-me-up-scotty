@@ -70,12 +70,17 @@ export function AppShell({ projectId }: { projectId: string }) {
       return next;
     });
   }, [index]);
+  // Viewer mode: every create entry point (board/list buttons, drawer subtask,
+  // palette, the `n` key) funnels through openCreate, so one guard covers all.
+  const readOnly = data?.meta?.readOnly ?? false;
   // Options object rather than positional args so future presets (assignee,
   // priority) can be added without churning every call site again.
   const openCreate = React.useCallback(
-    (opts: { parent?: string; type?: BeadType } = {}) =>
-      setCreate({ open: true, parent: opts.parent ?? "", type: opts.type }),
-    [],
+    (opts: { parent?: string; type?: BeadType } = {}) => {
+      if (readOnly) return;
+      setCreate({ open: true, parent: opts.parent ?? "", type: opts.type });
+    },
+    [readOnly],
   );
 
   // Jump to the Epics screen and focus an epic (bead 55b). The nonce makes each
@@ -135,6 +140,7 @@ export function AppShell({ projectId }: { projectId: string }) {
         index,
         meta: data?.meta,
         humanAllowlist: data?.meta?.humanAllowlist ?? [],
+        readOnly,
         loading: isLoading,
         error: errorMessage,
         openDetail,
