@@ -82,6 +82,7 @@ export function AppShell({ projectId }: { projectId: string }) {
   // request distinct so clicking the same epic again re-triggers the scroll.
   const [focusEpic, setFocusEpic] = React.useState<{ id: string; nonce: number } | null>(null);
   const focusNonce = React.useRef(0);
+  const clearFocusEpic = React.useCallback(() => setFocusEpic(null), []);
   const openEpic = React.useCallback(
     (epicId: string) => {
       setOpenStack([]); // close the detail drawer
@@ -169,7 +170,9 @@ export function AppShell({ projectId }: { projectId: string }) {
             <>
               {view === "board" && <Board />}
               {view === "list" && <ListView />}
-              {view === "epics" && <EpicsView focusEpic={focusEpic} />}
+              {view === "epics" && (
+                <EpicsView focusEpic={focusEpic} onFocusHandledAction={clearFocusEpic} />
+              )}
               {view === "graph" && <GraphView />}
               {view === "insights" && <InsightsView />}
               {view === "activity" && <ActivityView />}
