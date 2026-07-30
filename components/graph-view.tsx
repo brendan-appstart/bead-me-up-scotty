@@ -23,10 +23,23 @@ type BeadNodeData = { bead: Bead; onOpen: (id: string) => void };
 
 function BeadNode({ data }: NodeProps) {
   const { bead, onOpen } = data as unknown as BeadNodeData;
+  const { selectedBeadId, selectBead } = useApp();
   return (
     <div
-      onClick={() => onOpen(bead.id)}
-      className="w-[150px] cursor-pointer rounded-[11px] border border-border bg-[var(--surface)] p-[9px_11px] shadow-[var(--shadow)] hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-lg)]"
+      role="button"
+      tabIndex={0}
+      data-keyboard-bead-id={bead.id}
+      aria-current={selectedBeadId === bead.id ? "true" : undefined}
+      onFocus={() => selectBead(bead.id)}
+      onClick={() => {
+        selectBead(bead.id);
+        onOpen(bead.id);
+      }}
+      className={`w-[150px] cursor-pointer rounded-[11px] border bg-[var(--surface)] p-[9px_11px] shadow-[var(--shadow)] hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-lg)] focus-visible:outline-none ${
+        selectedBeadId === bead.id
+          ? "border-[var(--brand)] ring-2 ring-[var(--brand)]/30"
+          : "border-border"
+      }`}
     >
       <Handle type="target" position={Position.Top} style={{ background: "var(--text-3)" }} />
       <div className="mb-[5px] flex items-center gap-[6px]">

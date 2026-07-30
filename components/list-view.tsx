@@ -251,7 +251,7 @@ function Row({
   childCount: number;
   humanAllowlist: string[];
 }) {
-  const { readOnly } = useApp();
+  const { readOnly, selectedBeadId, selectBead } = useApp();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: bead.id,
     disabled: readOnly,
@@ -272,7 +272,13 @@ function Row({
       {...(readOnly ? {} : attributes)}
       role="button"
       tabIndex={0}
-      onClick={onOpen}
+      data-keyboard-bead-id={bead.id}
+      aria-current={selectedBeadId === bead.id ? "true" : undefined}
+      onFocus={() => selectBead(bead.id)}
+      onClick={() => {
+        selectBead(bead.id);
+        onOpen();
+      }}
       onKeyDown={openFromKeyboard}
       style={{
         transform: CSS.Transform.toString(transform),
@@ -280,7 +286,11 @@ function Row({
         opacity: isDragging ? 0.4 : 1,
         zIndex: isDragging ? 10 : undefined,
       }}
-      className="flex w-full cursor-pointer touch-none items-center gap-3 rounded-[10px] border border-border bg-[var(--surface)] px-[13px] py-[9px] text-left transition-[border-color,box-shadow] hover:border-[var(--border-strong)] hover:shadow-[var(--shadow)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]"
+      className={`flex w-full cursor-pointer touch-none items-center gap-3 rounded-[10px] border bg-[var(--surface)] px-[13px] py-[9px] text-left transition-[border-color,box-shadow] hover:border-[var(--border-strong)] hover:shadow-[var(--shadow)] focus-visible:outline-none ${
+        selectedBeadId === bead.id
+          ? "border-[var(--brand)] ring-2 ring-[var(--brand)]/30"
+          : "border-border"
+      }`}
     >
       <span
         className="h-[9px] w-[9px] flex-shrink-0 rounded-full"

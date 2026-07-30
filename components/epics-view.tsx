@@ -50,7 +50,15 @@ export function EpicsView({
   focusEpic?: { id: string; nonce: number } | null;
   onFocusHandledAction?: () => void;
 }) {
-  const { beads, humanAllowlist, openCreate, openDetail, readOnly } = useApp();
+  const {
+    beads,
+    humanAllowlist,
+    openCreate,
+    openDetail,
+    selectedBeadId,
+    selectBead,
+    readOnly,
+  } = useApp();
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
   const [hideClosed, setHideClosed] = React.useState(true);
   const flashedElement = React.useRef<HTMLElement | null>(null);
@@ -173,8 +181,14 @@ export function EpicsView({
                 <div
                   role="button"
                   tabIndex={0}
+                  data-keyboard-bead-id={e.id}
+                  aria-current={selectedBeadId === e.id ? "true" : undefined}
                   aria-expanded={isOpen}
-                  onClick={() => setExpanded((st) => ({ ...st, [e.id]: !isOpen }))}
+                  onFocus={() => selectBead(e.id)}
+                  onClick={() => {
+                    selectBead(e.id);
+                    setExpanded((st) => ({ ...st, [e.id]: !isOpen }));
+                  }}
                   onKeyDown={(ev) => {
                     if (ev.target !== ev.currentTarget) return;
                     if (ev.key === "Enter" || ev.key === " ") {
@@ -183,7 +197,9 @@ export function EpicsView({
                     }
                   }}
                   title={isOpen ? "Hide children" : "Show children"}
-                  className="flex cursor-pointer items-center gap-[14px] p-[16px_18px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]"
+                  className={`flex cursor-pointer items-center gap-[14px] p-[16px_18px] focus-visible:outline-none ${
+                    selectedBeadId === e.id ? "ring-2 ring-inset ring-[var(--brand)]" : ""
+                  }`}
                 >
                   <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[10px] bg-[var(--brand-weak)] text-[var(--brand)]">
                     <Icon name="target" size={19} />
@@ -272,8 +288,18 @@ export function EpicsView({
                       return (
                         <div
                           key={k.id}
-                          onClick={() => openDetail(k.id)}
-                          className="flex cursor-pointer items-center gap-[11px] rounded-[9px] p-[9px_12px] hover:bg-[var(--surface)]"
+                          role="button"
+                          tabIndex={0}
+                          data-keyboard-bead-id={k.id}
+                          aria-current={selectedBeadId === k.id ? "true" : undefined}
+                          onFocus={() => selectBead(k.id)}
+                          onClick={() => {
+                            selectBead(k.id);
+                            openDetail(k.id);
+                          }}
+                          className={`flex cursor-pointer items-center gap-[11px] rounded-[9px] p-[9px_12px] hover:bg-[var(--surface)] focus-visible:outline-none ${
+                            selectedBeadId === k.id ? "ring-2 ring-inset ring-[var(--brand)]" : ""
+                          }`}
                         >
                           <span
                             className="h-2 w-2 flex-shrink-0 rounded-full"

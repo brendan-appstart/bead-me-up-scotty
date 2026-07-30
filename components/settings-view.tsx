@@ -11,6 +11,8 @@ import { useNotificationPrefs, type NotifPrefs } from "@/hooks/use-notifications
 import { useBoardPrefs } from "@/hooks/use-board-prefs";
 import { useDefaultFocus } from "@/hooks/use-default-view";
 import { ViewerModeSetting } from "@/components/read-only-banner";
+import { KEYBOARD_SHORTCUT_GROUPS } from "@/lib/keyboard-shortcuts";
+import { KeyboardHelpDialog, ShortcutKeys } from "@/components/keyboard-help-dialog";
 
 const inputClass =
   "h-[38px] rounded-[9px] border border-border bg-[var(--surface-2)] px-3 text-[12.5px] text-[var(--text)] outline-none focus:border-[var(--brand)]";
@@ -257,34 +259,7 @@ function SettingsForm({ data }: { data: DoctorResponse }) {
 
       <GamificationCard />
 
-      <Card title="Keyboard shortcuts">
-        <div className="flex flex-col gap-[10px]">
-          {[
-            { keys: ["⌘", "K"], label: "Open the command palette" },
-            { keys: ["N"], label: "Create a new bead" },
-            { keys: ["/"], label: "Focus the search box" },
-            { keys: ["T"], label: "Toggle light / dark theme" },
-            { keys: ["Esc"], label: "Close the open drawer or dialog" },
-          ].map((s) => (
-            <div key={s.label} className="flex items-center justify-between">
-              <span className="text-[13px] text-[var(--text-2)]">{s.label}</span>
-              <span className="flex items-center gap-1">
-                {s.keys.map((k) => (
-                  <kbd
-                    key={k}
-                    className="rounded-md border border-border bg-[var(--surface-2)] px-[8px] py-[3px] font-mono text-[12px] text-[var(--text-2)] shadow-[var(--shadow)]"
-                  >
-                    {k}
-                  </kbd>
-                ))}
-              </span>
-            </div>
-          ))}
-        </div>
-        <div className="text-[11.5px] text-[var(--text-3)]">
-          Shortcuts are disabled while typing in a field.
-        </div>
-      </Card>
+      <KeyboardShortcutsCard />
 
       <div className="flex justify-end">
         <button
@@ -298,6 +273,50 @@ function SettingsForm({ data }: { data: DoctorResponse }) {
         </button>
       </div>
     </div>
+  );
+}
+
+function KeyboardShortcutsCard() {
+  const [helpOpen, setHelpOpen] = React.useState(false);
+  return (
+    <Card title="Keyboard shortcuts">
+      <div className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2">
+        {KEYBOARD_SHORTCUT_GROUPS.map((group) => (
+          <section key={group.topic}>
+            <h3 className="mb-1.5 text-[11px] font-semibold uppercase tracking-[.08em] text-[var(--text-3)]">
+              {group.topic}
+            </h3>
+            <div className="flex flex-col gap-1">
+              {group.shortcuts.map((shortcut) => (
+                <div
+                  key={`${group.topic}-${shortcut.keys.join("-")}-${shortcut.label}`}
+                  className="flex min-h-7 items-center justify-between gap-4"
+                >
+                  <span className="text-[12.5px] text-[var(--text-2)]">{shortcut.label}</span>
+                  <ShortcutKeys keys={shortcut.keys} sequence={shortcut.sequence} />
+                </div>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+      <div className="flex items-center justify-between gap-4">
+        <span className="text-[11.5px] text-[var(--text-3)]">
+          Shortcuts are disabled while typing in a field. Press{" "}
+          <kbd className="rounded border border-border bg-[var(--surface-2)] px-1.5 py-0.5 font-mono">
+            ?
+          </kbd>{" "}
+          anywhere outside a field for the same reference.
+        </span>
+        <button
+          onClick={() => setHelpOpen(true)}
+          className="h-[30px] flex-shrink-0 rounded-[8px] border border-border px-3 text-[12.5px] text-[var(--text-2)] hover:bg-[var(--surface-2)]"
+        >
+          Open reference
+        </button>
+      </div>
+      <KeyboardHelpDialog open={helpOpen} onOpenChangeAction={setHelpOpen} />
+    </Card>
   );
 }
 

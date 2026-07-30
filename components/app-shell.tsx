@@ -8,7 +8,7 @@ import { useBeadsStream } from "@/hooks/use-beads-stream";
 import { useLastView } from "@/hooks/use-last-view";
 import { useTheme } from "@/components/theme-provider";
 import { makeIndex } from "@/lib/beads-view";
-import { AppProvider } from "@/components/app-context";
+import { AppProvider, type DetailAction } from "@/components/app-context";
 import { Sidebar } from "@/components/sidebar";
 import { Board } from "@/components/board/board";
 import { FocusView } from "@/components/focus-view";
@@ -23,7 +23,7 @@ import { PublishView } from "@/components/publish-view";
 import { SettingsView } from "@/components/settings-view";
 import { BeadDetailDrawer } from "@/components/bead-detail-drawer";
 import { CreateBeadModal } from "@/components/create-bead-modal";
-import { CommandPalette } from "@/components/command-palette";
+import { KeyboardLayer } from "@/components/keyboard-layer";
 import { NotificationWatcher } from "@/components/notification-watcher";
 import { ReadOnlyBanner } from "@/components/read-only-banner";
 import { useViewerMode } from "@/hooks/use-viewer-mode";
@@ -48,7 +48,13 @@ export function AppShell({ projectId }: { projectId: string }) {
     return seed ? [seed] : [];
   });
   const rawOpenId = openStack.length ? openStack[openStack.length - 1] : null;
-  const [palette, setPalette] = React.useState(false);
+  const [selectedBeadId, selectBead] = React.useState<string | null>(null);
+  const detailNonce = React.useRef(0);
+  const [detailRequest, setDetailRequest] = React.useState<{
+    id: string;
+    action: DetailAction;
+    nonce: number;
+  } | null>(null);
   const [create, setCreate] = React.useState<{
     open: boolean;
     parent: string;
@@ -61,6 +67,8 @@ export function AppShell({ projectId }: { projectId: string }) {
   const { live } = useBeadsStream(projectId);
   const beads = React.useMemo(() => data?.beads ?? [], [data]);
   const index = React.useMemo(() => makeIndex(beads), [beads]);
+  const viewerMode = useViewerMode();
+  const readOnly = viewerMode.data?.readOnly ?? true;
   // Preserve the requested link until a successful response establishes whether
   // the bead exists. A network error must not erase a valid bookmark.
   const loaded = !isLoading && !error && !!data;
@@ -79,20 +87,32 @@ export function AppShell({ projectId }: { projectId: string }) {
 
   // RESET. Every caller outside the drawer (board, list, epics, activity,
   // needs-you, palette, assist panel) means "start here", not "continue a trail".
-  const openDetail = React.useCallback((id: string) => setOpenStack([id]), []);
+  const openDetail = React.useCallback((id: string, action: DetailAction = "view") => {
+    selectBead(id);
+    setOpenStack([id]);
+    setDetailRequest({
+      id,
+      action: readOnly ? "view" : action,
+      nonce: (detailNonce.current += 1),
+    });
+  }, [readOnly]);
   useNotificationActivation(projectId, openDetail);
   // PUSH. Drawer-internal navigation only, so back can return.
   const MAX_TRAIL = 25;
-  const pushDetail = React.useCallback(
-    (id: string) =>
-      setOpenStack((s) => {
-        if (s[s.length - 1] === id) return s; // re-clicking the current bead is a no-op
-        const next = [...s, id];
-        return next.length > MAX_TRAIL ? next.slice(next.length - MAX_TRAIL) : next;
-      }),
-    [],
-  );
-  const closeDetail = React.useCallback(() => setOpenStack([]), []);
+  const pushDetail = React.useCallback((id: string) => {
+    if (openStack[openStack.length - 1] === id) return;
+    selectBead(id);
+    setOpenStack((s) => {
+      if (s[s.length - 1] === id) return s; // re-clicking the current bead is a no-op
+      const next = [...s, id];
+      return next.length > MAX_TRAIL ? next.slice(next.length - MAX_TRAIL) : next;
+    });
+    setDetailRequest({ id, action: "view", nonce: (detailNonce.current += 1) });
+  }, [openStack]);
+  const closeDetail = React.useCallback(() => {
+    setOpenStack([]);
+    setDetailRequest(null);
+  }, []);
 
   // URL-ADDRESSABLE BEAD. `/p/<projectId>?bead=<ID>` opens that bead, and the
   // drawer keeps the URL in step, so a single bead is linkable — shareable, and
@@ -115,16 +135,14 @@ export function AppShell({ projectId }: { projectId: string }) {
   // POP. Skips entries whose bead has since been deleted/archived away, so back
   // can never land on an empty drawer; if nothing valid remains, it closes.
   const backDetail = React.useCallback(() => {
-    setOpenStack((s) => {
-      const next = s.slice(0, -1);
+    setOpenStack((current) => {
+      const next = current.slice(0, -1);
       while (next.length && !index.has(next[next.length - 1])) next.pop();
       return next;
     });
+    selectBead(null);
+    setDetailRequest(null);
   }, [index]);
-  // Viewer mode: every create entry point (board/list buttons, drawer subtask,
-  // palette, the `n` key) funnels through openCreate, so one guard covers all.
-  const viewerMode = useViewerMode();
-  const readOnly = viewerMode.data?.readOnly ?? true;
   // Options object rather than positional args so future presets (assignee,
   // priority) can be added without churning every call site again.
   const openCreate = React.useCallback(
@@ -143,46 +161,19 @@ export function AppShell({ projectId }: { projectId: string }) {
   const openEpic = React.useCallback(
     (epicId: string) => {
       setOpenStack([]); // close the detail drawer
+      setDetailRequest(null);
       setView("epics");
       setFocusEpic({ id: epicId, nonce: (focusNonce.current += 1) });
     },
     [setView],
   );
 
-  // keyboard: Cmd/Ctrl+K = command palette, n = new, / = focus search, t = toggle theme, Esc = close overlays
-  React.useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement)?.closest("[data-viewer-dialog]")) return;
-      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
-      const typing = tag === "input" || tag === "textarea" || tag === "select";
-      // Cmd/Ctrl+K toggles the palette — works even while typing in a field.
-      if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
-        e.preventDefault();
-        setPalette((p) => !p);
-        return;
-      }
-      if (e.key === "Escape") {
-        setOpenStack([]);
-        setCreate((c) => ({ ...c, open: false }));
-        return;
-      }
-      if (typing) return;
-      if (e.key === "n") {
-        e.preventDefault();
-        openCreate();
-      }
-      if (e.key === "/") {
-        e.preventDefault();
-        document.querySelector<HTMLInputElement>('input[data-search]')?.focus();
-      }
-      if (e.key === "t" && !e.metaKey && !e.ctrlKey && !e.altKey) {
-        e.preventDefault();
-        toggleTheme();
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [openCreate, toggleTheme]);
+  const openCreateFromKeyboard = React.useCallback(() => openCreate(), [openCreate]);
+  const closeOverlays = React.useCallback(() => {
+    setOpenStack([]);
+    setDetailRequest(null);
+    setCreate((current) => ({ ...current, open: false }));
+  }, []);
 
   const errorMessage = error ? (error as Error).message : undefined;
 
@@ -197,6 +188,8 @@ export function AppShell({ projectId }: { projectId: string }) {
         readOnly,
         loading: isLoading,
         error: errorMessage,
+        selectedBeadId,
+        selectBead,
         openDetail,
         pushDetail,
         openCreate,
@@ -247,6 +240,8 @@ export function AppShell({ projectId }: { projectId: string }) {
 
           <BeadDetailDrawer
             openId={openId}
+            initialAction={detailRequest?.id === openId ? detailRequest.action : "view"}
+            actionNonce={detailRequest?.id === openId ? detailRequest.nonce : 0}
             canGoBack={openStack.length > 1}
             backTo={openStack.length > 1 ? openStack[openStack.length - 2] : null}
             onBack={backDetail}
@@ -263,7 +258,17 @@ export function AppShell({ projectId }: { projectId: string }) {
         onOpenChange={(o) => setCreate((c) => ({ ...c, open: o }))}
       />
 
-      <CommandPalette open={palette} onOpenChange={setPalette} onView={setView} />
+      <KeyboardLayer
+        projectId={projectId}
+        readOnly={readOnly}
+        selectedId={selectedBeadId}
+        selectIdAction={selectBead}
+        setViewAction={setView}
+        openDetailAction={openDetail}
+        openCreateAction={openCreateFromKeyboard}
+        closeOverlaysAction={closeOverlays}
+        toggleThemeAction={toggleTheme}
+      />
       <NotificationWatcher projectId={projectId} />
     </AppProvider>
   );

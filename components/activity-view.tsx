@@ -13,7 +13,7 @@ import { avatarColor, initials, relTime, fmtDateTime } from "@/lib/beads-view";
  * live by the SSE change stream (see useBeadsStream).
  */
 export function ActivityView() {
-  const { projectId, openDetail } = useApp();
+  const { projectId, openDetail, selectedBeadId, selectBead } = useApp();
   const { data, isLoading } = useActivity(projectId);
   const items = data?.items ?? [];
 
@@ -36,8 +36,16 @@ export function ActivityView() {
             {items.map((it) => (
               <li key={it.id}>
                 <button
-                  onClick={() => openDetail(it.issueId)}
-                  className="flex w-full items-start gap-3 rounded-[10px] px-3 py-[10px] text-left hover:bg-[var(--surface-2)]"
+                  data-keyboard-bead-id={it.issueId}
+                  aria-current={selectedBeadId === it.issueId ? "true" : undefined}
+                  onFocus={() => selectBead(it.issueId)}
+                  onClick={() => {
+                    selectBead(it.issueId);
+                    openDetail(it.issueId);
+                  }}
+                  className={`flex w-full items-start gap-3 rounded-[10px] px-3 py-[10px] text-left hover:bg-[var(--surface-2)] focus-visible:outline-none ${
+                    selectedBeadId === it.issueId ? "ring-2 ring-inset ring-[var(--brand)]" : ""
+                  }`}
                 >
                   <span
                     className="mt-[1px] flex h-[26px] w-[26px] flex-shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white"

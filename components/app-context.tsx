@@ -4,6 +4,8 @@ import { type BeadType } from "@/lib/schema";
 import type { Bead } from "@/lib/schema";
 import type { Meta } from "@/lib/api-client";
 
+export type DetailAction = "view" | "edit" | "close";
+
 export type View =
   | "focus"
   | "board"
@@ -27,8 +29,10 @@ interface AppContextValue {
   readOnly: boolean;
   loading: boolean;
   error?: string;
+  selectedBeadId: string | null;
+  selectBead: (id: string | null) => void;
   /** Open a bead, STARTING A FRESH trail (clears any back history). */
-  openDetail: (id: string) => void;
+  openDetail: (id: string, action?: DetailAction) => void;
   /** Open a bead, PUSHING onto the trail so back returns here. Drawer-internal only. */
   pushDetail: (id: string) => void;
   /** Open the create dialog, optionally presetting the parent and/or the type. */

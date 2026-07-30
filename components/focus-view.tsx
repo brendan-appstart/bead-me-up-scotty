@@ -171,21 +171,32 @@ function LaneChip({
 }
 
 function FocusCard({ bead, showBlockers }: { bead: Bead; showBlockers?: boolean }) {
-  const { index, openDetail } = useApp();
+  const { index, openDetail, selectedBeadId, selectBead } = useApp();
   const blockers = showBlockers ? blockingDeps(bead, index) : [];
   return (
     <article
       role="button"
       tabIndex={0}
       aria-label={bead.title}
+      data-keyboard-bead-id={bead.id}
+      aria-current={selectedBeadId === bead.id ? "true" : undefined}
+      onFocus={() => selectBead(bead.id)}
       onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
           openDetail(bead.id);
         }
       }}
-      onClick={() => openDetail(bead.id)}
-      className="cursor-pointer rounded-[11px] border border-border bg-[var(--surface)] p-[10px_12px] shadow-[var(--shadow)] hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-lg)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]"
+      onClick={() => {
+        selectBead(bead.id);
+        openDetail(bead.id);
+      }}
+      className={`cursor-pointer rounded-[11px] border bg-[var(--surface)] p-[10px_12px] shadow-[var(--shadow)] hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-lg)] focus-visible:outline-none ${
+        selectedBeadId === bead.id
+          ? "border-[var(--brand)] ring-2 ring-[var(--brand)]/30"
+          : "border-border"
+      }`}
     >
       <div className="mb-[5px] flex items-center gap-[7px]">
         <span className="h-2 w-2 flex-shrink-0 rounded-full" style={{ background: catColor(bead.status) }} />

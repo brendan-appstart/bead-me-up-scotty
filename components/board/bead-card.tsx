@@ -22,7 +22,7 @@ import {
 } from "@/lib/beads-view";
 
 export function BeadCard({ bead, childCount = 0 }: { bead: Bead; childCount?: number }) {
-  const { index, humanAllowlist, openDetail, readOnly } = useApp();
+  const { index, humanAllowlist, openDetail, readOnly, selectedBeadId, selectBead } = useApp();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: bead.id,
     disabled: readOnly,
@@ -45,15 +45,24 @@ export function BeadCard({ bead, childCount = 0 }: { bead: Bead; childCount?: nu
         if (e.target !== e.currentTarget) return;
         if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openDetail(bead.id); }
       } } : {})}
-      onClick={() => openDetail(bead.id)}
+      data-keyboard-bead-id={bead.id}
+      aria-current={selectedBeadId === bead.id ? "true" : undefined}
+      onFocus={() => selectBead(bead.id)}
+      onClick={() => {
+        selectBead(bead.id);
+        openDetail(bead.id);
+      }}
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
         opacity: isDragging ? 0.4 : 1,
-        boxShadow: "var(--shadow)",
         zIndex: isDragging ? 10 : undefined,
       }}
-      className="flex cursor-pointer touch-none flex-col gap-[9px] rounded-[11px] border border-border bg-[var(--surface)] p-[12px_13px] transition-[border-color,box-shadow] hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-lg)]"
+      className={`flex cursor-pointer touch-none flex-col gap-[9px] rounded-[11px] border bg-[var(--surface)] p-[12px_13px] shadow-[var(--shadow)] transition-[border-color] hover:border-2 hover:p-[11px_12px] focus-visible:outline-none ${
+        selectedBeadId === bead.id
+          ? "border-[var(--brand)] hover:border-[var(--text-3)] ring-2 ring-[var(--brand)]/30"
+          : "border-border hover:border-[var(--text-3)]"
+      }`}
     >
       <div className="flex items-center gap-2">
         <span

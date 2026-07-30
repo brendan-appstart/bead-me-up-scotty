@@ -70,13 +70,24 @@ export function NeedsYouView() {
  * resolves it and unblocks every bead depending on it.
  */
 function GateCard({ gate }: { gate: Bead }) {
-  const { beads, openDetail, readOnly } = useApp();
+  const { beads, openDetail, readOnly, selectedBeadId, selectBead } = useApp();
   const setStatus = useSetStatus();
   const blocks = React.useMemo(() => gateBlocks(gate.id, beads), [gate.id, beads]);
   const busy = setStatus.isPending;
 
   return (
-    <div className="rounded-[12px] border border-border bg-[var(--surface)] p-4">
+    <div
+      role="button"
+      tabIndex={0}
+      data-keyboard-bead-id={gate.id}
+      aria-current={selectedBeadId === gate.id ? "true" : undefined}
+      onFocus={() => selectBead(gate.id)}
+      className={`rounded-[12px] border bg-[var(--surface)] p-4 focus-visible:outline-none ${
+        selectedBeadId === gate.id
+          ? "border-[var(--brand)] ring-2 ring-[var(--brand)]/30"
+          : "border-border"
+      }`}
+    >
       <div className="mb-1 flex items-center gap-2">
         <Icon name="gate" size={15} style={{ color: "var(--brand)" }} />
         <button
@@ -136,7 +147,7 @@ function GateCard({ gate }: { gate: Bead }) {
 }
 
 function NeedsYouCard({ bead }: { bead: Bead }) {
-  const { humanAllowlist, openDetail, readOnly } = useApp();
+  const { humanAllowlist, openDetail, readOnly, selectedBeadId, selectBead } = useApp();
   const respond = useRespondHuman();
   const dismiss = useDismissHuman();
   const [text, setText] = React.useState("");
@@ -144,7 +155,18 @@ function NeedsYouCard({ bead }: { bead: Bead }) {
   const busy = respond.isPending || dismiss.isPending;
 
   return (
-    <div className="rounded-[12px] border border-border bg-[var(--surface)] p-4">
+    <div
+      role="button"
+      tabIndex={0}
+      data-keyboard-bead-id={bead.id}
+      aria-current={selectedBeadId === bead.id ? "true" : undefined}
+      onFocus={() => selectBead(bead.id)}
+      className={`rounded-[12px] border bg-[var(--surface)] p-4 focus-visible:outline-none ${
+        selectedBeadId === bead.id
+          ? "border-[var(--brand)] ring-2 ring-[var(--brand)]/30"
+          : "border-border"
+      }`}
+    >
       <div className="mb-1 flex items-center gap-2">
         <Icon name={typeIconName(bead.issue_type)} size={14} style={{ color: typeColor(bead.issue_type) }} />
         <button
