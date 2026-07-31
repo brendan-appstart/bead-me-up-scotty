@@ -45,7 +45,14 @@ import {
   toggleTask,
   closeReasonOf,
 } from "@/lib/beads-view";
-import { BEAD_STATUSES, BLOCKING_DEP_TYPES, type Bead, type DepType } from "@/lib/schema";
+import {
+  BEAD_STATUSES,
+  BLOCKING_DEP_TYPES,
+  type Bead,
+  type BlockingDepType,
+  type Dependency,
+  type DepType,
+} from "@/lib/schema";
 
 const selectClass =
   "h-9 cursor-pointer rounded-[9px] border border-border bg-[var(--surface-2)] px-[9px] text-[13px] text-[var(--text)] outline-none";
@@ -62,6 +69,48 @@ const ARCHIVED_LABEL = "archived";
 /** Chip styling shared with the list rows (list-view.tsx) so labels read alike. */
 const labelChipClass =
   "inline-flex items-center gap-[5px] rounded-md border border-border bg-[var(--surface-2)] px-[6px] py-[2px] font-mono text-[10.5px] text-[var(--text-3)]";
+
+type DisplayedBlockingDepType = Exclude<BlockingDepType, "parent-child">;
+
+type DependencyRow = {
+  key: string;
+  target: Bead | undefined;
+  targetId: string;
+  label: string;
+  active: boolean;
+  activeBlocking: boolean;
+  removeIssueId: string;
+  removeDependsOnId: string;
+};
+
+function isDisplayedBlockingDepType(type: string): type is DisplayedBlockingDepType {
+  return (
+    type !== "parent-child" && (BLOCKING_DEP_TYPES as readonly string[]).includes(type)
+  );
+}
+
+function dependencyIsResolved(current: Bead, related: Bead | undefined): boolean {
+  return current.status === "closed" || related?.status === "closed";
+}
+
+/** Describe dependency edges from the current bead's point of view. */
+function dependencyTypeLabel(type: Dependency["type"], resolved: boolean): string {
+  if (type === "blocks") return resolved ? "was blocked by" : "blocked by";
+  if (type === "conditional-blocks") {
+    return resolved ? "was conditionally blocked by" : "conditionally blocked by";
+  }
+  if (type === "waits-for") return resolved ? "previously waited for" : "waits for";
+  return type;
+}
+
+/** Describe the reverse side of a blocking edge from the current bead's point of view. */
+function dependentTypeLabel(type: DisplayedBlockingDepType, resolved: boolean): string {
+  if (type === "conditional-blocks") {
+    return resolved ? "previously conditionally blocked" : "conditionally blocks";
+  }
+  if (type === "waits-for") return resolved ? "was waited for by" : "waited for by";
+  return resolved ? "previously blocked" : "blocks";
+}
 
 export function BeadDetailDrawer({
   openId,
@@ -222,7 +271,52 @@ function DrawerBody({
   const kids = childrenOf(bead.id, beads);
   // epicProgress is parent-agnostic despite the name (worth renaming later).
   const kidProgress = epicProgress(bead.id, beads);
-  const deps = (bead.dependencies ?? []).filter((d) => d.type !== "parent-child");
+  const deps = React.useMemo(
+    () => (bead.dependencies ?? []).filter((d) => d.type !== "parent-child"),
+    [bead.dependencies],
+  );
+  const dependencyRows = React.useMemo<DependencyRow[]>(() => {
+    const outgoingRows: DependencyRow[] = deps.map((dependency) => {
+      const target = index.get(dependency.depends_on_id);
+      const resolved = dependencyIsResolved(bead, target);
+      return {
+        key: `dependency:${dependency.depends_on_id}:${dependency.type}`,
+        target,
+        targetId: dependency.depends_on_id,
+        label: dependencyTypeLabel(dependency.type, resolved),
+        active: !resolved,
+        activeBlocking: isDisplayedBlockingDepType(dependency.type) && !resolved,
+        removeIssueId: bead.id,
+        removeDependsOnId: dependency.depends_on_id,
+      };
+    });
+    const incomingRows = beads.flatMap<DependencyRow>((dependent) =>
+      (dependent.dependencies ?? []).flatMap<DependencyRow>((dependency) => {
+        if (
+          dependency.depends_on_id !== bead.id ||
+          !isDisplayedBlockingDepType(dependency.type)
+        ) {
+          return [];
+        }
+        const resolved = dependencyIsResolved(bead, dependent);
+        return [
+          {
+            key: `dependent:${dependent.id}:${dependency.type}`,
+            target: dependent,
+            targetId: dependent.id,
+            label: dependentTypeLabel(dependency.type, resolved),
+            active: !resolved,
+            activeBlocking: !resolved,
+            removeIssueId: dependent.id,
+            removeDependsOnId: bead.id,
+          },
+        ];
+      }),
+    );
+    return [...outgoingRows, ...incomingRows].sort(
+      (left, right) => Number(right.active) - Number(left.active),
+    );
+  }, [bead, beads, deps, index]);
   const notes = bead.notes?.trim() ?? "";
   const design = bead.design?.trim() ?? "";
   const acceptance = bead.acceptance_criteria?.trim() ?? "";
@@ -602,42 +696,53 @@ function DrawerBody({
 
         {/* Dependencies */}
         <Section>
-          <Header icon="link" label="Dependencies" count={deps.length} />
+          <Header icon="link" label="Dependencies" count={dependencyRows.length} />
           <div className="flex flex-col gap-[7px]">
-            {deps.map((d) => {
-              const t = index.get(d.depends_on_id);
-              const blocking = BLOCKING_DEP_TYPES.includes(d.type as DepType);
-              const c = blocking ? "#ef4444" : "var(--text-2)";
+            {dependencyRows.map((row) => {
+              const c = row.activeBlocking ? "#ef4444" : "var(--text-2)";
               return (
                 <div
-                  key={d.depends_on_id}
+                  key={row.key}
                   className="flex items-center gap-[9px] rounded-[9px] border border-border bg-[var(--surface)] p-[9px_11px]"
                 >
-                  <span
-                    className="flex-shrink-0 rounded-[5px] px-[7px] py-[2px] font-mono text-[10px] font-semibold"
-                    style={{
-                      color: c,
-                      background: blocking ? "#ef444418" : "var(--surface-2)",
-                      border: `1px solid ${blocking ? "#ef444433" : "var(--border)"}`,
-                    }}
+                  <button
+                    type="button"
+                    disabled={!row.target}
+                    title={row.target ? `Open ${row.target.id}` : undefined}
+                    onClick={() => pushDetail(row.targetId)}
+                    className="flex min-w-0 flex-1 items-center gap-[9px] text-left disabled:cursor-default"
                   >
-                    {d.type}
-                  </span>
-                  <span className="flex-shrink-0 font-mono text-[11px] text-[var(--text-3)]">
-                    {d.depends_on_id}
-                  </span>
-                  <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[12.5px]">
-                    {t?.title ?? "(unknown)"}
-                  </span>
-                  <span
-                    className="h-[7px] w-[7px] flex-shrink-0 rounded-full"
-                    style={{ background: catColor(t?.status ?? "open") }}
-                    title={statusLabel(t?.status ?? "open")}
-                  />
+                    <span
+                      className="flex-shrink-0 rounded-[5px] px-[7px] py-[2px] font-mono text-[10px] font-semibold"
+                      style={{
+                        color: c,
+                        background: row.activeBlocking ? "#ef444418" : "var(--surface-2)",
+                        border: `1px solid ${row.activeBlocking ? "#ef444433" : "var(--border)"}`,
+                      }}
+                    >
+                      {row.label}
+                    </span>
+                    <span className="flex-shrink-0 font-mono text-[11px] text-[var(--text-3)]">
+                      {row.targetId}
+                    </span>
+                    <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[12.5px]">
+                      {row.target?.title ?? "(unknown)"}
+                    </span>
+                    <span
+                      className="h-[7px] w-[7px] flex-shrink-0 rounded-full"
+                      style={{ background: catColor(row.target?.status ?? "open") }}
+                      title={statusLabel(row.target?.status ?? "open")}
+                    />
+                  </button>
                   <button
                     title="remove"
                     disabled={readOnly}
-                    onClick={() => removeDep.mutate({ id: bead.id, dependsOnId: d.depends_on_id })}
+                    onClick={() =>
+                      removeDep.mutate({
+                        id: row.removeIssueId,
+                        dependsOnId: row.removeDependsOnId,
+                      })
+                    }
                     className="flex h-[22px] w-[22px] items-center justify-center rounded-md text-[var(--text-3)] hover:bg-[#ef444415] hover:text-[#ef4444]"
                   >
                     <Icon name="x" size={12} />
@@ -645,9 +750,9 @@ function DrawerBody({
                 </div>
               );
             })}
-            {deps.length === 0 && !addingDep && (
+            {dependencyRows.length === 0 && !addingDep && (
               <div className="px-[2px] py-1 text-[12px] text-[var(--text-3)]">
-                No dependencies. This bead is unblocked.
+                No dependency relationships.
               </div>
             )}
 
@@ -675,7 +780,7 @@ function DrawerBody({
                   {/* parent-child deliberately absent: the Subtasks section and
                       the Parent field own that relationship now. Offering it here
                       created links this list then filtered out, so they vanished. */}
-                  <option value="blocks">blocks</option>
+                  <option value="blocks">blocked by</option>
                   <option value="related">related</option>
                 </select>
                 <button

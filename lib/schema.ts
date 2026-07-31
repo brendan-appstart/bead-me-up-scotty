@@ -48,12 +48,13 @@ export const DEP_TYPES = [
 export type DepType = (typeof DEP_TYPES)[number];
 
 // Dep types that block the ready queue (beads semantics).
-export const BLOCKING_DEP_TYPES: DepType[] = [
+export const BLOCKING_DEP_TYPES = [
   "blocks",
   "parent-child",
   "conditional-blocks",
   "waits-for",
-];
+] as const satisfies readonly DepType[];
+export type BlockingDepType = (typeof BLOCKING_DEP_TYPES)[number];
 
 export const PRIORITIES = [0, 1, 2, 3, 4] as const;
 export type Priority = (typeof PRIORITIES)[number];
