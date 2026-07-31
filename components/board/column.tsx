@@ -19,12 +19,14 @@ export function Column({
   cards,
   childCounts,
   control,
+  manualSort = true,
 }: {
   col: ColumnDef;
   cards: Bead[];
   /** id -> number of parent-child children, computed once by the board. */
   childCounts?: Map<string, number>;
   control?: React.ReactNode;
+  manualSort?: boolean;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: col.id, disabled: !col.droppable });
 
@@ -49,7 +51,7 @@ export function Column({
             : "outline-2 outline-transparent",
         )}
       >
-        <SortableContext items={cards.map((b) => b.id)} strategy={verticalListSortingStrategy}>
+        <SortableContext items={cards.map((b) => b.id)} strategy={manualSort ? verticalListSortingStrategy : () => null}>
           {cards.map((b) => (
             <BeadCard key={b.id} bead={b} childCount={childCounts?.get(b.id) ?? 0} />
           ))}

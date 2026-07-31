@@ -28,19 +28,46 @@ export const BOARD_COLUMNS: BoardColumn[] = [
 export const COLUMN_ORDER: string[] = BOARD_COLUMNS.map((c) => c.id);
 
 /** Which board column a bead belongs to (first matching test), or null. */
-export function colOf(b: Bead, index: Map<string, Bead>): string | null {
-  const blocked = isBlocked(b, index);
-  for (const c of BOARD_COLUMNS) if (c.test(b, blocked)) return c.id;
+export function colOf(bead: Bead, index: Map<string, Bead>): string | null {
+  const blocked = isBlocked(bead, index);
+  for (const c of BOARD_COLUMNS) if (c.test(bead, blocked)) return c.id;
   return null;
 }
 
-/** Sort by saved manual order (rank), falling back to priority. */
-export function sortByOrder(cards: Bead[], order?: string[]): Bead[] {
-  const rank = new Map((order ?? []).map((id, i) => [id, i] as const));
-  return [...cards].sort((a, b) => {
-    const ra = rank.has(a.id) ? (rank.get(a.id) as number) : Number.POSITIVE_INFINITY;
-    const rb = rank.has(b.id) ? (rank.get(b.id) as number) : Number.POSITIVE_INFINITY;
-    if (ra !== rb) return ra - rb;
-    return a.priority - b.priority;
+export type BoardSortMode = "priority" | "updated" | "manual";
+
+function updatedTime(card: Bead): number {
+  const parsed = Date.parse(card.updated_at || card.created_at || "");
+  return Number.isFinite(parsed) ? parsed : Number.NEGATIVE_INFINITY;
+}
+
+function byUpdatedThenPriority(left: Bead, right: Bead): number {
+  const updatedDiff = updatedTime(right) - updatedTime(left);
+  return updatedDiff || left.priority - right.priority || left.id.localeCompare(right.id);
+}
+
+function byPriorityThenUpdated(first: Bead, second: Bead): number {
+  return first.priority - second.priority || byUpdatedThenPriority(first, second);
+}
+
+/** Sort cards according to the board's explicit display mode. */
+export function sortBoardCards(
+  cards: Bead[], mode: BoardSortMode, order?: string[],
+): Bead[] {
+  const rank = new Map((order ?? []).map((id, i) => [id, i]));
+
+  return [...cards].sort((cardA, cardB) => {
+    if (mode === "updated") return byUpdatedThenPriority(cardA, cardB);
+    if (mode === "priority") return byPriorityThenUpdated(cardA, cardB);
+
+    const rankA = rank.get(cardA.id) ?? Number.POSITIVE_INFINITY;
+    const rankB = rank.get(cardB.id) ?? Number.POSITIVE_INFINITY;
+    if (rankA !== rankB) return rankA - rankB;
+    return cardA.priority - cardB.priority;
   });
+}
+
+/** Preserve saved manual order, falling back to priority for unranked cards. */
+export function sortByOrder(cards: Bead[], order?: string[]): Bead[] {
+  return sortBoardCards(cards, "manual", order);
 }
