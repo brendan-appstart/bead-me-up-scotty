@@ -2,12 +2,15 @@
 import * as React from "react";
 import { type BeadType } from "@/lib/schema";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useBeads } from "@/hooks/use-beads";
 import { useBeadsStream } from "@/hooks/use-beads-stream";
 import { useLastView } from "@/hooks/use-last-view";
+import { useUrlState } from "@/hooks/use-url-state";
 import { useTheme } from "@/components/theme-provider";
 import { makeIndex } from "@/lib/beads-view";
 import { AppProvider } from "@/components/app-context";
+import { isView, type View } from "@/lib/views";
 import { Sidebar } from "@/components/sidebar";
 import { Board } from "@/components/board/board";
 import { FocusView } from "@/components/focus-view";
@@ -26,13 +29,54 @@ import { CommandPalette } from "@/components/command-palette";
 import { NotificationWatcher } from "@/components/notification-watcher";
 
 export function AppShell({ projectId }: { projectId: string }) {
-  const [view, setView] = useLastView(projectId);
+  const [lastView, rememberView] = useLastView(projectId);
+  const pathname = usePathname();
+  const { searchParams, updateLocation, updateUrl } = useUrlState();
+  const projectPath = `/p/${encodeURIComponent(projectId)}`;
+  const pathTail = pathname.startsWith(`${projectPath}/`)
+    ? pathname.slice(projectPath.length + 1).split("/")[0]
+    : null;
+  const requestedView = isView(pathTail) ? pathTail : null;
+  const legacyView = searchParams.get("view");
+  const view = requestedView ?? (isView(legacyView) ? legacyView : lastView);
+  const issueId = searchParams.get("issue");
+  const setView = React.useCallback(
+    (nextView: View) => {
+      rememberView(nextView);
+      updateLocation((url) => {
+        url.pathname = `${projectPath}/${nextView}`;
+        url.searchParams.delete("view");
+      });
+    },
+    [projectPath, rememberView, updateLocation],
+  );
+
+  // Upgrade old bare/query-string URLs and repair unknown view segments while
+  // retaining the per-project default used by old bookmarks.
+  React.useEffect(() => {
+    if (requestedView === view && legacyView === null) return;
+    updateLocation((url) => {
+      url.pathname = `${projectPath}/${view}`;
+      url.searchParams.delete("view");
+    }, "replace");
+  }, [legacyView, projectPath, requestedView, updateLocation, view]);
+
+  // Path navigation can also come from browser back/forward, so keep the old
+  // per-project default aligned with whichever route is actually active.
+  React.useEffect(() => {
+    if (requestedView) rememberView(requestedView);
+  }, [rememberView, requestedView]);
+
   const { toggle: toggleTheme } = useTheme();
   // Drawer navigation TRAIL, not a single id: clicking a subtask from its
   // parent used to replace the drawer outright, leaving no way back (GH #15).
-  // The visible bead is the last entry.
-  const [openStack, setOpenStack] = React.useState<string[]>([]);
-  const openId = openStack.length ? openStack[openStack.length - 1] : null;
+  // The URL's issue is authoritative; the stack only names the drawer's custom
+  // back destination.
+  const [openStack, setOpenStack] = React.useState<string[]>(() =>
+    issueId ? [issueId] : [],
+  );
+  const openId = issueId;
+  const previousUrlIssue = React.useRef(issueId);
   const [palette, setPalette] = React.useState(false);
   const [create, setCreate] = React.useState<{
     open: boolean;
@@ -47,30 +91,63 @@ export function AppShell({ projectId }: { projectId: string }) {
   const beads = React.useMemo(() => data?.beads ?? [], [data]);
   const index = React.useMemo(() => makeIndex(beads), [beads]);
 
+  // Back/forward and direct URL navigation drive the drawer.
+  React.useEffect(() => {
+    if (previousUrlIssue.current === issueId) return;
+    previousUrlIssue.current = issueId;
+    setOpenStack((stack) => {
+      if (!issueId) return [];
+      const previousIndex = stack.lastIndexOf(issueId);
+      return previousIndex >= 0 ? stack.slice(0, previousIndex + 1) : [issueId];
+    });
+  }, [issueId]);
+
+  const setIssueInUrl = React.useCallback(
+    (id: string | null, mode: "push" | "replace" = "push") => {
+      previousUrlIssue.current = id;
+      updateUrl((params) => {
+        if (id) params.set("issue", id);
+        else params.delete("issue");
+      }, mode);
+    },
+    [updateUrl],
+  );
+
   // RESET. Every caller outside the drawer (board, list, epics, activity,
   // needs-you, palette, assist panel) means "start here", not "continue a trail".
-  const openDetail = React.useCallback((id: string) => setOpenStack([id]), []);
+  const openDetail = React.useCallback(
+    (id: string) => {
+      setOpenStack([id]);
+      setIssueInUrl(id);
+    },
+    [setIssueInUrl],
+  );
   // PUSH. Drawer-internal navigation only, so back can return.
   const MAX_TRAIL = 25;
   const pushDetail = React.useCallback(
-    (id: string) =>
-      setOpenStack((s) => {
-        if (s[s.length - 1] === id) return s; // re-clicking the current bead is a no-op
-        const next = [...s, id];
+    (id: string) => {
+      setOpenStack((stack) => {
+        if (stack[stack.length - 1] === id) return stack;
+        const next = [...stack, id];
         return next.length > MAX_TRAIL ? next.slice(next.length - MAX_TRAIL) : next;
-      }),
-    [],
+      });
+      setIssueInUrl(id);
+    },
+    [setIssueInUrl],
   );
-  const closeDetail = React.useCallback(() => setOpenStack([]), []);
+  const closeDetail = React.useCallback(() => {
+    setOpenStack([]);
+    setIssueInUrl(null);
+  }, [setIssueInUrl]);
   // POP. Skips entries whose bead has since been deleted/archived away, so back
   // can never land on an empty drawer; if nothing valid remains, it closes.
   const backDetail = React.useCallback(() => {
-    setOpenStack((s) => {
-      const next = s.slice(0, -1);
-      while (next.length && !index.has(next[next.length - 1])) next.pop();
-      return next;
-    });
-  }, [index]);
+    const next = openStack.slice(0, -1);
+    while (next.length && !index.has(next[next.length - 1])) next.pop();
+    const id = next[next.length - 1] ?? null;
+    setOpenStack(next);
+    setIssueInUrl(id);
+  }, [index, openStack, setIssueInUrl]);
   // Options object rather than positional args so future presets (assignee,
   // priority) can be added without churning every call site again.
   const openCreate = React.useCallback(
@@ -86,11 +163,17 @@ export function AppShell({ projectId }: { projectId: string }) {
   const clearFocusEpic = React.useCallback(() => setFocusEpic(null), []);
   const openEpic = React.useCallback(
     (epicId: string) => {
+      previousUrlIssue.current = null;
       setOpenStack([]); // close the detail drawer
-      setView("epics");
+      rememberView("epics");
+      updateLocation((url) => {
+        url.pathname = `${projectPath}/epics`;
+        url.searchParams.delete("view");
+        url.searchParams.delete("issue");
+      });
       setFocusEpic({ id: epicId, nonce: (focusNonce.current += 1) });
     },
-    [setView],
+    [projectPath, rememberView, updateLocation],
   );
 
   // keyboard: Cmd/Ctrl+K = command palette, n = new, / = focus search, t = toggle theme, Esc = close overlays
@@ -105,7 +188,7 @@ export function AppShell({ projectId }: { projectId: string }) {
         return;
       }
       if (e.key === "Escape") {
-        setOpenStack([]);
+        closeDetail();
         setCreate((c) => ({ ...c, open: false }));
         return;
       }
@@ -125,7 +208,7 @@ export function AppShell({ projectId }: { projectId: string }) {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [openCreate, toggleTheme]);
+  }, [closeDetail, openCreate, toggleTheme]);
 
   const errorMessage = error ? (error as Error).message : undefined;
 

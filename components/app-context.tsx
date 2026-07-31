@@ -4,18 +4,7 @@ import { type BeadType } from "@/lib/schema";
 import type { Bead } from "@/lib/schema";
 import type { Meta } from "@/lib/api-client";
 
-export type View =
-  | "focus"
-  | "board"
-  | "list"
-  | "epics"
-  | "graph"
-  | "insights"
-  | "activity"
-  | "needsyou"
-  | "achievements"
-  | "publish"
-  | "settings";
+export type { View } from "@/lib/views";
 
 interface AppContextValue {
   projectId: string;

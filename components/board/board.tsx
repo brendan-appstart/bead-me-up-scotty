@@ -14,9 +14,11 @@ import { useApp } from "@/components/app-context";
 import { useSetStatus } from "@/hooks/use-beads";
 import { useOrder, useSetOrder } from "@/hooks/use-order";
 import { useBoardPrefs } from "@/hooks/use-board-prefs";
+import { useUrlFilters } from "@/hooks/use-url-filters";
+import { useUrlState } from "@/hooks/use-url-state";
 import { isBlocked, childrenCountMap } from "@/lib/beads-view";
 import { FilterBar } from "@/components/filter-bar";
-import { matchesFilters, emptyFilters, labelOptionsFrom, assigneeOptionsFrom, type Filters } from "@/lib/filters";
+import { matchesFilters, labelOptionsFrom, assigneeOptionsFrom } from "@/lib/filters";
 import { BOARD_COLUMNS as COLUMNS, sortByOrder as sortCards } from "@/lib/board-columns";
 import { Column } from "./column";
 import type { Bead } from "@/lib/schema";
@@ -28,8 +30,9 @@ export function Board() {
   const setOrder = useSetOrder(projectId);
   const { prefs: boardPrefs } = useBoardPrefs();
   const orders = React.useMemo(() => orderData?.orders ?? {}, [orderData]);
-  const [filters, setFilters] = React.useState<Filters>(emptyFilters);
-  const [showArchived, setShowArchived] = React.useState(false);
+  const { filters, setFilters, showArchived, setShowArchived, clearFilters } =
+    useUrlFilters();
+  const { searchParams, updateUrl } = useUrlState();
   // Derived from ALL beads (not the filtered set) so selecting one label
   // doesn't make the remaining options vanish from the dropdown.
   const labelOptions = React.useMemo(() => labelOptionsFrom(beads), [beads]);
@@ -38,7 +41,17 @@ export function Board() {
   // on a large board.
   const childCounts = React.useMemo(() => childrenCountMap(beads), [beads]);
   // Time-window filter for the Done column: null = all, else "closed within N days" (bead nad).
-  const [doneWindow, setDoneWindow] = React.useState<number | null>(null);
+  const doneParam = Number(searchParams.get("done"));
+  const doneWindow = [7, 28, 90, 365].includes(doneParam) ? doneParam : null;
+  const setDoneWindow = React.useCallback(
+    (days: number | null) => {
+      updateUrl((params) => {
+        if (days === null) params.delete("done");
+        else params.set("done", String(days));
+      });
+    },
+    [updateUrl],
+  );
   // Mount-time "now" for the window cutoff — captured once (day-granular, so it
   // needn't tick) and kept out of render to satisfy the no-impure-call rule.
   const [now] = React.useState(() => Date.now());
@@ -135,11 +148,12 @@ export function Board() {
 
         <FilterBar
           filters={filters}
-          onChange={setFilters}
+          onChangeAction={setFilters}
           labelOptions={labelOptions}
           assigneeOptions={assigneeOptions}
           showArchived={showArchived}
-          onShowArchived={setShowArchived}
+          onShowArchivedAction={setShowArchived}
+          onClearAllAction={clearFilters}
         />
 
         <button

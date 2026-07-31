@@ -26,6 +26,56 @@ export const emptyFilters: Filters = {
   search: "",
 };
 
+const FILTER_PARAMS = [
+  "status",
+  "type",
+  "priority",
+  "origin",
+  "label",
+  "assignee",
+  "q",
+] as const;
+
+type SearchParamsReader = Pick<URLSearchParams, "get" | "getAll">;
+
+function distinctValues(params: SearchParamsReader, name: string): string[] {
+  return [...new Set(params.getAll(name).filter(Boolean))];
+}
+
+/** Parse the shared Board/List filters from bookmarkable query parameters. */
+export function filtersFromSearchParams(params: SearchParamsReader): Filters {
+  return {
+    status: distinctValues(params, "status"),
+    type: distinctValues(params, "type"),
+    priority: distinctValues(params, "priority")
+      .map(Number)
+      .filter(
+        (priority) =>
+          Number.isInteger(priority) && priority >= 0 && priority <= 4,
+      ),
+    origin: distinctValues(params, "origin"),
+    labels: distinctValues(params, "label"),
+    assignee: distinctValues(params, "assignee"),
+    search: params.get("q") ?? "",
+  };
+}
+
+/** Replace only filter-related parameters, preserving view and issue state. */
+export function writeFiltersToSearchParams(
+  params: URLSearchParams,
+  filters: Filters,
+): void {
+  for (const name of FILTER_PARAMS) params.delete(name);
+  for (const status of filters.status) params.append("status", status);
+  for (const type of filters.type) params.append("type", type);
+  for (const priority of filters.priority)
+    params.append("priority", String(priority));
+  for (const origin of filters.origin) params.append("origin", origin);
+  for (const label of filters.labels) params.append("label", label);
+  for (const assignee of filters.assignee) params.append("assignee", assignee);
+  if (filters.search) params.set("q", filters.search);
+}
+
 /**
  * Sentinel facet value for beads with no assignee, so "Unassigned" is
  * selectable alongside real assignees in the same multi-select.
