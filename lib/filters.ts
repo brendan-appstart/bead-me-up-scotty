@@ -12,6 +12,7 @@ export interface Filters {
   priority: number[];
   origin: string[];
   labels: string[];
+  assignee: string[];
   search: string;
 }
 
@@ -21,8 +22,37 @@ export const emptyFilters: Filters = {
   priority: [],
   origin: [],
   labels: [],
+  assignee: [],
   search: "",
 };
+
+/**
+ * Sentinel facet value for beads with no assignee, so "Unassigned" is
+ * selectable alongside real assignees in the same multi-select.
+ */
+export const UNASSIGNED = "__unassigned__";
+
+/** A bead's assignee normalized to a facet value (empty/blank → UNASSIGNED). */
+export function beadAssignee(b: Bead): string {
+  return b.assignee?.trim() || UNASSIGNED;
+}
+
+/**
+ * The distinct assignees in use across a bead set, sorted, as filter options —
+ * with "Unassigned" first when any bead lacks one. Callers pass ALL beads (not
+ * the filtered set), same as labelOptionsFrom.
+ */
+export function assigneeOptionsFrom(beads: Bead[]): { value: string; label: string }[] {
+  const s = new Set<string>();
+  let hasUnassigned = false;
+  for (const b of beads) {
+    const a = beadAssignee(b);
+    if (a === UNASSIGNED) hasUnassigned = true;
+    else s.add(a);
+  }
+  const opts = [...s].sort().map((a) => ({ value: a, label: a }));
+  return hasUnassigned ? [{ value: UNASSIGNED, label: "Unassigned" }, ...opts] : opts;
+}
 
 /**
  * `archived` is state, not a tag — it has its own dedicated toggle in the
@@ -44,7 +74,14 @@ export function labelOptionsFrom(beads: Bead[]): { value: string; label: string 
 
 /** Count of active facet selections (excludes free-text search). */
 export function activeFilterCount(f: Filters): number {
-  return f.status.length + f.type.length + f.priority.length + f.origin.length + f.labels.length;
+  return (
+    f.status.length +
+    f.type.length +
+    f.priority.length +
+    f.origin.length +
+    f.labels.length +
+    f.assignee.length
+  );
 }
 
 export function matchesFilters(b: Bead, f: Filters, humanAllowlist: string[]): boolean {
@@ -52,6 +89,7 @@ export function matchesFilters(b: Bead, f: Filters, humanAllowlist: string[]): b
   if (f.type.length && !f.type.includes(b.issue_type)) return false;
   if (f.priority.length && !f.priority.includes(b.priority)) return false;
   if (f.origin.length && !f.origin.includes(beadOrigin(b, humanAllowlist))) return false;
+  if (f.assignee.length && !f.assignee.includes(beadAssignee(b))) return false;
   // OR within the facet, like every other facet above; AND across facets.
   if (f.labels.length && !f.labels.some((l) => (b.labels ?? []).includes(l))) return false;
   const q = f.search.trim().toLowerCase();
