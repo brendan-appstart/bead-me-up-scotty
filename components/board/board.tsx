@@ -16,7 +16,7 @@ import { useOrder, useSetOrder } from "@/hooks/use-order";
 import { useBoardPrefs } from "@/hooks/use-board-prefs";
 import { isBlocked, childrenCountMap } from "@/lib/beads-view";
 import { FilterBar } from "@/components/filter-bar";
-import { matchesFilters, emptyFilters, labelOptionsFrom, type Filters } from "@/lib/filters";
+import { matchesFilters, emptyFilters, labelOptionsFrom, assigneeOptionsFrom, type Filters } from "@/lib/filters";
 import { BOARD_COLUMNS as COLUMNS, sortByOrder as sortCards } from "@/lib/board-columns";
 import { Column } from "./column";
 import type { Bead } from "@/lib/schema";
@@ -33,6 +33,7 @@ export function Board() {
   // Derived from ALL beads (not the filtered set) so selecting one label
   // doesn't make the remaining options vanish from the dropdown.
   const labelOptions = React.useMemo(() => labelOptionsFrom(beads), [beads]);
+  const assigneeOptions = React.useMemo(() => assigneeOptionsFrom(beads), [beads]);
   // One pass over all beads, not childrenOf() per card — that would be O(n^2)
   // on a large board.
   const childCounts = React.useMemo(() => childrenCountMap(beads), [beads]);
@@ -137,6 +138,7 @@ export function Board() {
           filters={filters}
           onChange={setFilters}
           labelOptions={labelOptions}
+          assigneeOptions={assigneeOptions}
           showArchived={showArchived}
           onShowArchived={setShowArchived}
         />

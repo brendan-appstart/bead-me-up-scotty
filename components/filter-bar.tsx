@@ -8,21 +8,23 @@ import { type Filters, emptyFilters, toggleStr, toggleNum } from "@/lib/filters"
 
 /**
  * Search + multi-select facet filters, shared by the Board and List views so
- * both expose the same controls (status, type, priority, labels, origin) +
- * archived. Purely presentational: `labelOptions` is the one data-derived facet
- * (the rest come from static enums) and is passed in rather than read from
- * context here.
+ * both expose the same controls (status, type, priority, labels, assignee,
+ * origin) + archived. Purely presentational: `labelOptions` and
+ * `assigneeOptions` are the data-derived facets (the rest come from static
+ * enums) and are passed in rather than read from context here.
  */
 export function FilterBar({
   filters,
   onChange,
   labelOptions,
+  assigneeOptions,
   showArchived,
   onShowArchived,
 }: {
   filters: Filters;
   onChange: (f: Filters) => void;
   labelOptions: FilterOption[];
+  assigneeOptions: FilterOption[];
   showArchived: boolean;
   onShowArchived: (v: boolean) => void;
 }) {
@@ -36,6 +38,7 @@ export function FilterBar({
     (filters.priority.length ? 1 : 0) +
     (filters.origin.length ? 1 : 0) +
     (filters.labels.length ? 1 : 0) +
+    (filters.assignee.length ? 1 : 0) +
     (filters.search.trim() ? 1 : 0) +
     (showArchived ? 1 : 0);
   const clearAll = () => {
@@ -85,6 +88,15 @@ export function FilterBar({
             selected={filters.labels}
             onToggle={(v) => set({ labels: toggleStr(filters.labels, v) })}
             onClear={() => set({ labels: [] })}
+          />
+        )}
+        {assigneeOptions.length > 0 && (
+          <MultiSelectFilter
+            label="Assignee"
+            options={assigneeOptions}
+            selected={filters.assignee}
+            onToggle={(v) => set({ assignee: toggleStr(filters.assignee, v) })}
+            onClear={() => set({ assignee: [] })}
           />
         )}
         <MultiSelectFilter
