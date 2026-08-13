@@ -30,7 +30,18 @@ export function AppShell({ projectId }: { projectId: string }) {
   // Drawer navigation TRAIL, not a single id: clicking a subtask from its
   // parent used to replace the drawer outright, leaving no way back (GH #15).
   // The visible bead is the last entry.
-  const [openStack, setOpenStack] = React.useState<string[]>([]);
+  //
+  // Seeded from `?bead=<ID>` so a bead is URL-addressable (see the sync effect
+  // below). Read during render rather than in a mount effect: the repo's React
+  // Compiler lint forbids setState-in-effect, and the seed is safe to hydrate
+  // with because the drawer's open state also depends on the bead being present
+  // in `index` — react-query has no SSR prefetch here, so server and first
+  // client render both see an empty index and render the drawer closed.
+  const [openStack, setOpenStack] = React.useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    const seed = new URLSearchParams(window.location.search).get("bead");
+    return seed ? [seed] : [];
+  });
   const openId = openStack.length ? openStack[openStack.length - 1] : null;
   const [palette, setPalette] = React.useState(false);
   const [create, setCreate] = React.useState<{
@@ -61,6 +72,25 @@ export function AppShell({ projectId }: { projectId: string }) {
     [],
   );
   const closeDetail = React.useCallback(() => setOpenStack([]), []);
+
+  // URL-ADDRESSABLE BEAD. `/p/<projectId>?bead=<ID>` opens that bead, and the
+  // drawer keeps the URL in step, so a single bead is linkable — shareable, and
+  // reachable from outside the app (a terminal can turn a bead id into a link).
+  //
+  // Plain History API rather than useSearchParams/router.replace: the URL is
+  // only a bookmark here, never a data source. replaceState keeps the drawer
+  // out of the back-stack (the drawer has its own Back for the trail) and skips
+  // both the Suspense boundary useSearchParams would demand of every page
+  // rendering AppShell and a server round-trip on each open.
+  React.useEffect(() => {
+    const url = new URL(window.location.href);
+    if (openId) url.searchParams.set("bead", openId);
+    else url.searchParams.delete("bead");
+    const next = `${url.pathname}${url.search}${url.hash}`;
+    const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (next !== current) window.history.replaceState(window.history.state, "", next);
+  }, [openId]);
+
   // POP. Skips entries whose bead has since been deleted/archived away, so back
   // can never land on an empty drawer; if nothing valid remains, it closes.
   const backDetail = React.useCallback(() => {
