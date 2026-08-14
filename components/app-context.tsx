@@ -5,6 +5,7 @@ import type { Bead } from "@/lib/schema";
 import type { Meta } from "@/lib/api-client";
 
 export type View =
+  | "focus"
   | "board"
   | "list"
   | "epics"
