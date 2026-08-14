@@ -65,6 +65,55 @@ export function NeedsYouView() {
   );
 }
 
+const URL_RE = /https?:\/\/[^\s)>'"\]]+/g;
+
+/**
+ * Every URL an agent left on the bead — description, notes, design, comments.
+ * These are the "click here to review" evidence for an approval; a decision
+ * card without any is flagged so bare asks get bounced back to the agent.
+ */
+function evidenceLinks(b: Bead): string[] {
+  const text = [b.description, b.notes, b.design, ...(b.comments ?? []).map((c) => c.text)]
+    .filter(Boolean)
+    .join("\n");
+  return [...new Set(text.match(URL_RE) ?? [])];
+}
+
+function EvidenceRow({ bead }: { bead: Bead }) {
+  const links = evidenceLinks(bead);
+  if (links.length === 0) {
+    return (
+      <p
+        className="mb-3 flex items-center gap-[7px] rounded-[9px] border border-dashed px-[11px] py-[7px] text-[12px] font-[550]"
+        style={{ borderColor: "#f59e0b66", background: "#f59e0b14", color: "#b45309" }}
+      >
+        <Icon name="bug" size={13} />
+        No review material — ask the agent for a URL or screenshot before approving.
+      </p>
+    );
+  }
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-[6px]">
+      {links.map((url) => (
+        <a
+          key={url}
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={url}
+          className="flex h-8 max-w-[300px] items-center gap-[6px] rounded-[9px] px-[11px] text-[12.5px] font-[550] text-white"
+          style={{ background: "var(--brand)" }}
+        >
+          <Icon name="link" size={13} className="flex-shrink-0" />
+          <span className="overflow-hidden text-ellipsis whitespace-nowrap">
+            {url.replace(/^https?:\/\//, "")}
+          </span>
+        </a>
+      ))}
+    </div>
+  );
+}
+
 /**
  * A ready human-approval gate. "Approve" closes the gate (via `bd close`), which
  * resolves it and unblocks every bead depending on it.
@@ -104,6 +153,7 @@ function GateCard({ gate }: { gate: Bead }) {
           {gate.description}
         </p>
       )}
+      <EvidenceRow bead={gate} />
       {blocks.length > 0 && (
         <p className="mb-3 text-[12px] leading-[1.5] text-[var(--text-2)]">
           Approving unblocks{" "}
@@ -170,6 +220,7 @@ function NeedsYouCard({ bead }: { bead: Bead }) {
           {bead.description}
         </p>
       )}
+      <EvidenceRow bead={bead} />
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
