@@ -213,6 +213,19 @@ export function childrenCountMap(beads: Bead[]): Map<string, number> {
   return m;
 }
 
+/** Children per parent id in ONE pass — the Bead[] sibling of childrenCountMap. */
+export function childrenMap(beads: Bead[]): Map<string, Bead[]> {
+  const m = new Map<string, Bead[]>();
+  for (const b of beads) {
+    for (const d of b.dependencies ?? []) {
+      if (d.type !== "parent-child") continue;
+      if (!m.has(d.depends_on_id)) m.set(d.depends_on_id, []);
+      m.get(d.depends_on_id)!.push(b);
+    }
+  }
+  return m;
+}
+
 export function childrenOf(epicId: string, beads: Bead[]): Bead[] {
   return beads.filter((b) =>
     (b.dependencies ?? []).some(

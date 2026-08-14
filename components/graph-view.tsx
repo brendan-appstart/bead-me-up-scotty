@@ -16,13 +16,39 @@ import "@xyflow/react/dist/style.css";
 import { Icon, typeIconName } from "@/components/icons";
 import { useApp } from "@/components/app-context";
 import { useAddDep } from "@/hooks/use-beads";
-import { catColor, typeColor, childrenOf } from "@/lib/beads-view";
+import { catColor, typeColor, childrenOf, childrenMap } from "@/lib/beads-view";
 import type { Bead } from "@/lib/schema";
 
-type BeadNodeData = { bead: Bead; onOpen: (id: string) => void; horizontal?: boolean };
+/** How many subtask lines a node shows before collapsing into "+N more". */
+const SUB_CAP = 4;
+const SUB_RANK: Record<string, number> = { in_progress: 0, hooked: 0, open: 1, deferred: 2 };
+
+/**
+ * Estimated node height (card + row gap) so layouts can space rows without
+ * overlap: ~19 chars of title per line at the card's 150px width, plus one
+ * small line per shown subtask.
+ */
+function nodeHeight(b: Bead, kids: number): number {
+  const titleLines = Math.min(6, Math.max(1, Math.ceil(b.title.length / 19)));
+  const subLines = kids ? Math.min(kids, SUB_CAP) + (kids > SUB_CAP ? 1 : 0) : 0;
+  return 58 + titleLines * 16 + (subLines ? 11 + subLines * 16 : 0) + 18;
+}
+
+type BeadNodeData = {
+  bead: Bead;
+  onOpen: (id: string) => void;
+  horizontal?: boolean;
+  subtasks?: Bead[];
+};
 
 function BeadNode({ data }: NodeProps) {
-  const { bead, onOpen, horizontal } = data as unknown as BeadNodeData;
+  const { bead, onOpen, horizontal, subtasks } = data as unknown as BeadNodeData;
+  const subs = subtasks?.length
+    ? [...subtasks].sort(
+        (a, b) =>
+          (SUB_RANK[a.status] ?? 3) - (SUB_RANK[b.status] ?? 3) || a.priority - b.priority,
+      )
+    : [];
   return (
     <div
       onClick={() => onOpen(bead.id)}
@@ -42,6 +68,31 @@ function BeadNode({ data }: NodeProps) {
       <div className="text-[12px] font-[550] leading-[1.3] text-[var(--text)] [text-wrap:pretty]">
         {bead.title.replace(/\s*\([^)]*\)\s*/, "")}
       </div>
+      {subs.length > 0 && (
+        <div className="mt-[6px] flex flex-col gap-[3px] border-t border-border pt-[5px]">
+          {subs.slice(0, SUB_CAP).map((k) => (
+            <div
+              key={k.id}
+              className="flex items-center gap-[5px]"
+              style={{ opacity: k.status === "closed" ? 0.55 : 1 }}
+              title={`${k.id} · ${k.title}`}
+            >
+              <span
+                className="h-[5px] w-[5px] flex-shrink-0 rounded-full"
+                style={{ background: catColor(k.status) }}
+              />
+              <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[9.5px] leading-[1.35] text-[var(--text-2)]">
+                {k.title}
+              </span>
+            </div>
+          ))}
+          {subs.length > SUB_CAP && (
+            <div className="pl-[10px] text-[9px] text-[var(--text-3)]">
+              +{subs.length - SUB_CAP} more
+            </div>
+          )}
+        </div>
+      )}
       <Handle
         type="source"
         position={horizontal ? Position.Right : Position.Bottom}
@@ -53,7 +104,11 @@ function BeadNode({ data }: NodeProps) {
 
 const nodeTypes = { bead: BeadNode };
 
-function layout(beads: Bead[], onOpen: (id: string) => void): { nodes: Node[]; edges: Edge[] } {
+function layout(
+  beads: Bead[],
+  onOpen: (id: string) => void,
+  kids: Map<string, Bead[]>,
+): { nodes: Node[]; edges: Edge[] } {
   const present = new Set(beads.map((b) => b.id));
   const epics = beads.filter((b) => b.issue_type === "epic");
   const loose = beads.filter(
@@ -63,29 +118,27 @@ function layout(beads: Bead[], onOpen: (id: string) => void): { nodes: Node[]; e
   const nodes: Node[] = [];
   const seen = new Set<string>();
   // An epic can be both a column head and another epic's child; React Flow
-  // rejects duplicate node ids, so the first placement wins.
+  // rejects duplicate node ids, so the first placement wins. Rows advance by
+  // each node's own height — subtask lines make nodes unevenly tall.
   const push = (n: Node) => {
     if (seen.has(n.id)) return;
     seen.add(n.id);
     nodes.push(n);
   };
   const COL = 230;
-  const ROW = 116;
+  // Epic children are already drawn as the column below, so only non-epic
+  // nodes carry subtask lines — their children have no node of their own here.
+  const subsOf = (b: Bead) => (b.issue_type === "epic" ? undefined : kids.get(b.id));
+  const data = (b: Bead) => ({ bead: b, onOpen, subtasks: subsOf(b) });
+  const h = (b: Bead) => nodeHeight(b, subsOf(b)?.length ?? 0);
 
   epics.forEach((e, ci) => {
-    push({
-      id: e.id,
-      type: "bead",
-      position: { x: ci * COL, y: 0 },
-      data: { bead: e, onOpen },
-    });
-    childrenOf(e.id, beads).forEach((k, ri) => {
-      push({
-        id: k.id,
-        type: "bead",
-        position: { x: ci * COL, y: (ri + 1) * ROW },
-        data: { bead: k, onOpen },
-      });
+    let y = 0;
+    push({ id: e.id, type: "bead", position: { x: ci * COL, y }, data: data(e) });
+    y += h(e);
+    childrenOf(e.id, beads).forEach((k) => {
+      push({ id: k.id, type: "bead", position: { x: ci * COL, y }, data: data(k) });
+      y += h(k);
     });
   });
 
@@ -93,13 +146,16 @@ function layout(beads: Bead[], onOpen: (id: string) => void): { nodes: Node[]; e
   // fitted view stays near screen aspect ratio.
   const looseCol = epics.length;
   const WRAP = Math.max(6, Math.ceil(Math.sqrt(loose.length * 2)));
+  const looseY: number[] = [];
   loose.forEach((b, ri) => {
+    const col = Math.floor(ri / WRAP);
     push({
       id: b.id,
       type: "bead",
-      position: { x: (looseCol + Math.floor(ri / WRAP)) * COL, y: (ri % WRAP) * ROW },
-      data: { bead: b, onOpen },
+      position: { x: (looseCol + col) * COL, y: looseY[col] ?? 0 },
+      data: data(b),
     });
+    looseY[col] = (looseY[col] ?? 0) + h(b);
   });
 
   const placed = new Set(nodes.map((n) => n.id));
@@ -126,32 +182,21 @@ function layout(beads: Bead[], onOpen: (id: string) => void): { nodes: Node[]; e
   return { nodes, edges };
 }
 
-/** Every descendant of an epic, following parent-child edges through sub-epics. */
-function epicSubtree(epicId: string, beads: Bead[]): Bead[] {
-  const out: Bead[] = [];
-  const seen = new Set([epicId]);
-  const queue = [epicId];
-  while (queue.length) {
-    for (const k of childrenOf(queue.shift()!, beads)) {
-      if (seen.has(k.id)) continue;
-      seen.add(k.id);
-      out.push(k);
-      queue.push(k.id);
-    }
-  }
-  return out;
-}
-
 const BLOCKING = new Set(["blocks", "conditional-blocks", "waits-for"]);
 
 /**
- * Left-to-right layered layout for one epic's subtree: a bead's column is its
- * longest blocking-dependency chain, so unblocked work sits on the left and
- * downstream work flows right. Edges are drawn upstream -> downstream to read
- * in the same direction; parent-child edges are omitted (the tree structure is
- * the selection, not the flow).
+ * Left-to-right layered layout for one epic's direct children: a bead's column
+ * is its longest blocking-dependency chain, so unblocked work sits on the left
+ * and downstream work flows right. Each card rolls up its own subtasks as
+ * lines rather than spawning grandchild nodes, and edges are drawn
+ * upstream -> downstream to read in the same direction; parent-child edges are
+ * omitted (the tree structure is the selection, not the flow).
  */
-function epicLayout(beads: Bead[], onOpen: (id: string) => void): { nodes: Node[]; edges: Edge[] } {
+function epicLayout(
+  beads: Bead[],
+  onOpen: (id: string) => void,
+  kids: Map<string, Bead[]>,
+): { nodes: Node[]; edges: Edge[] } {
   const present = new Map(beads.map((b) => [b.id, b]));
   const depth = new Map<string, number>();
   const depthOf = (b: Bead, trail: Set<string>): number => {
@@ -178,19 +223,20 @@ function epicLayout(beads: Bead[], onOpen: (id: string) => void): { nodes: Node[
   }
 
   const COL = 250;
-  const ROW = 116;
   const nodes: Node[] = [];
   for (const d of [...layers.keys()].sort((a, b) => a - b)) {
+    let y = 0;
     layers
       .get(d)!
       .sort((a, b) => a.priority - b.priority || a.id.localeCompare(b.id))
-      .forEach((b, ri) => {
+      .forEach((b) => {
         nodes.push({
           id: b.id,
           type: "bead",
-          position: { x: d * COL, y: ri * ROW },
-          data: { bead: b, onOpen, horizontal: true },
+          position: { x: d * COL, y },
+          data: { bead: b, onOpen, horizontal: true, subtasks: kids.get(b.id) },
         });
+        y += nodeHeight(b, kids.get(b.id)?.length ?? 0);
       });
   }
 
@@ -241,8 +287,11 @@ export function GraphView() {
   const { nodes, edges } = React.useMemo(() => {
     const live = (b: Bead) =>
       (showClosed || b.status !== "closed") && !(b.labels ?? []).includes("archived");
-    if (epicId) return epicLayout(epicSubtree(epicId, beads).filter(live), openDetail);
-    return layout(beads.filter(live), openDetail);
+    // Subtask lines come from ALL beads, not the filtered set — a card should
+    // report finished children even when closed beads are hidden as nodes.
+    const kids = childrenMap(beads);
+    if (epicId) return epicLayout(childrenOf(epicId, beads).filter(live), openDetail, kids);
+    return layout(beads.filter(live), openDetail, kids);
   }, [beads, showClosed, epicId, openDetail]);
 
   // Toggling closed beads swaps most of the graph, so re-fit once the new
