@@ -148,6 +148,53 @@ export function GraphView() {
     return () => clearTimeout(t);
   }, [showClosed]);
 
+  // Clicking a node spotlights its dependency neighborhood: the transitive
+  // upstream chain (what it waits on) and downstream chain (what waits on it).
+  // Everything else dims. Clicking the pane clears it.
+  const [focusId, setFocusId] = React.useState<string | null>(null);
+  const focus = React.useMemo(() => {
+    if (!focusId) return null;
+    const up = new Set([focusId]);
+    const down = new Set([focusId]);
+    let grew = true;
+    while (grew) {
+      grew = false;
+      for (const e of edges) {
+        if (up.has(e.source) && !up.has(e.target)) {
+          up.add(e.target);
+          grew = true;
+        }
+        if (down.has(e.target) && !down.has(e.source)) {
+          down.add(e.source);
+          grew = true;
+        }
+      }
+    }
+    return { all: new Set([...up, ...down]), up: up.size - 1, down: down.size - 1 };
+  }, [focusId, edges]);
+
+  const shownNodes = React.useMemo(() => {
+    if (!focus) return nodes;
+    return nodes.map((n) => ({
+      ...n,
+      style: {
+        ...n.style,
+        opacity: focus.all.has(n.id) ? 1 : 0.12,
+        outline: n.id === focusId ? "2.5px solid var(--brand)" : undefined,
+        outlineOffset: n.id === focusId ? 3 : undefined,
+        borderRadius: 11,
+      },
+    }));
+  }, [nodes, focus, focusId]);
+
+  const shownEdges = React.useMemo(() => {
+    if (!focus) return edges;
+    return edges.map((e) => {
+      const lit = focus.all.has(e.source) && focus.all.has(e.target);
+      return { ...e, style: { ...e.style, opacity: lit ? 1 : 0.05 }, animated: lit && e.animated };
+    });
+  }, [edges, focus]);
+
   const onConnect = React.useCallback(
     (c: Connection) => {
       if (c.source && c.target && c.source !== c.target) {
@@ -167,6 +214,20 @@ export function GraphView() {
             (cycle-checked by bd)
           </span>
         </div>
+        {focus && focusId && (
+          <button
+            onClick={() => setFocusId(null)}
+            title="Clear the neighborhood spotlight"
+            className="flex h-9 flex-shrink-0 items-center gap-[7px] rounded-[9px] px-[12px] text-[12.5px] font-[550] text-[var(--brand)]"
+            style={{ background: "var(--brand-weak)" }}
+          >
+            <span className="font-mono">{focusId}</span>
+            <span className="text-[11.5px] opacity-80">
+              ↑{focus.up} · ↓{focus.down}
+            </span>
+            <Icon name="x" size={13} />
+          </button>
+        )}
         <label className="flex h-9 flex-shrink-0 cursor-pointer items-center gap-[7px] rounded-[9px] border border-border bg-[var(--surface-2)] px-[12px] text-[12.5px] font-[550] text-[var(--text-2)] hover:bg-[var(--surface-3)]">
           <input
             type="checkbox"
@@ -187,10 +248,12 @@ export function GraphView() {
       </header>
       <div className="relative min-h-0 flex-1">
         <ReactFlow
-          nodes={nodes}
-          edges={edges}
+          nodes={shownNodes}
+          edges={shownEdges}
           nodeTypes={nodeTypes}
           onConnect={onConnect}
+          onNodeClick={(_, n) => setFocusId(n.id)}
+          onPaneClick={() => setFocusId(null)}
           onInit={(inst) => {
             rf.current = inst;
           }}

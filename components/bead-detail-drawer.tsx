@@ -223,6 +223,17 @@ function DrawerBody({
   // epicProgress is parent-agnostic despite the name (worth renaming later).
   const kidProgress = epicProgress(bead.id, beads);
   const deps = (bead.dependencies ?? []).filter((d) => d.type !== "parent-child");
+  // The reverse direction: beads whose dependency edges point AT this one —
+  // i.e. what closing this bead unblocks. The edge lives on the other bead,
+  // so this is the only place downstream impact is visible.
+  const dependents = beads
+    .map((b) => ({
+      bead: b,
+      dep: (b.dependencies ?? []).find(
+        (d) => d.depends_on_id === bead.id && d.type !== "parent-child",
+      ),
+    }))
+    .filter((x): x is { bead: Bead; dep: NonNullable<typeof x.dep> } => !!x.dep);
   const notes = bead.notes?.trim() ?? "";
   const design = bead.design?.trim() ?? "";
   const acceptance = bead.acceptance_criteria?.trim() ?? "";
@@ -740,6 +751,49 @@ function DrawerBody({
               ))}
           </div>
         </Section>
+
+        {/* Downstream: beads waiting on this one. The edge lives on the other
+            bead, so it is read-only here — click through to manage it. */}
+        {dependents.length > 0 && (
+          <Section>
+            <Header icon="milestone" label="Blocks" count={dependents.length} />
+            <div className="flex flex-col gap-[7px]">
+              {dependents.map(({ bead: t, dep }) => {
+                const blocking = BLOCKING_DEP_TYPES.includes(dep.type as DepType);
+                const c = blocking ? "#ef4444" : "var(--text-2)";
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => pushDetail(t.id)}
+                    className="flex items-center gap-[9px] rounded-[9px] border border-border bg-[var(--surface)] p-[9px_11px] text-left hover:border-[var(--border-strong)]"
+                  >
+                    <span
+                      className="flex-shrink-0 rounded-[5px] px-[7px] py-[2px] font-mono text-[10px] font-semibold"
+                      style={{
+                        color: c,
+                        background: blocking ? "#ef444418" : "var(--surface-2)",
+                        border: `1px solid ${blocking ? "#ef444433" : "var(--border)"}`,
+                      }}
+                    >
+                      {blocking ? "blocked by this" : dep.type}
+                    </span>
+                    <span className="flex-shrink-0 font-mono text-[11px] text-[var(--text-3)]">
+                      {t.id}
+                    </span>
+                    <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[12.5px]">
+                      {t.title}
+                    </span>
+                    <span
+                      className="h-[7px] w-[7px] flex-shrink-0 rounded-full"
+                      style={{ background: catColor(t.status) }}
+                      title={statusLabel(t.status)}
+                    />
+                  </button>
+                );
+              })}
+            </div>
+          </Section>
+        )}
 
         {/* Subtasks — one level deep, deliberately not recursive. */}
         <Section>
