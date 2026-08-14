@@ -53,18 +53,26 @@ function layout(beads: Bead[], onOpen: (id: string) => void): { nodes: Node[]; e
   );
 
   const nodes: Node[] = [];
+  const seen = new Set<string>();
+  // An epic can be both a column head and another epic's child; React Flow
+  // rejects duplicate node ids, so the first placement wins.
+  const push = (n: Node) => {
+    if (seen.has(n.id)) return;
+    seen.add(n.id);
+    nodes.push(n);
+  };
   const COL = 230;
   const ROW = 116;
 
   epics.forEach((e, ci) => {
-    nodes.push({
+    push({
       id: e.id,
       type: "bead",
       position: { x: ci * COL, y: 0 },
       data: { bead: e, onOpen },
     });
     childrenOf(e.id, beads).forEach((k, ri) => {
-      nodes.push({
+      push({
         id: k.id,
         type: "bead",
         position: { x: ci * COL, y: (ri + 1) * ROW },
@@ -73,12 +81,15 @@ function layout(beads: Bead[], onOpen: (id: string) => void): { nodes: Node[]; e
     });
   });
 
+  // Wrap the loose beads into a grid instead of one endless column, so the
+  // fitted view stays near screen aspect ratio.
   const looseCol = epics.length;
+  const WRAP = Math.max(6, Math.ceil(Math.sqrt(loose.length * 2)));
   loose.forEach((b, ri) => {
-    nodes.push({
+    push({
       id: b.id,
       type: "bead",
-      position: { x: looseCol * COL, y: ri * ROW },
+      position: { x: (looseCol + Math.floor(ri / WRAP)) * COL, y: (ri % WRAP) * ROW },
       data: { bead: b, onOpen },
     });
   });
@@ -114,10 +125,28 @@ export function GraphView() {
   const rf = React.useRef<ReactFlowInstance | null>(null);
   const center = React.useCallback(() => rf.current?.fitView({ padding: 0.2, duration: 400 }), []);
 
+  // Closed beads dominate mature projects and zoom the fitted view out to
+  // illegibility, so the graph maps live work by default with closed opt-in.
+  const [showClosed, setShowClosed] = React.useState(false);
+
   const { nodes, edges } = React.useMemo(
-    () => layout(beads.filter((b) => !(b.labels ?? []).includes("archived")), openDetail),
-    [beads, openDetail],
+    () =>
+      layout(
+        beads.filter(
+          (b) =>
+            (showClosed || b.status !== "closed") && !(b.labels ?? []).includes("archived"),
+        ),
+        openDetail,
+      ),
+    [beads, showClosed, openDetail],
   );
+
+  // Toggling closed beads swaps most of the graph, so re-fit once the new
+  // nodes have painted.
+  React.useEffect(() => {
+    const t = setTimeout(() => rf.current?.fitView({ padding: 0.2, duration: 300 }), 50);
+    return () => clearTimeout(t);
+  }, [showClosed]);
 
   const onConnect = React.useCallback(
     (c: Connection) => {
@@ -138,6 +167,15 @@ export function GraphView() {
             (cycle-checked by bd)
           </span>
         </div>
+        <label className="flex h-9 flex-shrink-0 cursor-pointer items-center gap-[7px] rounded-[9px] border border-border bg-[var(--surface-2)] px-[12px] text-[12.5px] font-[550] text-[var(--text-2)] hover:bg-[var(--surface-3)]">
+          <input
+            type="checkbox"
+            checked={showClosed}
+            onChange={(e) => setShowClosed(e.target.checked)}
+            className="accent-[var(--brand)]"
+          />
+          <span>Show closed</span>
+        </label>
         <button
           onClick={center}
           title="Center the graph on all issues"
@@ -156,6 +194,9 @@ export function GraphView() {
           onInit={(inst) => {
             rf.current = inst;
           }}
+          // Large graphs (hundreds of beads) need a much lower zoom floor than
+          // React Flow's 0.5 default, or fitView can't pull the whole graph into frame.
+          minZoom={0.02}
           fitView
           proOptions={{ hideAttribution: true }}
         >
