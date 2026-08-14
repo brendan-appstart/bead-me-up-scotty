@@ -3,6 +3,7 @@ import * as React from "react";
 import type { View } from "@/components/app-context";
 
 const VIEWS: View[] = [
+  "focus",
   "board",
   "list",
   "epics",

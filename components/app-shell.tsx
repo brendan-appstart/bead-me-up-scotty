@@ -10,6 +10,7 @@ import { makeIndex } from "@/lib/beads-view";
 import { AppProvider } from "@/components/app-context";
 import { Sidebar } from "@/components/sidebar";
 import { Board } from "@/components/board/board";
+import { FocusView } from "@/components/focus-view";
 import { ListView } from "@/components/list-view";
 import { EpicsView } from "@/components/epics-view";
 import { GraphView } from "@/components/graph-view";
@@ -168,6 +169,7 @@ export function AppShell({ projectId }: { projectId: string }) {
             </div>
           ) : (
             <>
+              {view === "focus" && <FocusView />}
               {view === "board" && <Board />}
               {view === "list" && <ListView />}
               {view === "epics" && (
