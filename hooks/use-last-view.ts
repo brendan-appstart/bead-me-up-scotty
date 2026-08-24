@@ -1,20 +1,6 @@
 "use client";
 import * as React from "react";
-import type { View } from "@/components/app-context";
-
-const VIEWS: View[] = [
-  "board",
-  "list",
-  "epics",
-  "graph",
-  "insights",
-  "activity",
-  "needsyou",
-  "achievements",
-  "publish",
-  "settings",
-];
-const isView = (v: string | null): v is View => v != null && (VIEWS as string[]).includes(v);
+import { isView, type View } from "@/lib/views";
 const keyFor = (projectId: string) => `bmus.view.${projectId}`;
 const EVT = "bmus:view";
 

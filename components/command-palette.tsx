@@ -13,6 +13,7 @@ import { BEAD_STATUSES, type Bead } from "@/lib/schema";
 import { statusLabel, catColor, typeLabel } from "@/lib/beads-view";
 
 const VIEWS: { key: View; label: string; icon: string }[] = [
+  { key: "focus", label: "Focus", icon: "focus" },
   { key: "board", label: "Board", icon: "board" },
   { key: "list", label: "List", icon: "list" },
   { key: "epics", label: "Epics", icon: "target" },
@@ -56,7 +57,7 @@ export function CommandPalette({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="top-[12%] translate-y-0 gap-0 overflow-hidden rounded-2xl border border-border bg-[var(--surface)] p-0 shadow-[var(--shadow-lg)] sm:max-w-[640px]"
+        className="flex max-h-[calc(100dvh-4rem)] flex-col gap-0 overflow-hidden rounded-2xl border border-border bg-[var(--surface)] p-0 shadow-[var(--shadow-lg)] sm:max-w-[640px]"
         style={{ width: 640, maxWidth: "94vw" }}
       >
         <DialogTitle className="sr-only">Command palette</DialogTitle>
@@ -103,7 +104,7 @@ function PaletteBody({ onView, close }: { onView: (v: View) => void; close: () =
   return (
     <Command
       label="Command palette"
-      className="flex max-h-[60vh] flex-col"
+      className="flex min-h-0 w-full max-h-[min(680px,calc(100dvh-4rem))] flex-col"
       onKeyDown={(e) => {
         // Backspace on an empty query steps back out of a sub-page.
         if (e.key === "Backspace" && search === "" && page !== "root") {
@@ -145,7 +146,7 @@ function PaletteBody({ onView, close }: { onView: (v: View) => void; close: () =
         />
       </div>
 
-      <Command.List className="overflow-y-auto p-2">
+      <Command.List className="min-h-0 flex-1 overflow-y-auto p-2 pb-4">
         <Command.Empty className="px-3 py-6 text-center text-[13px] text-[var(--text-3)]">
           No results.
         </Command.Empty>

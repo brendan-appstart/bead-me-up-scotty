@@ -1,32 +1,35 @@
 "use client";
-import * as React from "react";
 import { Icon } from "@/components/icons";
 import { MultiSelectFilter, type FilterOption } from "@/components/multi-select-filter";
 import { typeLabel, statusLabel, prioLabel } from "@/lib/beads-view";
 import { BEAD_TYPES, BEAD_STATUSES } from "@/lib/schema";
-import { type Filters, emptyFilters, toggleStr, toggleNum } from "@/lib/filters";
+import { type Filters, toggleStr, toggleNum } from "@/lib/filters";
 
 /**
  * Search + multi-select facet filters, shared by the Board and List views so
- * both expose the same controls (status, type, priority, labels, origin) +
- * archived. Purely presentational: `labelOptions` is the one data-derived facet
- * (the rest come from static enums) and is passed in rather than read from
- * context here.
+ * both expose the same controls (status, type, priority, labels, assignee,
+ * origin) + archived. Purely presentational: `labelOptions` and
+ * `assigneeOptions` are the data-derived facets (the rest come from static
+ * enums) and are passed in rather than read from context here.
  */
 export function FilterBar({
   filters,
-  onChange,
+  onChangeAction,
   labelOptions,
+  assigneeOptions,
   showArchived,
-  onShowArchived,
+  onShowArchivedAction,
+  onClearAllAction,
 }: {
   filters: Filters;
-  onChange: (f: Filters) => void;
+  onChangeAction: (f: Filters) => void;
   labelOptions: FilterOption[];
+  assigneeOptions: FilterOption[];
   showArchived: boolean;
-  onShowArchived: (v: boolean) => void;
+  onShowArchivedAction: (v: boolean) => void;
+  onClearAllAction: () => void;
 }) {
-  const set = (patch: Partial<Filters>) => onChange({ ...filters, ...patch });
+  const set = (patch: Partial<Filters>) => onChangeAction({ ...filters, ...patch });
 
   // Count active filters (each non-empty facet + a non-empty search + archived)
   // so we can offer a one-click reset (bead 3it).
@@ -36,12 +39,10 @@ export function FilterBar({
     (filters.priority.length ? 1 : 0) +
     (filters.origin.length ? 1 : 0) +
     (filters.labels.length ? 1 : 0) +
+    (filters.assignee.length ? 1 : 0) +
     (filters.search.trim() ? 1 : 0) +
     (showArchived ? 1 : 0);
-  const clearAll = () => {
-    onChange(emptyFilters);
-    onShowArchived(false);
-  };
+  const clearAll = () => onClearAllAction();
 
   return (
     <>
@@ -87,6 +88,15 @@ export function FilterBar({
             onClear={() => set({ labels: [] })}
           />
         )}
+        {assigneeOptions.length > 0 && (
+          <MultiSelectFilter
+            label="Assignee"
+            options={assigneeOptions}
+            selected={filters.assignee}
+            onToggle={(v) => set({ assignee: toggleStr(filters.assignee, v) })}
+            onClear={() => set({ assignee: [] })}
+          />
+        )}
         <MultiSelectFilter
           label="Origin"
           options={[
@@ -98,7 +108,7 @@ export function FilterBar({
           onClear={() => set({ origin: [] })}
         />
         <button
-          onClick={() => onShowArchived(!showArchived)}
+          onClick={() => onShowArchivedAction(!showArchived)}
           title="Toggle archived"
           className="flex h-9 items-center gap-[6px] rounded-[9px] px-[11px] text-[12.5px] font-medium"
           style={{
