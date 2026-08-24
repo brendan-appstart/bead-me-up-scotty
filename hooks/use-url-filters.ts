@@ -53,6 +53,7 @@ export function useUrlFilters() {
     updateUrl((params) => {
       writeFiltersToSearchParams(params, emptyFilters);
       params.delete("archived");
+      params.delete("done");
     });
   }, [updateUrl]);
 
