@@ -191,6 +191,18 @@ To update, rebuild and re-run `npm install -g .`. If `npm install -g .` hits a
 permissions error, use a user-owned npm prefix:
 `npm config set prefix ~/.npm-global` and add `~/.npm-global/bin` to your `PATH`.
 
+**Nix:**
+
+```bash
+nix run . -- --help          # one-shot
+nix run .                    # start the UI
+nix profile install .        # put `scotty` on PATH
+```
+
+Or add `inputs.scotty.packages.${system}.default` to `home.packages` /
+`environment.systemPackages`. The package wraps `bd` from nixpkgs onto PATH
+(your own `bd` still wins if it is already on PATH).
+
 ## Stack
 
 Next.js 16 (App Router) · React 19 · TypeScript · Tailwind v4 · shadcn/ui ·
