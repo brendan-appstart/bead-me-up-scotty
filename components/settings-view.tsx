@@ -9,6 +9,12 @@ import { useApp } from "@/components/app-context";
 import { api, type DoctorResponse } from "@/lib/api-client";
 import { useNotificationPrefs, type NotifPrefs } from "@/hooks/use-notifications";
 import { useBoardPrefs } from "@/hooks/use-board-prefs";
+import {
+  AI_PROVIDERS,
+  DEFAULT_AI_PROVIDER,
+  isAiProvider,
+  type AiProvider,
+} from "@/lib/ai-providers";
 
 const inputClass =
   "h-[38px] rounded-[9px] border border-border bg-[var(--surface-2)] px-3 text-[12.5px] text-[var(--text)] outline-none focus:border-[var(--brand)]";
@@ -20,7 +26,7 @@ export function SettingsView() {
     queryFn: () => api.doctor(projectId),
   });
   const key = data?.config
-    ? `${data.repoPath}|${data.config.humanActor}|${data.config.humanAllowlist.join(",")}`
+    ? `${data.repoPath}|${data.config.humanActor}|${data.config.humanAllowlist.join(",")}|${data.config.aiProvider ?? ""}`
     : "loading";
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -51,6 +57,9 @@ function SettingsForm({ data }: { data: DoctorResponse }) {
   // accepted range (1–300s = 1000–300000ms) before saving; falls back to the
   // current value when the field is left blank or non-numeric.
   const [pollSec, setPollSec] = React.useState(String(Math.round(data.config.pollIntervalMs / 1000)));
+  const [provider, setProvider] = React.useState<AiProvider>(
+    isAiProvider(data.config.aiProvider) ? data.config.aiProvider : DEFAULT_AI_PROVIDER,
+  );
   const clampSec = (s: string) => {
     const n = Math.round(Number(s));
     return Number.isFinite(n) && n > 0
@@ -64,6 +73,7 @@ function SettingsForm({ data }: { data: DoctorResponse }) {
         humanActor: actor,
         humanAllowlist: allowlist,
         pollIntervalMs: clampSec(pollSec) * 1000,
+        aiProvider: provider,
       }),
     onSuccess: () => {
       toast.success("Settings saved");
@@ -146,6 +156,32 @@ function SettingsForm({ data }: { data: DoctorResponse }) {
         </div>
         <div className="text-[11.5px] text-[var(--text-3)]">
           Attribution is global — it applies to every project.
+        </div>
+      </Card>
+
+      <Card title="AI">
+        <label className="flex flex-col gap-[6px]">
+          <span className="text-[12px] text-[var(--text-2)]">Refine with AI provider</span>
+          <select
+            aria-label="AI provider"
+            value={provider}
+            onChange={(e) => setProvider(e.target.value as AiProvider)}
+            className={inputClass}
+          >
+            {AI_PROVIDERS.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="text-[11.5px] text-[var(--text-3)]">
+          Shells out to a CLI already installed and logged in on this machine.
+          Override the binary with <span className="font-mono">OPENCODE_BIN</span>,{" "}
+          <span className="font-mono">CLAUDE_BIN</span>,{" "}
+          <span className="font-mono">CURSOR_BIN</span> (Cursor CLI is{" "}
+          <span className="font-mono">agent</span>), or{" "}
+          <span className="font-mono">CODEX_BIN</span>. None of the CLIs are bundled.
         </div>
       </Card>
 

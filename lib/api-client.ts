@@ -1,5 +1,6 @@
 import type { Bead, CreateInput, UpdateInput, DepType } from "./schema";
 import type { UpdateStatus, UpdateResult } from "./update-types";
+import type { AiProvider } from "./ai-providers";
 
 export interface Meta {
   kind: "bd" | "demo";
@@ -7,6 +8,7 @@ export interface Meta {
   humanAllowlist: string[];
   pollIntervalMs: number;
   gamification?: boolean;
+  aiProvider?: AiProvider;
 }
 export interface BeadsResponse {
   beads: Bead[];
@@ -92,6 +94,7 @@ export interface DoctorResponse {
     humanActor: string;
     humanAllowlist: string[];
     pollIntervalMs: number;
+    aiProvider?: AiProvider;
   };
 }
 
@@ -199,8 +202,11 @@ export const api = {
   gamification: (projectId: string) =>
     request<GamificationData>(`${base(projectId)}/gamification`),
 
-  assist: (projectId: string, id: string) =>
-    request<AssistResult>(`${base(projectId)}/beads/${enc(id)}/assist`, { method: "POST" }),
+  assist: (projectId: string, id: string, provider?: AiProvider) =>
+    request<AssistResult>(`${base(projectId)}/beads/${enc(id)}/assist`, {
+      method: "POST",
+      body: JSON.stringify({ provider }),
+    }),
 
   // Act on a "Needs You" (human-labelled) bead, mirroring `bd human`.
   human: {

@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Icon } from "@/components/icons";
 import { useApp } from "@/components/app-context";
@@ -8,23 +8,41 @@ import { api, type AssistResult } from "@/lib/api-client";
 import { useUpdateBead } from "@/hooks/use-beads";
 import { DescriptionContent } from "@/components/description-content";
 import type { Bead } from "@/lib/schema";
+import {
+  AI_PROVIDERS,
+  DEFAULT_AI_PROVIDER,
+  isAiProvider,
+  type AiProvider,
+} from "@/lib/ai-providers";
 
 /**
- * In-UI version of the /refine-beads workflow: ask the local Claude CLI to
+ * In-UI version of the /refine-beads workflow: ask a local coding CLI to
  * suggest a refined description (with acceptance criteria + a checklist),
  * labels, and likely duplicates. Read-only until the user confirms — only the
  * description is written, via the normal update path.
  */
 export function AiAssistPanel({ bead }: { bead: Bead }) {
-  const { projectId, pushDetail } = useApp();
+  const { projectId, pushDetail, meta } = useApp();
+  const qc = useQueryClient();
   const update = useUpdateBead();
   const [result, setResult] = React.useState<AssistResult | null>(null);
+  const provider: AiProvider = isAiProvider(meta?.aiProvider) ? meta.aiProvider : DEFAULT_AI_PROVIDER;
 
   const assist = useMutation({
-    mutationFn: () => api.assist(projectId, bead.id),
+    mutationFn: () => api.assist(projectId, bead.id, provider),
     onSuccess: (r) => setResult(r),
     onError: (e) => toast.error((e as Error).message),
   });
+
+  const setProvider = (next: AiProvider) => {
+    api
+      .saveConfig({ aiProvider: next })
+      .then(() => {
+        qc.invalidateQueries({ queryKey: ["beads"] });
+        qc.invalidateQueries({ queryKey: ["doctor"] });
+      })
+      .catch((e) => toast.error((e as Error).message));
+  };
 
   const applyDescription = () => {
     if (!result) return;
@@ -41,14 +59,29 @@ export function AiAssistPanel({ bead }: { bead: Bead }) {
 
   return (
     <div className="mt-2">
-      <button
-        onClick={() => assist.mutate()}
-        disabled={assist.isPending}
-        className="inline-flex h-8 items-center gap-[6px] rounded-lg border border-border bg-[var(--surface-2)] px-3 text-[12.5px] font-[550] text-[var(--text-2)] hover:bg-[var(--surface-3)] disabled:opacity-50"
-      >
-        <Icon name="feature" size={14} style={{ color: "var(--brand)" }} />
-        {assist.isPending ? "Refining with AI…" : "Refine with AI"}
-      </button>
+      <div className="flex flex-wrap items-center gap-[6px]">
+        <select
+          aria-label="AI provider"
+          value={provider}
+          disabled={assist.isPending}
+          onChange={(e) => setProvider(e.target.value as AiProvider)}
+          className="h-8 cursor-pointer rounded-lg border border-border bg-[var(--surface-2)] px-2 text-[12.5px] font-[550] text-[var(--text-2)] outline-none hover:bg-[var(--surface-3)] disabled:opacity-50"
+        >
+          {AI_PROVIDERS.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.label}
+            </option>
+          ))}
+        </select>
+        <button
+          onClick={() => assist.mutate()}
+          disabled={assist.isPending}
+          className="inline-flex h-8 items-center gap-[6px] rounded-lg border border-border bg-[var(--surface-2)] px-3 text-[12.5px] font-[550] text-[var(--text-2)] hover:bg-[var(--surface-3)] disabled:opacity-50"
+        >
+          <Icon name="feature" size={14} style={{ color: "var(--brand)" }} />
+          {assist.isPending ? "Refining with AI…" : "Refine with AI"}
+        </button>
+      </div>
 
       {result && (
         <div className="mt-2 rounded-[10px] border bg-[var(--surface-2)] p-3" style={{ borderColor: "var(--brand)" }}>

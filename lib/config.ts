@@ -2,6 +2,7 @@ import "server-only";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import { DEFAULT_AI_PROVIDER, isAiProvider, type AiProvider } from "./ai-providers";
 
 /**
  * Local app config (NOT stored in beads). Lives as a small JSON file under the
@@ -33,6 +34,8 @@ export interface AppConfig {
   orders: Record<string, Record<string, string[]>>;
   /** Opt-in: show the gamification XP/level layer (off by default). */
   gamification: boolean;
+  /** Local CLI used by Refine with AI. Default is OpenCode. */
+  aiProvider: AiProvider;
 }
 
 /**
@@ -80,6 +83,7 @@ function defaults(): AppConfig {
     projects: [],
     orders: {},
     gamification: false,
+    aiProvider: DEFAULT_AI_PROVIDER,
   };
 }
 
@@ -204,6 +208,7 @@ export function getConfig(): AppConfig {
         ? (onDisk.orders as Record<string, Record<string, string[]>>)
         : {},
     gamification: typeof onDisk?.gamification === "boolean" ? onDisk.gamification : d.gamification,
+    aiProvider: isAiProvider(onDisk?.aiProvider) ? onDisk.aiProvider : d.aiProvider,
   };
 
   // One-time migration: back-fill the registry from the legacy single repoPath
@@ -229,7 +234,7 @@ export function getConfig(): AppConfig {
 
 /** Update global settings (actor / allowlist / poll). Project registry has its own mutators. */
 export function saveConfig(
-  patch: Partial<Pick<AppConfig, "humanActor" | "humanAllowlist" | "pollIntervalMs" | "gamification">>,
+  patch: Partial<Pick<AppConfig, "humanActor" | "humanAllowlist" | "pollIntervalMs" | "gamification" | "aiProvider">>,
 ): AppConfig {
   const next = { ...getConfig(), ...patch };
   persist(next);
