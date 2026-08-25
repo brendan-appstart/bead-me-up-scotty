@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import { Icon, typeIconName } from "@/components/icons";
-import { OriginBadge, PriorityChip } from "@/components/board/bead-card";
+import { OriginBadge, PriorityChip, ChildProgressHint } from "@/components/board/bead-card";
 import { useApp } from "@/components/app-context";
 import { beadOrigin, originTitle } from "@/lib/attribution";
 import {
@@ -203,25 +203,7 @@ export function EpicsView({
                       {e.title}
                     </div>
                   </div>
-                  <div className="flex w-[200px] flex-shrink-0 flex-col items-end gap-[7px]">
-                    <div className="flex items-baseline gap-[6px]">
-                      <span className="font-mono text-[17px] font-[650] tracking-[-.02em]">
-                        {pct}%
-                      </span>
-                      <span className="text-[11.5px] text-[var(--text-3)]">
-                        {closed}/{total} done
-                      </span>
-                    </div>
-                    <div className="h-[7px] w-full overflow-hidden rounded-full bg-[var(--surface-3)]">
-                      <div
-                        className="h-full rounded-full transition-[width]"
-                        style={{
-                          width: `${pct}%`,
-                          background: pct === 100 ? "#16a34a" : "var(--brand)",
-                        }}
-                      />
-                    </div>
-                  </div>
+                  <ChildProgressHint progress={{ closed, total, pct }} variant="detail" />
                   {/* Secondary action, so it gets a small explicit target with a
                       VISIBLE word — an icon alone wasn't discoverable, which is
                       half of what GH #17 was about. stopPropagation is

@@ -8,7 +8,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { Icon, typeIconName } from "@/components/icons";
-import { OriginBadge, PriorityChip } from "@/components/board/bead-card";
+import { OriginBadge, PriorityChip, ChildProgressHint } from "@/components/board/bead-card";
 import { CopyableId } from "@/components/copyable-id";
 import { useApp } from "@/components/app-context";
 import { useImageDrop } from "@/hooks/use-image-drop";
@@ -815,19 +815,8 @@ function DrawerBody({
         <Section>
           <Header icon="target" label="Subtasks" count={kids.length} />
           {kids.length > 0 && (
-            <div className="mb-[9px] flex items-center gap-[9px]">
-              <div className="h-[6px] flex-1 overflow-hidden rounded-full bg-[var(--surface-3)]">
-                <div
-                  className="h-full rounded-full transition-[width]"
-                  style={{
-                    width: `${kidProgress.pct}%`,
-                    background: kidProgress.pct === 100 ? "#16a34a" : "var(--brand)",
-                  }}
-                />
-              </div>
-              <span className="flex-shrink-0 font-mono text-[11px] text-[var(--text-3)]">
-                {kidProgress.closed}/{kidProgress.total} · {kidProgress.pct}%
-              </span>
+            <div className="mb-[9px]">
+              <ChildProgressHint progress={kidProgress} variant="inline" />
             </div>
           )}
           <div className="flex flex-col gap-[7px]">

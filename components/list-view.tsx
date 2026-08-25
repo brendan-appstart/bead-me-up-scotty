@@ -17,7 +17,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { Icon, typeIconName } from "@/components/icons";
 import { useApp } from "@/components/app-context";
-import { PriorityChip, OriginBadge } from "@/components/board/bead-card";
+import { PriorityChip, OriginBadge, ChildProgressHint } from "@/components/board/bead-card";
 import { CopyableId } from "@/components/copyable-id";
 import { FilterBar } from "@/components/filter-bar";
 import { useOrder, useSetOrder } from "@/hooks/use-order";
@@ -35,6 +35,7 @@ import {
   isBlocked,
   parentOf,
   childrenCountMap,
+  childrenProgressMap,
   relTime,
   fmtDateTime,
 } from "@/lib/beads-view";
@@ -70,6 +71,7 @@ export function ListView() {
   const epicOptions = React.useMemo(() => epicOptionsFrom(beads), [beads]);
   // One pass, not childrenOf() per row (that would be O(n^2)).
   const childCounts = React.useMemo(() => childrenCountMap(beads), [beads]);
+  const childProgress = React.useMemo(() => childrenProgressMap(beads), [beads]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -219,6 +221,7 @@ export function ListView() {
                         onOpenParent={openEpic}
                         onOpenDetail={openDetail}
                         childCount={childCounts.get(b.id) ?? 0}
+                        childProgress={childProgress.get(b.id)}
                         humanAllowlist={humanAllowlist}
                       />
                     </React.Fragment>
@@ -241,6 +244,7 @@ function Row({
   onOpenParent,
   onOpenDetail,
   childCount,
+  childProgress,
   humanAllowlist,
 }: {
   bead: Bead;
@@ -250,6 +254,7 @@ function Row({
   onOpenParent: (id: string) => void;
   onOpenDetail: (id: string) => void;
   childCount: number;
+  childProgress?: { closed: number; total: number; pct: number };
   humanAllowlist: string[];
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -316,6 +321,11 @@ function Row({
         >
           <Icon name="list" size={10} className="flex-shrink-0" />
           {childCount}
+        </span>
+      )}
+      {childProgress && (
+        <span className="hidden flex-shrink-0 lg:flex">
+          <ChildProgressHint progress={childProgress} />
         </span>
       )}
       {/* Shown because the parent now INFLUENCES the sort order (gh-18): a

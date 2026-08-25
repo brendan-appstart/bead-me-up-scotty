@@ -234,14 +234,25 @@ export function childrenOf(epicId: string, beads: Bead[]): Bead[] {
   );
 }
 
-export function epicProgress(
-  epicId: string,
-  beads: Bead[],
-): { closed: number; total: number; pct: number } {
-  const kids = childrenOf(epicId, beads);
+export type ChildProgress = { closed: number; total: number; pct: number };
+
+/** Closed ÷ total children for any parent id — same math the Epics screen uses. */
+export function epicProgress(parentId: string, beads: Bead[]): ChildProgress {
+  const kids = childrenOf(parentId, beads);
   const total = kids.length;
   const closed = kids.filter((k) => k.status === "closed").length;
   return { closed, total, pct: total ? Math.round((closed / total) * 100) : 0 };
+}
+
+/** One-pass sibling of childrenCountMap — board/list render from this, not epicProgress per row. */
+export function childrenProgressMap(beads: Bead[]): Map<string, ChildProgress> {
+  const m = new Map<string, ChildProgress>();
+  for (const [parentId, kids] of childrenMap(beads)) {
+    const total = kids.length;
+    const closed = kids.filter((k) => k.status === "closed").length;
+    m.set(parentId, { closed, total, pct: total ? Math.round((closed / total) * 100) : 0 });
+  }
+  return m;
 }
 
 // ---- relative time ----
