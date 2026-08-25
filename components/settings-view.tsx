@@ -262,11 +262,12 @@ function SettingsForm({ data }: { data: DoctorResponse }) {
           {[
             { keys: ["⌘", "K"], label: "Open the command palette" },
             { keys: ["N"], label: "Create a new bead" },
+            { keys: ["C", "Q"], label: "Quick-capture a todo" },
             { keys: ["/"], label: "Focus the search box" },
             { keys: ["T"], label: "Toggle light / dark theme" },
             { keys: ["Esc"], label: "Close the open drawer or dialog" },
           ].map((s) => (
-            <div key={s.label} className="flex items-center justify-between">
+            <div key={s.keys.join("-")} className="flex items-center justify-between">
               <span className="text-[13px] text-[var(--text-2)]">{s.label}</span>
               <span className="flex items-center gap-1">
                 {s.keys.map((k) => (

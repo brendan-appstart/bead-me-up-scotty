@@ -27,6 +27,7 @@ import { BeadDetailDrawer } from "@/components/bead-detail-drawer";
 import { CreateBeadModal } from "@/components/create-bead-modal";
 import { CommandPalette } from "@/components/command-palette";
 import { NotificationWatcher } from "@/components/notification-watcher";
+import { QuickCapture, isQuickCaptureShortcut } from "@/components/quick-capture";
 
 export function AppShell({ projectId }: { projectId: string }) {
   const [lastView, rememberView] = useLastView(projectId);
@@ -78,6 +79,7 @@ export function AppShell({ projectId }: { projectId: string }) {
   const openId = issueId;
   const previousUrlIssue = React.useRef(issueId);
   const [palette, setPalette] = React.useState(false);
+  const [capture, setCapture] = React.useState(false);
   const [create, setCreate] = React.useState<{
     open: boolean;
     parent: string;
@@ -176,7 +178,8 @@ export function AppShell({ projectId }: { projectId: string }) {
     [projectPath, rememberView, updateLocation],
   );
 
-  // keyboard: Cmd/Ctrl+K = command palette, n = new, / = focus search, t = toggle theme, Esc = close overlays
+  // keyboard: Cmd/Ctrl+K = command palette, n = new, c/q = quick capture,
+  // / = focus search, t = toggle theme, Esc = close overlays
   React.useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
@@ -188,11 +191,20 @@ export function AppShell({ projectId }: { projectId: string }) {
         return;
       }
       if (e.key === "Escape") {
+        if (capture) {
+          setCapture(false);
+          return;
+        }
         closeDetail();
         setCreate((c) => ({ ...c, open: false }));
         return;
       }
       if (typing) return;
+      if (isQuickCaptureShortcut(e)) {
+        e.preventDefault();
+        setCapture(true);
+        return;
+      }
       if (e.key === "n") {
         e.preventDefault();
         openCreate();
@@ -208,7 +220,7 @@ export function AppShell({ projectId }: { projectId: string }) {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [closeDetail, openCreate, toggleTheme]);
+  }, [capture, closeDetail, openCreate, toggleTheme]);
 
   const errorMessage = error ? (error as Error).message : undefined;
 
@@ -284,6 +296,8 @@ export function AppShell({ projectId }: { projectId: string }) {
         type={create.type}
         onOpenChange={(o) => setCreate((c) => ({ ...c, open: o }))}
       />
+
+      <QuickCapture open={capture} onOpenChange={setCapture} />
 
       <CommandPalette open={palette} onOpenChange={setPalette} onView={setView} />
       <NotificationWatcher projectId={projectId} />
