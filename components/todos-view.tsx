@@ -2,6 +2,7 @@
 import * as React from "react";
 import { Icon } from "@/components/icons";
 import { useApp } from "@/components/app-context";
+import { TodoEscalateMenu } from "@/components/todo-escalate-menu";
 import { useSetStatus } from "@/hooks/use-beads";
 import { listOpenTodos } from "@/lib/todos";
 import { relTime, fmtDateTime } from "@/lib/beads-view";
@@ -67,6 +68,7 @@ function TodoRow({ bead, onOpen }: { bead: Bead; onOpen: () => void }) {
           {bead.title}
         </div>
       </button>
+      <TodoEscalateMenu bead={bead} />
       <button
         disabled={busy}
         onClick={() => setStatus.mutate({ id: bead.id, status: "closed" })}

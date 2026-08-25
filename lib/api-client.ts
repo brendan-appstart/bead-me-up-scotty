@@ -193,6 +193,11 @@ export const api = {
     }),
   archive: (projectId: string, id: string) =>
     request<Bead>(`${base(projectId)}/beads/${enc(id)}/archive`, { method: "POST" }),
+  defer: (projectId: string, id: string, until: string, reason?: string) =>
+    request<Bead>(`${base(projectId)}/beads/${enc(id)}/defer`, {
+      method: "POST",
+      body: JSON.stringify({ until, reason }),
+    }),
   doctor: (projectId: string) => request<DoctorResponse>(`${base(projectId)}/doctor`),
 
   activity: (projectId: string) => request<ActivityResponse>(`${base(projectId)}/activity`),
