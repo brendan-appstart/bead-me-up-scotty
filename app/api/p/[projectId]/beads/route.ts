@@ -21,6 +21,7 @@ export async function GET(_req: Request, { params }: Ctx) {
         humanAllowlist: cfg.humanAllowlist,
         pollIntervalMs: cfg.pollIntervalMs,
         gamification: cfg.gamification,
+        aiProvider: cfg.aiProvider,
       },
     });
   } catch (e) {

@@ -17,12 +17,13 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { Icon, typeIconName } from "@/components/icons";
 import { useApp } from "@/components/app-context";
-import { PriorityChip, OriginBadge } from "@/components/board/bead-card";
+import { PriorityChip, OriginBadge, ChildProgressHint } from "@/components/board/bead-card";
 import { CopyableId } from "@/components/copyable-id";
 import { FilterBar } from "@/components/filter-bar";
 import { useOrder, useSetOrder } from "@/hooks/use-order";
 import { useSetStatus } from "@/hooks/use-beads";
-import { matchesFilters, emptyFilters, labelOptionsFrom, type Filters } from "@/lib/filters";
+import { useUrlFilters } from "@/hooks/use-url-filters";
+import { matchesFilters, labelOptionsFrom, assigneeOptionsFrom, epicOptionsFrom } from "@/lib/filters";
 import { BOARD_COLUMNS, COLUMN_ORDER, colOf } from "@/lib/board-columns";
 import { beadOrigin, originTitle } from "@/lib/attribution";
 import {
@@ -34,6 +35,7 @@ import {
   isBlocked,
   parentOf,
   childrenCountMap,
+  childrenProgressMap,
   relTime,
   fmtDateTime,
 } from "@/lib/beads-view";
@@ -60,13 +62,16 @@ export function ListView() {
   const setOrder = useSetOrder(projectId);
   const orders = React.useMemo(() => orderData?.orders ?? {}, [orderData]);
 
-  const [filters, setFilters] = React.useState<Filters>(emptyFilters);
-  const [showArchived, setShowArchived] = React.useState(false);
+  const { filters, setFilters, showArchived, setShowArchived, clearFilters } =
+    useUrlFilters();
   // Derived from ALL beads (not the filtered set) so selecting one label
   // doesn't make the remaining options vanish from the dropdown.
   const labelOptions = React.useMemo(() => labelOptionsFrom(beads), [beads]);
+  const assigneeOptions = React.useMemo(() => assigneeOptionsFrom(beads), [beads]);
+  const epicOptions = React.useMemo(() => epicOptionsFrom(beads), [beads]);
   // One pass, not childrenOf() per row (that would be O(n^2)).
   const childCounts = React.useMemo(() => childrenCountMap(beads), [beads]);
+  const childProgress = React.useMemo(() => childrenProgressMap(beads), [beads]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -86,7 +91,7 @@ export function ListView() {
       .filter((b) => {
         if (b.issue_type === "epic") return false;
         if (!showArchived && (b.labels ?? []).includes("archived")) return false;
-        return matchesFilters(b, filters, humanAllowlist);
+        return matchesFilters(b, filters, humanAllowlist, index);
       })
       .sort((a, b) => {
         const ca = COLUMN_ORDER.indexOf(colById.get(a.id) ?? "");
@@ -157,10 +162,13 @@ export function ListView() {
 
         <FilterBar
           filters={filters}
-          onChange={setFilters}
+          onChangeAction={setFilters}
           labelOptions={labelOptions}
+          assigneeOptions={assigneeOptions}
+          epicOptions={epicOptions}
           showArchived={showArchived}
-          onShowArchived={setShowArchived}
+          onShowArchivedAction={setShowArchived}
+          onClearAllAction={clearFilters}
         />
 
         <button
@@ -213,6 +221,7 @@ export function ListView() {
                         onOpenParent={openEpic}
                         onOpenDetail={openDetail}
                         childCount={childCounts.get(b.id) ?? 0}
+                        childProgress={childProgress.get(b.id)}
                         humanAllowlist={humanAllowlist}
                       />
                     </React.Fragment>
@@ -235,6 +244,7 @@ function Row({
   onOpenParent,
   onOpenDetail,
   childCount,
+  childProgress,
   humanAllowlist,
 }: {
   bead: Bead;
@@ -244,6 +254,7 @@ function Row({
   onOpenParent: (id: string) => void;
   onOpenDetail: (id: string) => void;
   childCount: number;
+  childProgress?: { closed: number; total: number; pct: number };
   humanAllowlist: string[];
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -310,6 +321,11 @@ function Row({
         >
           <Icon name="list" size={10} className="flex-shrink-0" />
           {childCount}
+        </span>
+      )}
+      {childProgress && (
+        <span className="hidden flex-shrink-0 lg:flex">
+          <ChildProgressHint progress={childProgress} />
         </span>
       )}
       {/* Shown because the parent now INFLUENCES the sort order (gh-18): a

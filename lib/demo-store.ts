@@ -2,6 +2,18 @@ import "server-only";
 import { beadSchema, type Bead, type CreateInput, type UpdateInput, type DepType, type Dependency } from "./schema";
 import type { BeadsStore, DoctorInfo } from "./store";
 import { demoBeads } from "./demo-data";
+import {
+  DEMO_FORMULAS,
+  assertRequiredVars,
+  formulaToListEntry,
+  isMoleculeEpic,
+  parseDistillResult,
+  parseMolProgress,
+  parseMolShow,
+  parsePourResult,
+  type DistillFormulaInput,
+  type PourFormulaInput,
+} from "./formulas";
 
 /**
  * In-memory store backed by the demo dataset in `lib/demo-data.ts`. Used when bd
@@ -52,6 +64,9 @@ export const demoStore: BeadsStore = {
   },
   async update(id, patch: UpdateInput) {
     const b = find(id);
+    // Simple fields (title, description, assignee, notes, design,
+    // acceptance_criteria, …) copy through. Absent leaves them; `""` clears
+    // assignee / long fields the same way `bd update --assignee ""` does.
     Object.assign(b, patch, { updated_at: nowIso() });
     if (patch.status === "closed" && !b.closed_at) b.closed_at = nowIso();
     // Reparenting: mirror bd's semantics (absent = leave alone, "" = detach)
@@ -86,6 +101,12 @@ export const demoStore: BeadsStore = {
       b.closed_at = null;
       b.close_reason = null;
     }
+    return { ...b };
+  },
+  async defer(id, _until, _actor, _reason) {
+    const b = find(id);
+    b.status = "deferred";
+    b.updated_at = nowIso();
     return { ...b };
   },
   async remove(id) {
@@ -148,6 +169,67 @@ export const demoStore: BeadsStore = {
     if (!(b.labels ?? []).includes("archived")) b.labels = [...(b.labels ?? []), "archived"];
     b.updated_at = nowIso();
     return { ...b };
+  },
+  async listFormulas() {
+    return DEMO_FORMULAS.map(formulaToListEntry);
+  },
+  async showFormula(name) {
+    return DEMO_FORMULAS.find((formula) => formula.formula === name) ?? null;
+  },
+  async pourFormula(input: PourFormulaInput) {
+    const formula = DEMO_FORMULAS.find((entry) => entry.formula === input.name);
+    if (!formula) throw new Error(`formula not found: ${input.name}`);
+    assertRequiredVars(formula, input.vars ?? {});
+    const dryRun = input.dryRun ?? false;
+    return parsePourResult({
+      new_epic_id: dryRun ? "" : `mol-${formula.formula}`,
+      created: dryRun ? 0 : Math.max(1, formula.steps.length),
+      phase: input.phase === "wisp" ? "vapor" : "liquid",
+      dry_run: dryRun,
+    });
+  },
+  async molShow(epicId) {
+    const bead = beads.find((entry) => entry.id === epicId);
+    if (!bead || !isMoleculeEpic(bead)) return null;
+    const kids = beads.filter((entry) =>
+      (entry.dependencies ?? []).some(
+        (d) => d.type === "parent-child" && d.depends_on_id === epicId,
+      ),
+    );
+    if (kids.length === 0) return null;
+    const ready = kids.filter((k) => k.status === "open" || k.status === "in_progress").length;
+    return parseMolShow({
+      parallel: { ready_steps: ready, total_steps: kids.length },
+    });
+  },
+  async molProgress(epicId) {
+    const bead = beads.find((entry) => entry.id === epicId);
+    if (!bead || !isMoleculeEpic(bead)) return null;
+    const kids = beads.filter((entry) =>
+      (entry.dependencies ?? []).some(
+        (d) => d.type === "parent-child" && d.depends_on_id === epicId,
+      ),
+    );
+    if (kids.length === 0) return null;
+    const closed = kids.filter((k) => k.status === "closed").length;
+    const inProgress = kids.filter((k) => k.status === "in_progress").length;
+    return parseMolProgress({
+      molecule_id: epicId,
+      molecule_title: bead.title,
+      completed: closed,
+      total: kids.length,
+      in_progress: inProgress,
+      percent: kids.length ? (closed / kids.length) * 100 : 0,
+      current_step_id: kids.find((k) => k.status === "in_progress")?.id ?? null,
+    });
+  },
+  async distillMol(input: DistillFormulaInput) {
+    return parseDistillResult({
+      formula: input.name,
+      demo: true,
+      message:
+        "Demo mode cannot write a formula file. Distill is a no-op here.",
+    });
   },
   async doctor(): Promise<DoctorInfo> {
     return {

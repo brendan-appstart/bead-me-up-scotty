@@ -1,5 +1,15 @@
 import "server-only";
 import type { Bead, CreateInput, UpdateInput, DepType } from "./schema";
+import type {
+  DistillFormulaInput,
+  DistillResult,
+  Formula,
+  FormulaListEntry,
+  MolShow,
+  MolProgress,
+  PourFormulaInput,
+  PourResult,
+} from "./formulas";
 import { getProject, touchProject, DEMO_PROJECT, ConfigError } from "./config";
 import { createBdStore, isBdAvailable } from "./bd";
 import { demoStore } from "./demo-store";
@@ -29,6 +39,8 @@ export interface BeadsStore {
    * `bd close --reason`, and there is no way to attach one after the fact.
    */
   setStatus(id: string, status: string, actor: string, reason?: string): Promise<Bead>;
+  /** Snooze a bead until a date/phrase (`bd defer --until`). */
+  defer(id: string, until: string, actor: string, reason?: string): Promise<Bead>;
   remove(id: string, actor: string): Promise<void>;
   addComment(id: string, text: string, actor: string): Promise<Bead>;
   addDep(id: string, dependsOnId: string, type: DepType, actor: string): Promise<Bead>;
@@ -37,6 +49,21 @@ export interface BeadsStore {
   createGate(blocks: string, reason: string | undefined, actor: string): Promise<Bead>;
   removeLabel(id: string, label: string, actor: string): Promise<Bead>;
   archive(id: string, actor: string): Promise<Bead>;
+  /** Catalog of workflow formulas (`bd formula list --json`). Not beads. */
+  listFormulas(): Promise<FormulaListEntry[]>;
+  /** Full formula (`bd formula show --json`), or null if unknown. */
+  showFormula(name: string): Promise<Formula | null>;
+  /**
+   * Instantiate a formula via `bd mol pour` or `bd mol wisp`.
+   * Required vars are Zod-validated before spawn.
+   */
+  pourFormula(input: PourFormulaInput): Promise<PourResult>;
+  /** `bd mol show --parallel --json`, or null if this id is not a molecule. */
+  molShow(epicId: string): Promise<MolShow | null>;
+  /** `bd mol progress --json`, or null if this id is not a molecule. */
+  molProgress(epicId: string): Promise<MolProgress | null>;
+  /** Extract a formula via `bd mol distill`. */
+  distillMol(input: DistillFormulaInput): Promise<DistillResult>;
   doctor(): Promise<DoctorInfo>;
 }
 

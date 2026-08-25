@@ -116,14 +116,23 @@ export function useCreateBead() {
 export function useUpdateBead() {
   const { projectId } = useApp();
   const qc = useQueryClient();
-  return useMutation(
-    mutationToast<{ id: string; patch: UpdateInput }, Bead>(
-      ({ id, patch }) => api.update(projectId, id, patch),
-      () => "Updated · bd update",
-      qc,
-      beadsKey(projectId),
-    ),
-  );
+  const KEY = beadsKey(projectId);
+  return useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: UpdateInput }) =>
+      api.update(projectId, id, patch),
+    onMutate: async ({ id, patch }) => {
+      await qc.cancelQueries({ queryKey: KEY });
+      const prev = qc.getQueryData<BeadsResponse>(KEY);
+      qc.setQueryData<BeadsResponse>(KEY, (p) => patchCache(p, id, patch as Partial<Bead>));
+      return { prev };
+    },
+    onError: (err, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(KEY, ctx.prev);
+      toastError(err);
+    },
+    onSuccess: () => toast.success("Updated · bd update"),
+    onSettled: () => qc.invalidateQueries({ queryKey: KEY }),
+  });
 }
 
 export function useDeleteBead() {
@@ -230,4 +239,26 @@ export function useArchiveBead() {
       beadsKey(projectId),
     ),
   );
+}
+
+export function useDefer() {
+  const { projectId } = useApp();
+  const qc = useQueryClient();
+  const KEY = beadsKey(projectId);
+  return useMutation({
+    mutationFn: ({ id, until, reason }: { id: string; until: string; reason?: string }) =>
+      api.defer(projectId, id, until, reason),
+    onMutate: async ({ id }) => {
+      await qc.cancelQueries({ queryKey: KEY });
+      const prev = qc.getQueryData<BeadsResponse>(KEY);
+      qc.setQueryData<BeadsResponse>(KEY, (p) => patchCache(p, id, { status: "deferred" }));
+      return { prev };
+    },
+    onError: (err, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(KEY, ctx.prev);
+      toastError(err);
+    },
+    onSuccess: () => toast.success("Snoozed · bd defer"),
+    onSettled: () => qc.invalidateQueries({ queryKey: KEY }),
+  });
 }

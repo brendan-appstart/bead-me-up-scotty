@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { AppShell } from "@/components/app-shell";
 import { projectTitle } from "@/lib/app-title";
 import { getProject } from "@/lib/config";
@@ -16,5 +17,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ProjectPage({ params }: Props) {
   const { projectId } = await params;
-  return <AppShell projectId={projectId} />;
+  return (
+    <Suspense fallback={null}>
+      <AppShell projectId={projectId} />
+    </Suspense>
+  );
 }

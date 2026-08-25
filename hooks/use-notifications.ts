@@ -63,12 +63,17 @@ export function useNotificationPrefs() {
   return { prefs, setPrefs, permission, requestPermission };
 }
 
-function fire(title: string, body: string) {
+function fire(title: string, body: string, onActivate: () => void) {
   // Always show an in-app toast; raise a desktop Notification when granted.
   toast(title, { description: body });
   if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
     try {
-      new Notification(title, { body });
+      const notification = new Notification(title, { body });
+      notification.onclick = () => {
+        notification.close();
+        window.focus();
+        onActivate();
+      };
     } catch {
       /* some browsers throw if called outside a user gesture — ignore */
     }
@@ -83,7 +88,7 @@ function fire(title: string, body: string) {
  */
 export function useNotificationWatcher(projectId: string) {
   const { data } = useActivity(projectId);
-  const { beads } = useApp();
+  const { beads, openDetail } = useApp();
   const items = data?.items;
 
   const lastSeenRef = React.useRef<string | null>(null);
@@ -107,12 +112,12 @@ export function useNotificationWatcher(projectId: string) {
       if (it.at <= prevSeen) break; // items are newest-first
       if (it.origin !== "agent") continue;
       if (prefs.finished && it.action === "closed") {
-        fire(`🤖 ${it.actor} finished ${it.issueId}`, it.title);
+        fire(`🤖 ${it.actor} finished ${it.issueId}`, it.title, () => openDetail(it.issueId));
       } else if (prefs.blocked && it.action.startsWith("marked Blocked")) {
-        fire(`⛔ ${it.issueId} is blocked`, it.title);
+        fire(`⛔ ${it.issueId} is blocked`, it.title, () => openDetail(it.issueId));
       }
     }
-  }, [items]);
+  }, [items, openDetail]);
 
   // New human-escalations, from the beads list.
   React.useEffect(() => {
@@ -127,7 +132,9 @@ export function useNotificationWatcher(projectId: string) {
     const prefs = loadPrefs();
     if (!prefs.enabled || !prefs.escalation) return;
     for (const b of beads.filter(needsHuman)) {
-      if (!prevSeen.has(b.id)) fire(`🙋 Needs you: ${b.id}`, b.title);
+      if (!prevSeen.has(b.id)) {
+        fire(`🙋 Needs you: ${b.id}`, b.title, () => openDetail(b.id));
+      }
     }
-  }, [beads]);
+  }, [beads, openDetail]);
 }

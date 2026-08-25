@@ -4,6 +4,7 @@ import { Icon } from "@/components/icons";
 import { useTheme } from "@/components/theme-provider";
 import { useApp, type View } from "@/components/app-context";
 import { ProjectSwitcher } from "@/components/project-switcher";
+import { FilterSetSwitcher } from "@/components/filter-set-switcher";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -12,6 +13,7 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { initials, avatarColor, needsHuman, readyHumanGate } from "@/lib/beads-view";
+import { listOpenTodos } from "@/lib/todos";
 import { useGamification } from "@/hooks/use-beads";
 // GITHUB_REPO is shared with the build badge (where bug/feature issues are filed).
 import { GITHUB_REPO } from "@/lib/build-info";
@@ -36,9 +38,12 @@ function openIssue(kind: "bug" | "feature") {
 }
 
 const NAV: { key: View; label: string; icon: string }[] = [
+  { key: "focus", label: "Focus", icon: "focus" },
+  { key: "todos", label: "Todos", icon: "task" },
   { key: "board", label: "Board", icon: "board" },
   { key: "list", label: "List", icon: "list" },
   { key: "epics", label: "Epics", icon: "target" },
+  { key: "workflows", label: "Workflows", icon: "feature" },
   { key: "graph", label: "Graph", icon: "graph" },
   { key: "insights", label: "Insights", icon: "milestone" },
   { key: "activity", label: "Activity", icon: "comment" },
@@ -65,6 +70,7 @@ export function Sidebar({
   const { meta, beads, index } = useApp();
   const actor = meta?.humanActor ?? "you";
   const epicCount = beads.filter((b) => b.issue_type === "epic").length;
+  const todoCount = listOpenTodos(beads).length;
   // "Needs You" = agent-flagged beads (bd human) + ready human-approval gates.
   const needsYouCount =
     beads.filter(needsHuman).length + beads.filter((b) => readyHumanGate(b, index)).length;
@@ -85,6 +91,7 @@ export function Sidebar({
       </div>
 
       <ProjectSwitcher projectId={projectId} kind={kind} live={live} />
+      <FilterSetSwitcher projectId={projectId} />
 
       <nav className="flex flex-col gap-[2px]">
         {NAV.filter((n) => n.key !== "achievements" || meta?.gamification).map((n) => {
@@ -102,6 +109,9 @@ export function Sidebar({
             >
               <Icon name={n.icon} size={17} className="flex-shrink-0" />
               <span className="flex-1">{n.label}</span>
+              {n.key === "todos" && todoCount > 0 && (
+                <span className="font-mono text-[11px] text-[var(--text-3)]">{todoCount}</span>
+              )}
               {n.key === "epics" && epicCount > 0 && (
                 <span className="font-mono text-[11px] text-[var(--text-3)]">{epicCount}</span>
               )}

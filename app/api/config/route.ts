@@ -1,6 +1,7 @@
 import { getConfig, saveConfig } from "@/lib/config";
 import { resetStore } from "@/lib/store";
 import { ok, fail } from "@/lib/api";
+import { AI_PROVIDER_IDS } from "@/lib/ai-providers";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +11,7 @@ const patchSchema = z.object({
   humanAllowlist: z.array(z.string()).optional(),
   pollIntervalMs: z.number().int().min(1000).max(300000).optional(),
   gamification: z.boolean().optional(),
+  aiProvider: z.enum(AI_PROVIDER_IDS).optional(),
 });
 
 export async function GET() {

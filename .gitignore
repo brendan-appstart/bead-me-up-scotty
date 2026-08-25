@@ -23,6 +23,10 @@
 # production
 /build
 
+# Nix build symlink
+/result
+/result-*
+
 # graphify knowledge-graph output (generated tooling artifacts, not app source)
 /graphify-out/
 

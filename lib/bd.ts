@@ -11,7 +11,21 @@ import {
   type UpdateInput,
   type DepType,
 } from "./schema";
+import {
+  assertRequiredVars,
+  distillArgv,
+  molArgv,
+  parseDistillResult,
+  parseFormulaList,
+  parseFormulaShow,
+  parseMolProgress,
+  parseMolShow,
+  parsePourResult,
+  type DistillFormulaInput,
+  type PourFormulaInput,
+} from "./formulas";
 import type { BeadsStore, DoctorInfo } from "./store";
+import { deferArgv } from "./todos";
 
 const pExecFile = promisify(execFile);
 const BD_BIN = process.env.BD_BIN || "bd";
@@ -209,6 +223,11 @@ export function createBdStore(repoPath: string): BeadsStore {
         if (patch.priority !== undefined) args.push("--priority", String(patch.priority));
         if (patch.issue_type !== undefined) args.push("-t", patch.issue_type);
         if (patch.assignee !== undefined) args.push("--assignee", patch.assignee);
+        if (patch.notes !== undefined) args.push("--notes", patch.notes);
+        if (patch.design !== undefined) args.push("--design", patch.design);
+        if (patch.acceptance_criteria !== undefined) {
+          args.push("--acceptance", patch.acceptance_criteria);
+        }
         // `!== undefined` rather than a truthiness check: `""` is the detach
         // signal, so `if (patch.parent)` would make detaching inexpressible.
         if (patch.parent !== undefined) args.push("--parent", patch.parent);
@@ -244,6 +263,13 @@ export function createBdStore(repoPath: string): BeadsStore {
         } else {
           await runBdRaw(["update", id, "-s", status], rw(actor));
         }
+        return show(id);
+      });
+    },
+
+    defer(id, until, actor, reason) {
+      return serializeWrite(repoPath, async () => {
+        await runBdRaw(deferArgv(id, until, reason), rw(actor));
         return show(id);
       });
     },
@@ -297,6 +323,85 @@ export function createBdStore(repoPath: string): BeadsStore {
         await runBdRaw(["close", id], rw(actor));
         await runBdRaw(["label", "add", id, "archived"], rw(actor));
         return show(id);
+      });
+    },
+
+    listFormulas() {
+      return serializeWrite(repoPath, async () =>
+        parseFormulaList(await runBdJson(["formula", "list"], ro)),
+      );
+    },
+
+    showFormula(name: string) {
+      return serializeWrite(repoPath, async () => {
+        try {
+          return parseFormulaShow(await runBdJson(["formula", "show", name], ro));
+        } catch (e) {
+          if (e instanceof BdError && /not found/i.test(e.message)) return null;
+          throw e;
+        }
+      });
+    },
+
+    pourFormula(input: PourFormulaInput) {
+      return serializeWrite(repoPath, async () => {
+        const formula = parseFormulaShow(
+          await runBdJson(["formula", "show", input.name], ro),
+        );
+        assertRequiredVars(formula, input.vars ?? {});
+        const args = molArgv(input);
+        if (input.dryRun) {
+          await runBdRaw(args, ro);
+          return parsePourResult({
+            new_epic_id: "",
+            created: 0,
+            phase: input.phase === "wisp" ? "vapor" : "liquid",
+            dry_run: true,
+          });
+        }
+        return parsePourResult(await runBdJson(args, ro));
+      });
+    },
+
+    molShow(epicId: string) {
+      return serializeWrite(repoPath, async () => {
+        try {
+          return parseMolShow(
+            await runBdJson(["mol", "show", epicId, "--parallel"], ro),
+          );
+        } catch (e) {
+          if (e instanceof BdError && /not found|not a molecule/i.test(e.message)) {
+            return null;
+          }
+          throw e;
+        }
+      });
+    },
+
+    molProgress(epicId: string) {
+      return serializeWrite(repoPath, async () => {
+        try {
+          return parseMolProgress(await runBdJson(["mol", "progress", epicId], ro));
+        } catch (e) {
+          if (e instanceof BdError && /not found|not a molecule/i.test(e.message)) {
+            return null;
+          }
+          throw e;
+        }
+      });
+    },
+
+    distillMol(input: DistillFormulaInput) {
+      return serializeWrite(repoPath, async () => {
+        const out = await runBdRaw([...distillArgv(input), "--json"], ro);
+        try {
+          return parseDistillResult(JSON.parse(out));
+        } catch {
+          return parseDistillResult({
+            formula: input.name,
+            message: out.trim().split("\n")[0] || `Distilled ${input.name}`,
+          });
+        }
       });
     },
 

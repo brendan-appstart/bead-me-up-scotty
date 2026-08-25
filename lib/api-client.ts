@@ -1,5 +1,16 @@
 import type { Bead, CreateInput, UpdateInput, DepType } from "./schema";
 import type { UpdateStatus, UpdateResult } from "./update-types";
+import type { AiProvider } from "./ai-providers";
+import type { FilterSet, FilterSetSnapshot } from "./filter-sets";
+import type {
+  DistillResult,
+  Formula,
+  FormulaListEntry,
+  MolShow,
+  MolProgress,
+  PourPhase,
+  PourResult,
+} from "./formulas";
 
 export interface Meta {
   kind: "bd" | "demo";
@@ -7,6 +18,7 @@ export interface Meta {
   humanAllowlist: string[];
   pollIntervalMs: number;
   gamification?: boolean;
+  aiProvider?: AiProvider;
 }
 export interface BeadsResponse {
   beads: Bead[];
@@ -92,6 +104,7 @@ export interface DoctorResponse {
     humanActor: string;
     humanAllowlist: string[];
     pollIntervalMs: number;
+    aiProvider?: AiProvider;
   };
 }
 
@@ -189,6 +202,11 @@ export const api = {
     }),
   archive: (projectId: string, id: string) =>
     request<Bead>(`${base(projectId)}/beads/${enc(id)}/archive`, { method: "POST" }),
+  defer: (projectId: string, id: string, until: string, reason?: string) =>
+    request<Bead>(`${base(projectId)}/beads/${enc(id)}/defer`, {
+      method: "POST",
+      body: JSON.stringify({ until, reason }),
+    }),
   doctor: (projectId: string) => request<DoctorResponse>(`${base(projectId)}/doctor`),
 
   activity: (projectId: string) => request<ActivityResponse>(`${base(projectId)}/activity`),
@@ -199,8 +217,11 @@ export const api = {
   gamification: (projectId: string) =>
     request<GamificationData>(`${base(projectId)}/gamification`),
 
-  assist: (projectId: string, id: string) =>
-    request<AssistResult>(`${base(projectId)}/beads/${enc(id)}/assist`, { method: "POST" }),
+  assist: (projectId: string, id: string, provider?: AiProvider) =>
+    request<AssistResult>(`${base(projectId)}/beads/${enc(id)}/assist`, {
+      method: "POST",
+      body: JSON.stringify({ provider }),
+    }),
 
   // Act on a "Needs You" (human-labelled) bead, mirroring `bd human`.
   human: {
@@ -224,6 +245,65 @@ export const api = {
       request<{ orders: Record<string, string[]> }>(`${base(projectId)}/order`, {
         method: "PUT",
         body: JSON.stringify({ columnId, ids }),
+      }),
+  },
+
+  // Workflow formulas (`bd formula list|show` + `bd mol pour|wisp`).
+  formulas: {
+    list: (projectId: string) =>
+      request<{ formulas: FormulaListEntry[] }>(`${base(projectId)}/formulas`),
+    show: (projectId: string, name: string) =>
+      request<Formula>(`${base(projectId)}/formulas/${enc(name)}`),
+    pour: (
+      projectId: string,
+      name: string,
+      body: { vars?: Record<string, string>; phase: PourPhase; dryRun?: boolean },
+    ) =>
+      request<PourResult>(`${base(projectId)}/formulas/${enc(name)}/pour`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+  },
+
+  mol: {
+    snapshot: (projectId: string, epicId: string) =>
+      request<{ show: MolShow; progress: MolProgress | null }>(
+        `${base(projectId)}/mol/${enc(epicId)}`,
+      ),
+    distill: (
+      projectId: string,
+      epicId: string,
+      body: { name: string; vars?: Record<string, string> },
+    ) =>
+      request<DistillResult>(`${base(projectId)}/mol/${enc(epicId)}/distill`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+  },
+
+  // Named filter presets (stored in app config, not in beads).
+  filterSets: {
+    list: (projectId: string) =>
+      request<{ sets: FilterSet[] }>(`${base(projectId)}/filter-sets`),
+    create: (
+      projectId: string,
+      name: string,
+      snapshot: FilterSetSnapshot,
+      overwrite?: boolean,
+    ) =>
+      request<{ sets: FilterSet[] }>(`${base(projectId)}/filter-sets`, {
+        method: "POST",
+        body: JSON.stringify({ name, snapshot, overwrite }),
+      }),
+    rename: (projectId: string, id: string, name: string) =>
+      request<{ sets: FilterSet[] }>(`${base(projectId)}/filter-sets`, {
+        method: "PATCH",
+        body: JSON.stringify({ id, name }),
+      }),
+    delete: (projectId: string, id: string) =>
+      request<{ sets: FilterSet[] }>(`${base(projectId)}/filter-sets`, {
+        method: "DELETE",
+        body: JSON.stringify({ id }),
       }),
   },
 

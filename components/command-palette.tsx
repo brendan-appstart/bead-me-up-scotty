@@ -11,15 +11,50 @@ import { useProjects } from "@/hooks/use-projects";
 import { useSetStatus, useUpdateBead } from "@/hooks/use-beads";
 import { BEAD_STATUSES, type Bead } from "@/lib/schema";
 import { statusLabel, catColor, typeLabel } from "@/lib/beads-view";
+import { QuickCapture } from "@/components/quick-capture";
+import { PourDialog } from "@/components/pour-dialog";
+import { listedFilterSets } from "@/components/filter-set-switcher";
+import { useFilterSets } from "@/hooks/use-filter-sets";
+import { useFormulas, useFormula } from "@/hooks/use-formulas";
+import { useUrlState } from "@/hooks/use-url-state";
+import { apply } from "@/lib/filter-sets";
+import type { PourResult } from "@/lib/formulas";
 
-const VIEWS: { key: View; label: string; icon: string }[] = [
+export const PALETTE_VIEWS: { key: View; label: string; icon: string }[] = [
+  { key: "focus", label: "Focus", icon: "focus" },
+  { key: "todos", label: "Todos", icon: "task" },
   { key: "board", label: "Board", icon: "board" },
   { key: "list", label: "List", icon: "list" },
   { key: "epics", label: "Epics", icon: "target" },
+  { key: "workflows", label: "Workflows", icon: "feature" },
   { key: "graph", label: "Graph", icon: "graph" },
+  { key: "insights", label: "Insights", icon: "milestone" },
+  { key: "activity", label: "Activity", icon: "comment" },
+  { key: "needsyou", label: "Needs You", icon: "user" },
+  { key: "achievements", label: "Achievements", icon: "feature" },
   { key: "publish", label: "Publish", icon: "rocket" },
   { key: "settings", label: "Settings", icon: "settings" },
 ];
+
+export function paletteViewsForProject(meta?: { gamification?: boolean }) {
+  return PALETTE_VIEWS.filter((v) => v.key !== "achievements" || meta?.gamification);
+}
+
+export const PALETTE_ACTIONS = {
+  newTodo: "new todo quick capture",
+  createBead: "create bead new",
+  toggleTheme: "toggle theme dark light",
+  changeTheme: "change theme palette dracula nord",
+  switchProject: "switch project",
+} as const;
+
+export function paletteFilterSetValue(name: string) {
+  return `filter set apply ${name}`;
+}
+
+export function palettePourValue(name: string) {
+  return `pour formula ${name}`;
+}
 
 const PRIORITIES = ["Critical", "High", "Medium", "Low", "Backlog"];
 const RECENTS_KEY = "bmus.palette.recentBeads";
@@ -52,29 +87,100 @@ export function CommandPalette({
   onOpenChange: (o: boolean) => void;
   onView: (v: View) => void;
 }) {
+  const [captureOpen, setCaptureOpen] = React.useState(false);
+  const [pourOpen, setPourOpen] = React.useState(false);
+  const [pourName, setPourName] = React.useState<string | null>(null);
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        showCloseButton={false}
-        className="top-[12%] translate-y-0 gap-0 overflow-hidden rounded-2xl border border-border bg-[var(--surface)] p-0 shadow-[var(--shadow-lg)] sm:max-w-[640px]"
-        style={{ width: 640, maxWidth: "94vw" }}
-      >
-        <DialogTitle className="sr-only">Command palette</DialogTitle>
-        {/* Mounted fresh on each open, so page/search state resets naturally. */}
-        <PaletteBody onView={onView} close={() => onOpenChange(false)} />
-      </DialogContent>
-    </Dialog>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent
+          showCloseButton={false}
+          className="flex max-h-[calc(100dvh-4rem)] flex-col gap-0 overflow-hidden rounded-2xl border border-border bg-[var(--surface)] p-0 shadow-[var(--shadow-lg)] sm:max-w-[640px]"
+          style={{ width: 640, maxWidth: "94vw" }}
+        >
+          <DialogTitle className="sr-only">Command palette</DialogTitle>
+          {/* Mounted fresh on each open, so page/search state resets naturally. */}
+          <PaletteBody
+            onView={onView}
+            close={() => onOpenChange(false)}
+            onNewTodo={() => setCaptureOpen(true)}
+            onPourFormula={(name) => {
+              setPourName(name);
+              setPourOpen(true);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+      <QuickCapture open={captureOpen} onOpenChange={setCaptureOpen} />
+      <PourBridge
+        open={pourOpen}
+        formulaName={pourName}
+        onOpenChange={(next) => {
+          setPourOpen(next);
+          if (!next) setPourName(null);
+        }}
+      />
+    </>
   );
 }
 
-function PaletteBody({ onView, close }: { onView: (v: View) => void; close: () => void }) {
-  const { beads, index, openDetail, openCreate, projectId } = useApp();
+function PourBridge({
+  open,
+  formulaName,
+  onOpenChange,
+}: {
+  open: boolean;
+  formulaName: string | null;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { projectId, index, openDetail, openEpic } = useApp();
+  const detail = useFormula(projectId, open ? formulaName : null);
+  const formula = detail.data ?? null;
+
+  const onPoured = (result: PourResult) => {
+    onOpenChange(false);
+    const id = result.new_epic_id;
+    if (!id) return;
+    const bead = index.get(id);
+    if (!bead || bead.issue_type === "epic") openEpic(id);
+    else openDetail(id);
+  };
+
+  return (
+    <PourDialog
+      open={open && !!formula}
+      formula={formula}
+      onOpenChange={onOpenChange}
+      onPoured={onPoured}
+    />
+  );
+}
+
+function PaletteBody({
+  onView,
+  close,
+  onNewTodo,
+  onPourFormula,
+}: {
+  onView: (v: View) => void;
+  close: () => void;
+  onNewTodo: () => void;
+  onPourFormula: (name: string) => void;
+}) {
+  const { beads, index, openDetail, openCreate, projectId, meta } = useApp();
   const router = useRouter();
   const { mode, setTheme, toggle } = useTheme();
   const setStatus = useSetStatus();
   const update = useUpdateBead();
   const { data: projectsData } = useProjects();
   const projects = projectsData?.projects ?? [];
+  const { data: filterSetsData } = useFilterSets(projectId);
+  const filterSets = listedFilterSets(projectId, filterSetsData?.sets ?? []);
+  const { data: formulasData } = useFormulas(projectId);
+  const formulas = formulasData?.formulas ?? [];
+  const { updateUrl } = useUrlState();
+  const views = paletteViewsForProject(meta);
 
   const [page, setPage] = React.useState<Page>("root");
   const [search, setSearch] = React.useState("");
@@ -103,7 +209,7 @@ function PaletteBody({ onView, close }: { onView: (v: View) => void; close: () =
   return (
     <Command
       label="Command palette"
-      className="flex max-h-[60vh] flex-col"
+      className="flex min-h-0 w-full max-h-[min(680px,calc(100dvh-4rem))] flex-col"
       onKeyDown={(e) => {
         // Backspace on an empty query steps back out of a sub-page.
         if (e.key === "Backspace" && search === "" && page !== "root") {
@@ -145,7 +251,7 @@ function PaletteBody({ onView, close }: { onView: (v: View) => void; close: () =
         />
       </div>
 
-      <Command.List className="overflow-y-auto p-2">
+      <Command.List className="min-h-0 flex-1 overflow-y-auto p-2 pb-4">
         <Command.Empty className="px-3 py-6 text-center text-[13px] text-[var(--text-3)]">
           No results.
         </Command.Empty>
@@ -153,35 +259,87 @@ function PaletteBody({ onView, close }: { onView: (v: View) => void; close: () =
         {page === "root" && (
           <>
             <Command.Group heading="Actions">
-              <Item icon="plus" value="create bead new" onSelect={() => run(() => openCreate())}>
+              <Item
+                icon="task"
+                value={PALETTE_ACTIONS.newTodo}
+                onSelect={() => run(onNewTodo)}
+              >
+                New todo…
+              </Item>
+              <Item
+                icon="plus"
+                value={PALETTE_ACTIONS.createBead}
+                onSelect={() => run(() => openCreate())}
+              >
                 Create bead…
               </Item>
               <Item
                 icon={mode === "dark" ? "sun" : "moon"}
-                value="toggle theme dark light"
+                value={PALETTE_ACTIONS.toggleTheme}
                 onSelect={() => run(() => toggle())}
               >
                 Toggle theme · {mode === "dark" ? "light" : "dark"}
               </Item>
               <Item
                 icon="settings"
-                value="change theme palette dracula nord"
+                value={PALETTE_ACTIONS.changeTheme}
                 onSelect={() => { setSearch(""); setPage("theme"); }}
               >
                 Change theme…
               </Item>
-              <Item icon="logo" value="switch project" onSelect={() => { setSearch(""); setPage("projects"); }}>
+              <Item
+                icon="logo"
+                value={PALETTE_ACTIONS.switchProject}
+                onSelect={() => { setSearch(""); setPage("projects"); }}
+              >
                 Switch project…
               </Item>
             </Command.Group>
 
             <Command.Group heading="Go to">
-              {VIEWS.map((v) => (
+              {views.map((v) => (
                 <Item key={v.key} icon={v.icon} value={`go ${v.label}`} onSelect={() => run(() => onView(v.key))}>
                   {v.label}
                 </Item>
               ))}
             </Command.Group>
+
+            {filterSets.length > 0 && (
+              <Command.Group heading="Filter sets">
+                {filterSets.map((set) => (
+                  <Item
+                    key={set.id}
+                    icon="list"
+                    value={paletteFilterSetValue(set.name)}
+                    onSelect={() =>
+                      run(() => updateUrl((params) => apply(params, set.snapshot)))
+                    }
+                  >
+                    Apply filter · {set.name}
+                  </Item>
+                ))}
+              </Command.Group>
+            )}
+
+            {formulas.length > 0 && (
+              <Command.Group heading="Pour formula">
+                {formulas.map((entry) => (
+                  <Item
+                    key={entry.name}
+                    icon="feature"
+                    value={palettePourValue(entry.name)}
+                    onSelect={() =>
+                      run(() => {
+                        onView("workflows");
+                        onPourFormula(entry.name);
+                      })
+                    }
+                  >
+                    Pour · {entry.name}
+                  </Item>
+                ))}
+              </Command.Group>
+            )}
 
             {recents.length > 0 && search === "" && (
               <Command.Group heading="Recent beads">

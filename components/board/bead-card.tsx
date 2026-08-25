@@ -19,10 +19,13 @@ import {
   isBlocked,
   parentOf,
   checklistProgress,
+  epicProgress,
+  type ChildProgress,
 } from "@/lib/beads-view";
 
 export function BeadCard({ bead, childCount = 0 }: { bead: Bead; childCount?: number }) {
-  const { index, humanAllowlist, openDetail } = useApp();
+  const { beads, index, humanAllowlist, openDetail } = useApp();
+  const childProgress = React.useMemo(() => epicProgress(bead.id, beads), [bead.id, beads]);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: bead.id,
   });
@@ -165,8 +168,74 @@ export function BeadCard({ bead, childCount = 0 }: { bead: Bead; childCount?: nu
             {childCount}
           </span>
         )}
+        <ChildProgressHint progress={childProgress} />
       </div>
     </article>
+  );
+}
+
+/** Closed ÷ children progress — hidden when the bead has no children. */
+export function ChildProgressHint({
+  progress,
+  variant = "compact",
+}: {
+  progress: ChildProgress;
+  variant?: "compact" | "inline" | "detail";
+}) {
+  if (progress.total === 0) return null;
+  const done = progress.pct === 100;
+  const barColor = done ? "#16a34a" : "var(--brand)";
+
+  if (variant === "detail") {
+    return (
+      <div className="flex w-[200px] flex-shrink-0 flex-col items-end gap-[7px]">
+        <div className="flex items-baseline gap-[6px]">
+          <span className="font-mono text-[17px] font-[650] tracking-[-.02em]">{progress.pct}%</span>
+          <span className="text-[11.5px] text-[var(--text-3)]">
+            {progress.closed}/{progress.total} done
+          </span>
+        </div>
+        <div className="h-[7px] w-full overflow-hidden rounded-full bg-[var(--surface-3)]">
+          <div
+            className="h-full rounded-full transition-[width]"
+            style={{ width: `${progress.pct}%`, background: barColor }}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (variant === "inline") {
+    return (
+      <div className="flex items-center gap-[9px]">
+        <div className="h-[6px] flex-1 overflow-hidden rounded-full bg-[var(--surface-3)]">
+          <div
+            className="h-full rounded-full transition-[width]"
+            style={{ width: `${progress.pct}%`, background: barColor }}
+          />
+        </div>
+        <span className="flex-shrink-0 font-mono text-[11px] text-[var(--text-3)]">
+          {progress.closed}/{progress.total} · {progress.pct}%
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <span
+      title={`${progress.closed}/${progress.total} children closed (${progress.pct}%)`}
+      className="inline-flex min-w-0 max-w-[88px] items-center gap-[5px]"
+    >
+      <span className="h-[5px] w-[44px] flex-shrink-0 overflow-hidden rounded-full bg-[var(--surface-3)]">
+        <span
+          className="block h-full rounded-full"
+          style={{ width: `${progress.pct}%`, background: barColor }}
+        />
+      </span>
+      <span className="font-mono text-[10.5px] text-[var(--text-3)]">
+        {progress.closed}/{progress.total}
+      </span>
+    </span>
   );
 }
 

@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import { Icon, typeIconName } from "@/components/icons";
-import { OriginBadge, PriorityChip } from "@/components/board/bead-card";
+import { OriginBadge, PriorityChip, ChildProgressHint } from "@/components/board/bead-card";
 import { useApp } from "@/components/app-context";
 import { beadOrigin, originTitle } from "@/lib/attribution";
 import {
@@ -43,10 +43,19 @@ function LabelChips({ labels, max }: { labels: string[]; max: number }) {
   );
 }
 
-export function EpicsView({ focusEpic }: { focusEpic?: { id: string; nonce: number } | null }) {
+export function EpicsView({
+  focusEpic,
+  onFocusHandledAction,
+}: {
+  focusEpic?: { id: string; nonce: number } | null;
+  onFocusHandledAction?: () => void;
+}) {
   const { beads, humanAllowlist, openCreate, openDetail } = useApp();
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
   const [hideClosed, setHideClosed] = React.useState(true);
+  const flashedElement = React.useRef<HTMLElement | null>(null);
+  const focusFrame = React.useRef<number | null>(null);
+  const flashTimeout = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   // Explicitly ordered: open before closed, then priority ascending, then id
   // for stability. Previously a bare .filter(), so the apparent priority order
   // was incidental to whatever `bd export` returned.
@@ -59,24 +68,50 @@ export function EpicsView({ focusEpic }: { focusEpic?: { id: string; nonce: numb
         a.id.localeCompare(b.id),
     );
   // "Filter out closed" (bead 8vm): hide closed epics (and closed children below).
-  // Progress % still counts all children, so it stays accurate. A focused epic —
-  // jumped to from a bead's detail drawer (bead 55b) — is always shown.
+  // Progress % still counts all children, so it stays accurate. A newly focused
+  // closed epic is included for the first render; the focus effect then turns
+  // this filter off so the control accurately reflects what is visible.
   const epics = allEpics.filter(
     (e) => !hideClosed || e.status !== "closed" || e.id === focusEpic?.id,
   );
 
-  // On a focus request, scroll the target epic into view and flash it. DOM-only
-  // side effects (no setState) keep this a clean effect; the nonce re-triggers it
-  // even when the same epic is requested twice.
+  // Consume each focus request after scrolling. Keeping a handled request in
+  // AppShell made its closed-epic exception permanent, so "Hide closed" could
+  // never hide that epic and returning to this view focused it again.
   React.useEffect(() => {
     if (!focusEpic) return;
     const el = document.querySelector<HTMLElement>(`[data-epic-id="${CSS.escape(focusEpic.id)}"]`);
     if (!el) return;
+
+    const focusedEpic = beads.find((bead) => bead.id === focusEpic.id);
+    if (focusFrame.current !== null) cancelAnimationFrame(focusFrame.current);
+    focusFrame.current = requestAnimationFrame(() => {
+      if (focusedEpic?.status === "closed") setHideClosed(false);
+      setExpanded((state) => ({ ...state, [focusEpic.id]: true }));
+      onFocusHandledAction?.();
+      focusFrame.current = null;
+    });
+
+    if (flashTimeout.current) clearTimeout(flashTimeout.current);
+    flashedElement.current?.classList.remove("epic-flash");
+    flashedElement.current = el;
     el.scrollIntoView({ behavior: "smooth", block: "start" });
     el.classList.add("epic-flash");
-    const t = setTimeout(() => el.classList.remove("epic-flash"), 1600);
-    return () => clearTimeout(t);
-  }, [focusEpic]);
+    flashTimeout.current = setTimeout(() => {
+      el.classList.remove("epic-flash");
+      flashedElement.current = null;
+      flashTimeout.current = null;
+    }, 1600);
+  }, [beads, focusEpic, onFocusHandledAction]);
+
+  React.useEffect(
+    () => () => {
+      if (focusFrame.current !== null) cancelAnimationFrame(focusFrame.current);
+      if (flashTimeout.current) clearTimeout(flashTimeout.current);
+      flashedElement.current?.classList.remove("epic-flash");
+    },
+    [],
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -168,25 +203,7 @@ export function EpicsView({ focusEpic }: { focusEpic?: { id: string; nonce: numb
                       {e.title}
                     </div>
                   </div>
-                  <div className="flex w-[200px] flex-shrink-0 flex-col items-end gap-[7px]">
-                    <div className="flex items-baseline gap-[6px]">
-                      <span className="font-mono text-[17px] font-[650] tracking-[-.02em]">
-                        {pct}%
-                      </span>
-                      <span className="text-[11.5px] text-[var(--text-3)]">
-                        {closed}/{total} done
-                      </span>
-                    </div>
-                    <div className="h-[7px] w-full overflow-hidden rounded-full bg-[var(--surface-3)]">
-                      <div
-                        className="h-full rounded-full transition-[width]"
-                        style={{
-                          width: `${pct}%`,
-                          background: pct === 100 ? "#16a34a" : "var(--brand)",
-                        }}
-                      />
-                    </div>
-                  </div>
+                  <ChildProgressHint progress={{ closed, total, pct }} variant="detail" />
                   {/* Secondary action, so it gets a small explicit target with a
                       VISIBLE word — an icon alone wasn't discoverable, which is
                       half of what GH #17 was about. stopPropagation is

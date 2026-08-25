@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { BdError } from "./bd";
 import { ConfigError } from "./config";
+import { AiError } from "./ai";
 
 export function ok(data: unknown, init?: number) {
   return NextResponse.json(data, { status: init ?? 200 });
@@ -38,6 +39,10 @@ export function fail(err: unknown) {
   }
   if (err instanceof ConfigError) {
     const status = err.code === "unknown_project" ? 404 : 400;
+    return NextResponse.json({ error: err.message, code: err.code }, { status });
+  }
+  if (err instanceof AiError) {
+    const status = err.code === "unavailable" || err.code === "bad_provider" ? 400 : 502;
     return NextResponse.json({ error: err.message, code: err.code }, { status });
   }
   const message = err instanceof Error ? err.message : "Internal error";
