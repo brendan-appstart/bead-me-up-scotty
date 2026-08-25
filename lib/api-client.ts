@@ -1,6 +1,7 @@
 import type { Bead, CreateInput, UpdateInput, DepType } from "./schema";
 import type { UpdateStatus, UpdateResult } from "./update-types";
 import type { AiProvider } from "./ai-providers";
+import type { FilterSet, FilterSetSnapshot } from "./filter-sets";
 
 export interface Meta {
   kind: "bd" | "demo";
@@ -230,6 +231,32 @@ export const api = {
       request<{ orders: Record<string, string[]> }>(`${base(projectId)}/order`, {
         method: "PUT",
         body: JSON.stringify({ columnId, ids }),
+      }),
+  },
+
+  // Named filter presets (stored in app config, not in beads).
+  filterSets: {
+    list: (projectId: string) =>
+      request<{ sets: FilterSet[] }>(`${base(projectId)}/filter-sets`),
+    create: (
+      projectId: string,
+      name: string,
+      snapshot: FilterSetSnapshot,
+      overwrite?: boolean,
+    ) =>
+      request<{ sets: FilterSet[] }>(`${base(projectId)}/filter-sets`, {
+        method: "POST",
+        body: JSON.stringify({ name, snapshot, overwrite }),
+      }),
+    rename: (projectId: string, id: string, name: string) =>
+      request<{ sets: FilterSet[] }>(`${base(projectId)}/filter-sets`, {
+        method: "PATCH",
+        body: JSON.stringify({ id, name }),
+      }),
+    delete: (projectId: string, id: string) =>
+      request<{ sets: FilterSet[] }>(`${base(projectId)}/filter-sets`, {
+        method: "DELETE",
+        body: JSON.stringify({ id }),
       }),
   },
 

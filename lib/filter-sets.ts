@@ -16,6 +16,13 @@ export type FilterSetSnapshot = {
   archived: boolean;
 };
 
+/** Named, persisted filter preset for a project. */
+export type FilterSet = {
+  id: string;
+  name: string;
+  snapshot: FilterSetSnapshot;
+};
+
 /** Snapshot Filters + archived for persistence. Empty facets are valid. */
 export function serialize(
   filters: Filters,
