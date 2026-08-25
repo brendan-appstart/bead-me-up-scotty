@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { Command } from "cmdk";
 import {
   Sheet,
   SheetContent,
@@ -45,6 +46,7 @@ import {
   toggleTask,
   closeReasonOf,
 } from "@/lib/beads-view";
+import { filterDepCandidates } from "@/lib/dep-picker";
 import { BEAD_STATUSES, BLOCKING_DEP_TYPES, type Bead, type DepType } from "@/lib/schema";
 
 const selectClass =
@@ -253,9 +255,7 @@ function DrawerBody({
     bead.closed_at ? { label: "Closed", time: fmtDate(bead.closed_at) } : null,
   ].filter(Boolean) as { label: string; time: string }[];
 
-  const otherBeads = beads.filter(
-    (b) => b.id !== bead.id && !deps.some((d) => d.depends_on_id === b.id),
-  );
+  const linkedIds = deps.map((d) => d.depends_on_id);
 
   // Every label already in use across the project, offered as datalist
   // suggestions so labels converge instead of sprouting near-duplicates.
@@ -671,42 +671,45 @@ function DrawerBody({
             )}
 
             {addingDep ? (
-              <div className="flex items-center gap-[7px] rounded-[9px] border border-border bg-[var(--surface)] p-[9px_11px]">
-                <select
-                  className={`${selectClass} h-8 flex-1`}
+              <div className="flex flex-col gap-[7px] rounded-[9px] border border-border bg-[var(--surface)] p-[9px_11px]">
+                <DepBeadPicker
+                  beads={beads}
+                  currentId={bead.id}
+                  linkedIds={linkedIds}
                   value={depTarget}
-                  onChange={(e) => setDepTarget(e.target.value)}
-                >
-                  <option value="">Select bead…</option>
-                  {otherBeads.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.id} · {b.title.slice(0, 40)}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  className={`${selectClass} h-8`}
-                  value={depType}
-                  onChange={(e) => setDepType(e.target.value as DepType)}
-                >
-                  {/* parent-child deliberately absent: the Subtasks section and
-                      the Parent field own that relationship now. Offering it here
-                      created links this list then filtered out, so they vanished. */}
-                  <option value="blocks">blocks</option>
-                  <option value="related">related</option>
-                </select>
-                <button
-                  disabled={!depTarget}
-                  onClick={() => {
-                    addDep.mutate({ id: bead.id, dependsOnId: depTarget, type: depType });
+                  onChange={setDepTarget}
+                  onCancel={() => {
                     setAddingDep(false);
                     setDepTarget("");
                   }}
-                  className="flex h-8 items-center rounded-md px-3 text-[12px] font-[550] text-white disabled:opacity-50"
-                  style={{ background: "var(--brand)" }}
-                >
-                  Add
-                </button>
+                />
+                <div className="flex items-center gap-[7px]">
+                  <select
+                    className={`${selectClass} h-8 flex-1`}
+                    value={depType}
+                    onChange={(e) => setDepType(e.target.value as DepType)}
+                    aria-label="Dependency type"
+                  >
+                    {/* parent-child deliberately absent: the Subtasks section and
+                        the Parent field own that relationship now. Offering it here
+                        created links this list then filtered out, so they vanished. */}
+                    <option value="blocks">blocks</option>
+                    <option value="related">related</option>
+                  </select>
+                  <button
+                    type="button"
+                    disabled={!depTarget}
+                    onClick={() => {
+                      addDep.mutate({ id: bead.id, dependsOnId: depTarget, type: depType });
+                      setAddingDep(false);
+                      setDepTarget("");
+                    }}
+                    className="flex h-8 flex-shrink-0 items-center rounded-md px-3 text-[12px] font-[550] text-white disabled:opacity-50"
+                    style={{ background: "var(--brand)" }}
+                  >
+                    Add
+                  </button>
+                </div>
               </div>
             ) : (
               <button
@@ -1020,6 +1023,107 @@ function DrawerBody({
         </div>
       </div>
     </>
+  );
+}
+
+const DEP_PICKER_LIMIT = 50;
+
+function DepBeadPicker({
+  beads,
+  currentId,
+  linkedIds,
+  value,
+  onChange,
+  onCancel,
+}: {
+  beads: Bead[];
+  currentId: string;
+  linkedIds: readonly string[];
+  value: string;
+  onChange: (id: string) => void;
+  onCancel: () => void;
+}) {
+  const [query, setQuery] = React.useState("");
+  const candidates = filterDepCandidates(beads, query, { currentId, linkedIds });
+  const shown = candidates.slice(0, DEP_PICKER_LIMIT);
+  const selected = beads.find((b) => b.id === value);
+
+  if (selected) {
+    return (
+      <div className="flex h-8 w-full min-w-0 items-center gap-[7px] rounded-[9px] border border-border bg-[var(--surface-2)] px-[9px]">
+        <span className="flex-shrink-0 font-mono text-[11px] text-[var(--text-3)]">
+          {selected.id}
+        </span>
+        <span className="min-w-0 flex-1 truncate text-[12.5px] text-[var(--text)]">
+          {selected.title}
+        </span>
+        <button
+          type="button"
+          title="Clear selection"
+          aria-label="Clear selected bead"
+          onClick={() => onChange("")}
+          className="flex h-[22px] w-[22px] flex-shrink-0 items-center justify-center rounded-md text-[var(--text-3)] hover:bg-[var(--surface)] hover:text-[var(--text)]"
+        >
+          <Icon name="x" size={12} />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <Command
+      shouldFilter={false}
+      label="Search beads"
+      className="w-full min-w-0 overflow-visible"
+    >
+      <div className="flex h-8 items-center gap-[7px] rounded-[9px] border border-border bg-[var(--surface-2)] px-[9px] focus-within:border-[var(--brand)]">
+        <Icon name="search" size={13} className="flex-shrink-0 text-[var(--text-3)]" />
+        <Command.Input
+          autoFocus
+          value={query}
+          onValueChange={setQuery}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              e.preventDefault();
+              onCancel();
+            }
+          }}
+          placeholder="Search by id or title…"
+          className="h-8 min-w-0 flex-1 bg-transparent text-[12.5px] text-[var(--text)] outline-none placeholder:text-[var(--text-3)]"
+        />
+      </div>
+      <Command.List className="mt-[7px] max-h-52 overflow-y-auto rounded-[9px] border border-border bg-[var(--surface-2)] py-1">
+        <Command.Empty className="px-3 py-4 text-center text-[12px] text-[var(--text-3)]">
+          No matching beads.
+        </Command.Empty>
+        {shown.map((b) => (
+          <Command.Item
+            key={b.id}
+            value={b.id}
+            onSelect={() => onChange(b.id)}
+            className="flex cursor-pointer items-center gap-[8px] px-[9px] py-[6px] text-[12.5px] data-[selected=true]:bg-[var(--surface)]"
+          >
+            <span className="flex-shrink-0 font-mono text-[11px] text-[var(--text-3)]">
+              {b.id}
+            </span>
+            <span className="min-w-0 flex-1 truncate text-[var(--text)]">{b.title}</span>
+            <span className="flex-shrink-0 text-[10px] uppercase tracking-[.03em] text-[var(--text-3)]">
+              {typeLabel(b.issue_type)}
+            </span>
+            <span
+              className="h-[7px] w-[7px] flex-shrink-0 rounded-full"
+              style={{ background: catColor(b.status) }}
+              title={statusLabel(b.status)}
+            />
+          </Command.Item>
+        ))}
+        {candidates.length > shown.length && (
+          <div className="px-[9px] py-1.5 text-[11px] text-[var(--text-3)]">
+            Type to narrow {candidates.length - shown.length} more…
+          </div>
+        )}
+      </Command.List>
+    </Command>
   );
 }
 
