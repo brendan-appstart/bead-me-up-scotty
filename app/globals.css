@@ -53,6 +53,11 @@
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) * 1.4);
+
+  /* The command palette's dialog and its inner Command element each need a
+     max-height, and the two must agree or the list scrolls against a boundary
+     the outer box doesn't share. One definition keeps them from drifting. */
+  --palette-max-height: calc(100dvh - 4rem);
 }
 
 :root {

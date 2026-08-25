@@ -56,7 +56,7 @@ export function CommandPalette({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="flex max-h-[calc(100dvh-4rem)] flex-col gap-0 overflow-hidden rounded-2xl border border-border bg-[var(--surface)] p-0 shadow-[var(--shadow-lg)] sm:max-w-[640px]"
+        className="flex max-h-(--palette-max-height) flex-col gap-0 overflow-hidden rounded-2xl border border-border bg-[var(--surface)] p-0 shadow-[var(--shadow-lg)] sm:max-w-[640px]"
         style={{ width: 640, maxWidth: "94vw" }}
       >
         <DialogTitle className="sr-only">Command palette</DialogTitle>
@@ -103,7 +103,7 @@ function PaletteBody({ onView, close }: { onView: (v: View) => void; close: () =
   return (
     <Command
       label="Command palette"
-      className="flex min-h-0 w-full max-h-[min(680px,calc(100dvh-4rem))] flex-col"
+      className="flex min-h-0 w-full max-h-[min(680px,var(--palette-max-height))] flex-col"
       onKeyDown={(e) => {
         // Backspace on an empty query steps back out of a sub-page.
         if (e.key === "Backspace" && search === "" && page !== "root") {
