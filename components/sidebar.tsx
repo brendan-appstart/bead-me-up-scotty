@@ -4,6 +4,7 @@ import { Icon } from "@/components/icons";
 import { useTheme } from "@/components/theme-provider";
 import { useApp, type View } from "@/components/app-context";
 import { ProjectSwitcher } from "@/components/project-switcher";
+import { FilterSetSwitcher } from "@/components/filter-set-switcher";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -89,6 +90,7 @@ export function Sidebar({
       </div>
 
       <ProjectSwitcher projectId={projectId} kind={kind} live={live} />
+      <FilterSetSwitcher projectId={projectId} />
 
       <nav className="flex flex-col gap-[2px]">
         {NAV.filter((n) => n.key !== "achievements" || meta?.gamification).map((n) => {
