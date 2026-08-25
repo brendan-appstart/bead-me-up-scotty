@@ -2,6 +2,13 @@ import "server-only";
 import { beadSchema, type Bead, type CreateInput, type UpdateInput, type DepType, type Dependency } from "./schema";
 import type { BeadsStore, DoctorInfo } from "./store";
 import { demoBeads } from "./demo-data";
+import {
+  DEMO_FORMULAS,
+  assertRequiredVars,
+  formulaToListEntry,
+  parsePourResult,
+  type PourFormulaInput,
+} from "./formulas";
 
 /**
  * In-memory store backed by the demo dataset in `lib/demo-data.ts`. Used when bd
@@ -151,6 +158,24 @@ export const demoStore: BeadsStore = {
     if (!(b.labels ?? []).includes("archived")) b.labels = [...(b.labels ?? []), "archived"];
     b.updated_at = nowIso();
     return { ...b };
+  },
+  async listFormulas() {
+    return DEMO_FORMULAS.map(formulaToListEntry);
+  },
+  async showFormula(name) {
+    return DEMO_FORMULAS.find((formula) => formula.formula === name) ?? null;
+  },
+  async pourFormula(input: PourFormulaInput) {
+    const formula = DEMO_FORMULAS.find((entry) => entry.formula === input.name);
+    if (!formula) throw new Error(`formula not found: ${input.name}`);
+    assertRequiredVars(formula, input.vars ?? {});
+    const dryRun = input.dryRun ?? false;
+    return parsePourResult({
+      new_epic_id: dryRun ? "" : `mol-${formula.formula}`,
+      created: dryRun ? 0 : Math.max(1, formula.steps.length),
+      phase: input.phase === "wisp" ? "vapor" : "liquid",
+      dry_run: dryRun,
+    });
   },
   async doctor(): Promise<DoctorInfo> {
     return {

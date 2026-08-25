@@ -1,5 +1,6 @@
 import "server-only";
 import type { Bead, CreateInput, UpdateInput, DepType } from "./schema";
+import type { Formula, FormulaListEntry, PourFormulaInput, PourResult } from "./formulas";
 import { getProject, touchProject, DEMO_PROJECT, ConfigError } from "./config";
 import { createBdStore, isBdAvailable } from "./bd";
 import { demoStore } from "./demo-store";
@@ -37,6 +38,15 @@ export interface BeadsStore {
   createGate(blocks: string, reason: string | undefined, actor: string): Promise<Bead>;
   removeLabel(id: string, label: string, actor: string): Promise<Bead>;
   archive(id: string, actor: string): Promise<Bead>;
+  /** Catalog of workflow formulas (`bd formula list --json`). Not beads. */
+  listFormulas(): Promise<FormulaListEntry[]>;
+  /** Full formula (`bd formula show --json`), or null if unknown. */
+  showFormula(name: string): Promise<Formula | null>;
+  /**
+   * Instantiate a formula via `bd mol pour` or `bd mol wisp`.
+   * Required vars are Zod-validated before spawn.
+   */
+  pourFormula(input: PourFormulaInput): Promise<PourResult>;
   doctor(): Promise<DoctorInfo>;
 }
 

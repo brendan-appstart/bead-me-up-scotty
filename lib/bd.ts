@@ -11,6 +11,14 @@ import {
   type UpdateInput,
   type DepType,
 } from "./schema";
+import {
+  assertRequiredVars,
+  molArgv,
+  parseFormulaList,
+  parseFormulaShow,
+  parsePourResult,
+  type PourFormulaInput,
+} from "./formulas";
 import type { BeadsStore, DoctorInfo } from "./store";
 
 const pExecFile = promisify(execFile);
@@ -302,6 +310,43 @@ export function createBdStore(repoPath: string): BeadsStore {
         await runBdRaw(["close", id], rw(actor));
         await runBdRaw(["label", "add", id, "archived"], rw(actor));
         return show(id);
+      });
+    },
+
+    listFormulas() {
+      return serializeWrite(repoPath, async () =>
+        parseFormulaList(await runBdJson(["formula", "list"], ro)),
+      );
+    },
+
+    showFormula(name: string) {
+      return serializeWrite(repoPath, async () => {
+        try {
+          return parseFormulaShow(await runBdJson(["formula", "show", name], ro));
+        } catch (e) {
+          if (e instanceof BdError && /not found/i.test(e.message)) return null;
+          throw e;
+        }
+      });
+    },
+
+    pourFormula(input: PourFormulaInput) {
+      return serializeWrite(repoPath, async () => {
+        const formula = parseFormulaShow(
+          await runBdJson(["formula", "show", input.name], ro),
+        );
+        assertRequiredVars(formula, input.vars ?? {});
+        const args = molArgv(input);
+        if (input.dryRun) {
+          await runBdRaw(args, ro);
+          return parsePourResult({
+            new_epic_id: "",
+            created: 0,
+            phase: input.phase === "wisp" ? "vapor" : "liquid",
+            dry_run: true,
+          });
+        }
+        return parsePourResult(await runBdJson(args, ro));
       });
     },
 
