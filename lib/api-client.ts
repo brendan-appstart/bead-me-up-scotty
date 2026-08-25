@@ -2,6 +2,7 @@ import type { Bead, CreateInput, UpdateInput, DepType } from "./schema";
 import type { UpdateStatus, UpdateResult } from "./update-types";
 import type { AiProvider } from "./ai-providers";
 import type { FilterSet, FilterSetSnapshot } from "./filter-sets";
+import type { Formula, FormulaListEntry, PourPhase, PourResult } from "./formulas";
 
 export interface Meta {
   kind: "bd" | "demo";
@@ -236,6 +237,23 @@ export const api = {
       request<{ orders: Record<string, string[]> }>(`${base(projectId)}/order`, {
         method: "PUT",
         body: JSON.stringify({ columnId, ids }),
+      }),
+  },
+
+  // Workflow formulas (`bd formula list|show` + `bd mol pour|wisp`).
+  formulas: {
+    list: (projectId: string) =>
+      request<{ formulas: FormulaListEntry[] }>(`${base(projectId)}/formulas`),
+    show: (projectId: string, name: string) =>
+      request<Formula>(`${base(projectId)}/formulas/${enc(name)}`),
+    pour: (
+      projectId: string,
+      name: string,
+      body: { vars?: Record<string, string>; phase: PourPhase; dryRun?: boolean },
+    ) =>
+      request<PourResult>(`${base(projectId)}/formulas/${enc(name)}/pour`, {
+        method: "POST",
+        body: JSON.stringify(body),
       }),
   },
 

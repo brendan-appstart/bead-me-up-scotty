@@ -17,6 +17,7 @@ import { FocusView } from "@/components/focus-view";
 import { TodosView } from "@/components/todos-view";
 import { ListView } from "@/components/list-view";
 import { EpicsView } from "@/components/epics-view";
+import { WorkflowsView } from "@/components/workflows-view";
 import { GraphView } from "@/components/graph-view";
 import { InsightsView } from "@/components/insights-view";
 import { ActivityView } from "@/components/activity-view";
@@ -272,6 +273,7 @@ export function AppShell({ projectId }: { projectId: string }) {
               {view === "epics" && (
                 <EpicsView focusEpic={focusEpic} onFocusHandledAction={clearFocusEpic} />
               )}
+              {view === "workflows" && <WorkflowsView />}
               {view === "graph" && <GraphView />}
               {view === "insights" && <InsightsView />}
               {view === "activity" && <ActivityView />}

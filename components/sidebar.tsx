@@ -43,6 +43,7 @@ const NAV: { key: View; label: string; icon: string }[] = [
   { key: "board", label: "Board", icon: "board" },
   { key: "list", label: "List", icon: "list" },
   { key: "epics", label: "Epics", icon: "target" },
+  { key: "workflows", label: "Workflows", icon: "feature" },
   { key: "graph", label: "Graph", icon: "graph" },
   { key: "insights", label: "Insights", icon: "milestone" },
   { key: "activity", label: "Activity", icon: "comment" },

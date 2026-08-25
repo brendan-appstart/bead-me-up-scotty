@@ -4,6 +4,7 @@ export const VIEWS = [
   "board",
   "list",
   "epics",
+  "workflows",
   "graph",
   "insights",
   "activity",
