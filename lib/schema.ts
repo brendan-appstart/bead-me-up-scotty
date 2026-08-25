@@ -167,7 +167,20 @@ export const updateInputSchema = z.object({
   status: z.enum(BEAD_STATUSES).optional(),
   priority: z.coerce.number().int().min(0).max(4).optional(),
   issue_type: z.enum(BEAD_TYPES).optional(),
+  /**
+   * Assignee. Same absent-vs-empty contract as parent: field absent means
+   * "leave it alone"; `""` means unassigned (`bd update --assignee ""`).
+   */
   assignee: z.string().optional(),
+  /** Replaces notes (`bd update --notes`). Absent = leave alone; `""` clears. */
+  notes: z.string().optional(),
+  /** Replaces design (`bd update --design`). Absent = leave alone; `""` clears. */
+  design: z.string().optional(),
+  /**
+   * Replaces acceptance criteria (`bd update --acceptance`). Absent = leave
+   * alone; `""` clears.
+   */
+  acceptance_criteria: z.string().optional(),
   /**
    * Full desired label set (replace-all). Deliberately has NO `.default([])` —
    * a default would make every unrelated patch (a priority or status change)

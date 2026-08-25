@@ -234,10 +234,18 @@ function DrawerBody({
       ),
     }))
     .filter((x): x is { bead: Bead; dep: NonNullable<typeof x.dep> } => !!x.dep);
-  const notes = bead.notes?.trim() ?? "";
-  const design = bead.design?.trim() ?? "";
-  const acceptance = bead.acceptance_criteria?.trim() ?? "";
   const closeReason = closeReasonOf(bead);
+  // Known assignees across the project, plus the current human actor, so the
+  // select can reassign agent-created work (gh-39) without typing a name.
+  const assignees = React.useMemo(() => {
+    const s = new Set<string>();
+    if (actor.trim()) s.add(actor);
+    for (const b of beads) {
+      const a = b.assignee?.trim();
+      if (a) s.add(a);
+    }
+    return [...s].sort((a, b) => a.localeCompare(b));
+  }, [actor, beads]);
   const comments = bead.comments ?? [];
   const activity = [
     { label: `Created by ${bead.created_by || "unknown"}`, time: fmtDate(bead.created_at) },
@@ -381,18 +389,23 @@ function DrawerBody({
               ))}
             </select>
           </label>
-          <div className="flex flex-col gap-[5px]">
+          <label className="flex flex-col gap-[5px]">
             <span className={fieldLabel}>Assignee</span>
-            <div className="flex h-9 items-center gap-[7px] rounded-[9px] border border-border bg-[var(--surface-2)] px-[10px]">
-              <span
-                className="flex h-[18px] w-[18px] items-center justify-center rounded-full text-[9px] font-semibold text-white"
-                style={{ background: avatarColor(bead.assignee ?? "") }}
-              >
-                {initials(bead.assignee ?? "")}
-              </span>
-              <span className="text-[13px]">{bead.assignee || "Unassigned"}</span>
-            </div>
-          </div>
+            <select
+              className={selectClass}
+              value={bead.assignee ?? ""}
+              onChange={(e) =>
+                update.mutate({ id: bead.id, patch: { assignee: e.target.value } })
+              }
+            >
+              <option value="">Unassigned</option>
+              {assignees.map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </select>
+          </label>
           <div className="flex flex-col gap-[5px]">
             {/* Labelled by what the parent actually IS. Only epics get routed to
                 the Epics screen — it renders issue_type === "epic" only, so
@@ -885,38 +898,34 @@ function DrawerBody({
           </div>
         </Section>
 
-        {design && (
-          <Section>
-            <Header icon="pencil" label="Design" />
-            <DescriptionContent
-              text={design}
-              projectId={projectId}
-              className={detailContentClass}
-            />
-          </Section>
-        )}
+        <LongField
+          icon="pencil"
+          label="Design"
+          value={bead.design ?? ""}
+          projectId={projectId}
+          pending={update.isPending}
+          onSave={(next) => update.mutate({ id: bead.id, patch: { design: next } })}
+        />
 
-        {acceptance && (
-          <Section>
-            <Header icon="target" label="Acceptance criteria" />
-            <DescriptionContent
-              text={acceptance}
-              projectId={projectId}
-              className={detailContentClass}
-            />
-          </Section>
-        )}
+        <LongField
+          icon="target"
+          label="Acceptance criteria"
+          value={bead.acceptance_criteria ?? ""}
+          projectId={projectId}
+          pending={update.isPending}
+          onSave={(next) =>
+            update.mutate({ id: bead.id, patch: { acceptance_criteria: next } })
+          }
+        />
 
-        {notes && (
-          <Section>
-            <Header icon="list" label="Notes" />
-            <DescriptionContent
-              text={notes}
-              projectId={projectId}
-              className={detailContentClass}
-            />
-          </Section>
-        )}
+        <LongField
+          icon="list"
+          label="Notes"
+          value={bead.notes ?? ""}
+          projectId={projectId}
+          pending={update.isPending}
+          onSave={(next) => update.mutate({ id: bead.id, patch: { notes: next } })}
+        />
 
         {closeReason && (
           <Section>
@@ -1016,6 +1025,143 @@ function DrawerBody({
 
 function Section({ children }: { children: React.ReactNode }) {
   return <div className="mb-[18px]">{children}</div>;
+}
+
+/**
+ * Notes / design / acceptance: always visible so empty sections can be added,
+ * inline-edited as markdown the same way as description.
+ */
+function LongField({
+  icon,
+  label,
+  value,
+  projectId,
+  pending,
+  onSave,
+}: {
+  icon: string;
+  label: string;
+  value: string;
+  projectId: string;
+  pending: boolean;
+  onSave: (next: string) => void;
+}) {
+  const [editing, setEditing] = React.useState(false);
+  const [preview, setPreview] = React.useState(false);
+  const [draft, setDraft] = React.useState(value);
+  const ref = React.useRef<HTMLTextAreaElement>(null);
+  const trimmed = value.trim();
+
+  const start = () => {
+    setDraft(value);
+    setPreview(false);
+    setEditing(true);
+  };
+  const cancel = () => setEditing(false);
+  const save = () => {
+    onSave(draft);
+    setEditing(false);
+  };
+
+  return (
+    <Section>
+      <div className="mb-[9px] flex items-center gap-2">
+        <Icon name={icon} size={15} className="text-[var(--text-2)]" />
+        <span className="text-[13px] font-semibold">{label}</span>
+        {editing && (
+          <button
+            type="button"
+            onClick={() => setPreview((p) => !p)}
+            className="ml-auto rounded-md border border-border bg-[var(--surface-2)] px-[8px] py-[2px] text-[11px] font-normal normal-case tracking-normal text-[var(--text-2)] hover:bg-[var(--surface-3)]"
+          >
+            {preview ? "Write" : "Preview"}
+          </button>
+        )}
+        {!editing && (
+          <button
+            type="button"
+            title={`Edit ${label.toLowerCase()}`}
+            onClick={start}
+            className="ml-auto flex h-7 w-7 items-center justify-center rounded-md text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
+          >
+            <Icon name="pencil" size={13} />
+          </button>
+        )}
+      </div>
+      {editing ? (
+        <>
+          {preview ? (
+            <DescriptionContent
+              text={draft.trim() ? draft : "_Nothing to preview yet._"}
+              projectId={projectId}
+              className={detailContentClass}
+            />
+          ) : (
+            <div>
+              <MarkdownToolbar textareaRef={ref} value={draft} onChange={setDraft} />
+              <textarea
+                ref={ref}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                    e.preventDefault();
+                    save();
+                    return;
+                  }
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    cancel();
+                    return;
+                  }
+                  if (e.metaKey || e.ctrlKey) {
+                    const fn =
+                      e.key === "b" ? bold : e.key === "i" ? italic : e.key === "k" ? link : null;
+                    if (fn) {
+                      e.preventDefault();
+                      applyTransform(ref.current, draft, setDraft, fn);
+                    }
+                  }
+                }}
+                rows={6}
+                placeholder={`Add ${label.toLowerCase()}…`}
+                className="w-full resize-y rounded-[10px] border border-border bg-[var(--surface-2)] p-[12px_13px] text-[13.5px] leading-[1.55] text-[var(--text)] outline-none focus:border-[var(--brand)]"
+              />
+            </div>
+          )}
+          <div className="mt-2 flex items-center gap-2">
+            <span className="flex-1" />
+            <button
+              type="button"
+              onClick={cancel}
+              className="h-8 rounded-lg border border-border bg-[var(--surface-2)] px-3 text-[12.5px] font-[550] hover:bg-[var(--surface-3)]"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={save}
+              disabled={pending}
+              className="flex h-8 items-center gap-[6px] rounded-lg px-3 text-[12.5px] font-[550] text-white disabled:opacity-50"
+              style={{ background: "var(--brand)" }}
+            >
+              <Icon name="check" size={14} /> Save
+            </button>
+          </div>
+        </>
+      ) : trimmed ? (
+        <DescriptionContent text={value} projectId={projectId} className={detailContentClass} />
+      ) : (
+        <button
+          type="button"
+          onClick={start}
+          className="w-full rounded-[10px] border border-dashed border-[var(--border-strong)] p-[12px_13px] text-left text-[13.5px] leading-[1.55] text-[var(--text-3)] hover:border-[var(--brand)] hover:text-[var(--brand)]"
+        >
+          Add {label.toLowerCase()}…
+        </button>
+      )}
+    </Section>
+  );
 }
 
 /**

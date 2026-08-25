@@ -52,6 +52,9 @@ export const demoStore: BeadsStore = {
   },
   async update(id, patch: UpdateInput) {
     const b = find(id);
+    // Simple fields (title, description, assignee, notes, design,
+    // acceptance_criteria, …) copy through. Absent leaves them; `""` clears
+    // assignee / long fields the same way `bd update --assignee ""` does.
     Object.assign(b, patch, { updated_at: nowIso() });
     if (patch.status === "closed" && !b.closed_at) b.closed_at = nowIso();
     // Reparenting: mirror bd's semantics (absent = leave alone, "" = detach)

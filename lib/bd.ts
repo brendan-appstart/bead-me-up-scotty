@@ -209,6 +209,11 @@ export function createBdStore(repoPath: string): BeadsStore {
         if (patch.priority !== undefined) args.push("--priority", String(patch.priority));
         if (patch.issue_type !== undefined) args.push("-t", patch.issue_type);
         if (patch.assignee !== undefined) args.push("--assignee", patch.assignee);
+        if (patch.notes !== undefined) args.push("--notes", patch.notes);
+        if (patch.design !== undefined) args.push("--design", patch.design);
+        if (patch.acceptance_criteria !== undefined) {
+          args.push("--acceptance", patch.acceptance_criteria);
+        }
         // `!== undefined` rather than a truthiness check: `""` is the detach
         // signal, so `if (patch.parent)` would make detaching inexpressible.
         if (patch.parent !== undefined) args.push("--parent", patch.parent);
