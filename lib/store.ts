@@ -1,6 +1,15 @@
 import "server-only";
 import type { Bead, CreateInput, UpdateInput, DepType } from "./schema";
-import type { Formula, FormulaListEntry, PourFormulaInput, PourResult } from "./formulas";
+import type {
+  DistillFormulaInput,
+  DistillResult,
+  Formula,
+  FormulaListEntry,
+  MolShow,
+  MolProgress,
+  PourFormulaInput,
+  PourResult,
+} from "./formulas";
 import { getProject, touchProject, DEMO_PROJECT, ConfigError } from "./config";
 import { createBdStore, isBdAvailable } from "./bd";
 import { demoStore } from "./demo-store";
@@ -49,6 +58,12 @@ export interface BeadsStore {
    * Required vars are Zod-validated before spawn.
    */
   pourFormula(input: PourFormulaInput): Promise<PourResult>;
+  /** `bd mol show --parallel --json`, or null if this id is not a molecule. */
+  molShow(epicId: string): Promise<MolShow | null>;
+  /** `bd mol progress --json`, or null if this id is not a molecule. */
+  molProgress(epicId: string): Promise<MolProgress | null>;
+  /** Extract a formula via `bd mol distill`. */
+  distillMol(input: DistillFormulaInput): Promise<DistillResult>;
   doctor(): Promise<DoctorInfo>;
 }
 

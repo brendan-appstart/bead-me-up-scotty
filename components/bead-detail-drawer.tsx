@@ -48,6 +48,10 @@ import {
 } from "@/lib/beads-view";
 import { filterDepCandidates } from "@/lib/dep-picker";
 import { BEAD_STATUSES, BLOCKING_DEP_TYPES, type Bead, type DepType } from "@/lib/schema";
+import { isMoleculeEpic } from "@/lib/formulas";
+import { useMol } from "@/hooks/use-mol";
+import { MolProgressPanel } from "@/components/mol-progress";
+import { DistillDialog } from "@/components/distill-dialog";
 
 const selectClass =
   "h-9 cursor-pointer rounded-[9px] border border-border bg-[var(--surface-2)] px-[9px] text-[13px] text-[var(--text)] outline-none";
@@ -156,6 +160,10 @@ function DrawerBody({
   const [addingGate, setAddingGate] = React.useState(false);
   const [gateReason, setGateReason] = React.useState("");
   const gateBead = isHumanGate(bead);
+  const molecule = isMoleculeEpic(bead);
+  const mol = useMol(projectId, bead.id, molecule);
+  const showMol = molecule && mol.data?.progress != null;
+  const [distillOpen, setDistillOpen] = React.useState(false);
 
   // Closing is the only moment a reason can be recorded — bd offers no way to
   // attach one afterwards — so picking "Closed" opens a skippable composer
@@ -349,6 +357,21 @@ function DrawerBody({
           <SheetTitle className="mb-[14px] text-[20px] font-[650] leading-[1.25] tracking-[-.02em] [text-wrap:pretty]">
             {bead.title}
           </SheetTitle>
+        )}
+
+        {showMol && (
+          <>
+            <MolProgressPanel
+              progress={mol.data?.progress}
+              show={mol.data?.show}
+              onDistill={() => setDistillOpen(true)}
+            />
+            <DistillDialog
+              open={distillOpen}
+              epicId={bead.id}
+              onOpenChange={setDistillOpen}
+            />
+          </>
         )}
 
         <div className="mb-4 grid grid-cols-2 gap-[10px]">

@@ -6,7 +6,12 @@ import {
   DEMO_FORMULAS,
   assertRequiredVars,
   formulaToListEntry,
+  isMoleculeEpic,
+  parseDistillResult,
+  parseMolProgress,
+  parseMolShow,
   parsePourResult,
+  type DistillFormulaInput,
   type PourFormulaInput,
 } from "./formulas";
 
@@ -181,6 +186,49 @@ export const demoStore: BeadsStore = {
       created: dryRun ? 0 : Math.max(1, formula.steps.length),
       phase: input.phase === "wisp" ? "vapor" : "liquid",
       dry_run: dryRun,
+    });
+  },
+  async molShow(epicId) {
+    const bead = beads.find((entry) => entry.id === epicId);
+    if (!bead || !isMoleculeEpic(bead)) return null;
+    const kids = beads.filter((entry) =>
+      (entry.dependencies ?? []).some(
+        (d) => d.type === "parent-child" && d.depends_on_id === epicId,
+      ),
+    );
+    if (kids.length === 0) return null;
+    const ready = kids.filter((k) => k.status === "open" || k.status === "in_progress").length;
+    return parseMolShow({
+      parallel: { ready_steps: ready, total_steps: kids.length },
+    });
+  },
+  async molProgress(epicId) {
+    const bead = beads.find((entry) => entry.id === epicId);
+    if (!bead || !isMoleculeEpic(bead)) return null;
+    const kids = beads.filter((entry) =>
+      (entry.dependencies ?? []).some(
+        (d) => d.type === "parent-child" && d.depends_on_id === epicId,
+      ),
+    );
+    if (kids.length === 0) return null;
+    const closed = kids.filter((k) => k.status === "closed").length;
+    const inProgress = kids.filter((k) => k.status === "in_progress").length;
+    return parseMolProgress({
+      molecule_id: epicId,
+      molecule_title: bead.title,
+      completed: closed,
+      total: kids.length,
+      in_progress: inProgress,
+      percent: kids.length ? (closed / kids.length) * 100 : 0,
+      current_step_id: kids.find((k) => k.status === "in_progress")?.id ?? null,
+    });
+  },
+  async distillMol(input: DistillFormulaInput) {
+    return parseDistillResult({
+      formula: input.name,
+      demo: true,
+      message:
+        "Demo mode cannot write a formula file. Distill is a no-op here.",
     });
   },
   async doctor(): Promise<DoctorInfo> {

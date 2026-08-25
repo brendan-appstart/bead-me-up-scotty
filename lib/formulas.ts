@@ -77,6 +77,65 @@ export function molArgv(input: PourFormulaInput): string[] {
   return args;
 }
 
+export const distillFormulaInputSchema = z.object({
+  epicId: z.string().min(1),
+  name: z.string().min(1),
+  vars: z.record(z.string(), z.string()).optional().default({}),
+});
+export type DistillFormulaInput = z.input<typeof distillFormulaInputSchema>;
+
+/** argv for `bd mol distill <epic-id> <name> [--var key=value]`. */
+export function distillArgv(input: DistillFormulaInput): string[] {
+  const parsed = distillFormulaInputSchema.parse(input);
+  const args = ["mol", "distill", parsed.epicId, parsed.name];
+  for (const [key, value] of Object.entries(parsed.vars)) {
+    args.push("--var", `${key}=${value}`);
+  }
+  return args;
+}
+
+export const molProgressSchema = z.object({
+  molecule_id: z.string().optional().default(""),
+  molecule_title: z.string().optional().default(""),
+  completed: z.coerce.number().optional().default(0),
+  total: z.coerce.number().optional().default(0),
+  in_progress: z.coerce.number().optional().default(0),
+  percent: z.coerce.number().optional().default(0),
+  current_step_id: z.string().nullable().optional().default(null),
+});
+export type MolProgress = z.infer<typeof molProgressSchema>;
+
+export const molParallelSchema = z.object({
+  ready_steps: z.coerce.number().optional().default(0),
+  total_steps: z.coerce.number().optional().default(0),
+});
+export type MolParallel = z.infer<typeof molParallelSchema>;
+
+export const molShowSchema = z.object({
+  parallel: molParallelSchema.optional(),
+});
+export type MolShow = z.infer<typeof molShowSchema>;
+
+export const distillResultSchema = z.object({
+  formula: z.string().optional().default(""),
+  output: z.string().optional().default(""),
+  demo: z.boolean().optional().default(false),
+  message: z.string().optional().default(""),
+});
+export type DistillResult = z.infer<typeof distillResultSchema>;
+
+/**
+ * Candidate for mol snapshot: any epic. Chrome is shown only when
+ * `bd mol progress` / demo children actually resolve a molecule.
+ */
+export function isMoleculeEpic(bead: {
+  id: string;
+  issue_type: string;
+  labels?: string[] | null;
+}): boolean {
+  return bead.issue_type === "epic";
+}
+
 export function parseFormulaList(raw: unknown): FormulaListEntry[] {
   const data = unwrapEnvelope(raw);
   if (data == null) return [];
@@ -89,6 +148,27 @@ export function parseFormulaShow(raw: unknown): Formula {
 
 export function parsePourResult(raw: unknown): PourResult {
   return pourResultSchema.parse(unwrapEnvelope(raw));
+}
+
+export function parseMolProgress(raw: unknown): MolProgress {
+  return molProgressSchema.parse(unwrapEnvelope(raw));
+}
+
+export function parseMolShow(raw: unknown): MolShow {
+  return molShowSchema.parse(unwrapEnvelope(raw));
+}
+
+export function parseDistillResult(raw: unknown): DistillResult {
+  const data = unwrapEnvelope(raw);
+  if (data && typeof data === "object") {
+    const rec = data as Record<string, unknown>;
+    const formula =
+      (typeof rec.formula === "string" && rec.formula) ||
+      (typeof rec.name === "string" && rec.name) ||
+      "";
+    return distillResultSchema.parse({ ...rec, formula });
+  }
+  return distillResultSchema.parse({});
 }
 
 export function formulaToListEntry(formula: Formula): FormulaListEntry {

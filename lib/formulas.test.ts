@@ -3,10 +3,13 @@ import { ZodError } from "zod";
 import {
   DEMO_FORMULAS,
   assertRequiredVars,
+  distillArgv,
   formulaSchema,
+  isMoleculeEpic,
   molArgv,
   parseFormulaList,
   parseFormulaShow,
+  parseMolProgress,
 } from "@/lib/formulas";
 
 test("pour argv includes --var name=auth and --dry-run", () => {
@@ -116,4 +119,52 @@ test("demo fixtures include a formula with a required variable", () => {
   );
   expect(withVar?.formula).toBe("mol-feature");
   expect(withVar?.vars.name?.required).toBe(true);
+});
+
+test("distill argv is mol distill <epic> <name> plus --var mappings", () => {
+  expect(
+    distillArgv({
+      epicId: "bd-o5xe",
+      name: "my-workflow",
+      vars: { feature_name: "auth-refactor" },
+    }),
+  ).toEqual([
+    "mol",
+    "distill",
+    "bd-o5xe",
+    "my-workflow",
+    "--var",
+    "feature_name=auth-refactor",
+  ]);
+});
+
+test("parseMolProgress reads bd mol progress --json", () => {
+  const progress = parseMolProgress({
+    schema_version: 1,
+    completed: 9,
+    current_step_id: "scotty-4t9.10",
+    in_progress: 2,
+    molecule_id: "scotty-4t9",
+    molecule_title: "Capture, filter sets, and workflows",
+    percent: 81.8,
+    total: 11,
+  });
+  expect(progress.completed).toBe(9);
+  expect(progress.total).toBe(11);
+  expect(progress.current_step_id).toBe("scotty-4t9.10");
+});
+
+test("molecule candidates are epics; tasks never qualify", () => {
+  expect(
+    isMoleculeEpic({ id: "scotty-4t9", issue_type: "epic", labels: [] }),
+  ).toBe(true);
+  expect(
+    isMoleculeEpic({ id: "mol-feature", issue_type: "epic", labels: [] }),
+  ).toBe(true);
+  expect(
+    isMoleculeEpic({ id: "bd-9f2a", issue_type: "task", labels: ["template"] }),
+  ).toBe(false);
+  expect(
+    isMoleculeEpic({ id: "mol-x", issue_type: "task", labels: ["template"] }),
+  ).toBe(false);
 });

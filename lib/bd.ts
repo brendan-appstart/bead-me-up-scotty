@@ -13,10 +13,15 @@ import {
 } from "./schema";
 import {
   assertRequiredVars,
+  distillArgv,
   molArgv,
+  parseDistillResult,
   parseFormulaList,
   parseFormulaShow,
+  parseMolProgress,
+  parseMolShow,
   parsePourResult,
+  type DistillFormulaInput,
   type PourFormulaInput,
 } from "./formulas";
 import type { BeadsStore, DoctorInfo } from "./store";
@@ -355,6 +360,48 @@ export function createBdStore(repoPath: string): BeadsStore {
           });
         }
         return parsePourResult(await runBdJson(args, ro));
+      });
+    },
+
+    molShow(epicId: string) {
+      return serializeWrite(repoPath, async () => {
+        try {
+          return parseMolShow(
+            await runBdJson(["mol", "show", epicId, "--parallel"], ro),
+          );
+        } catch (e) {
+          if (e instanceof BdError && /not found|not a molecule/i.test(e.message)) {
+            return null;
+          }
+          throw e;
+        }
+      });
+    },
+
+    molProgress(epicId: string) {
+      return serializeWrite(repoPath, async () => {
+        try {
+          return parseMolProgress(await runBdJson(["mol", "progress", epicId], ro));
+        } catch (e) {
+          if (e instanceof BdError && /not found|not a molecule/i.test(e.message)) {
+            return null;
+          }
+          throw e;
+        }
+      });
+    },
+
+    distillMol(input: DistillFormulaInput) {
+      return serializeWrite(repoPath, async () => {
+        const out = await runBdRaw([...distillArgv(input), "--json"], ro);
+        try {
+          return parseDistillResult(JSON.parse(out));
+        } catch {
+          return parseDistillResult({
+            formula: input.name,
+            message: out.trim().split("\n")[0] || `Distilled ${input.name}`,
+          });
+        }
       });
     },
 

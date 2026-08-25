@@ -2,7 +2,15 @@ import type { Bead, CreateInput, UpdateInput, DepType } from "./schema";
 import type { UpdateStatus, UpdateResult } from "./update-types";
 import type { AiProvider } from "./ai-providers";
 import type { FilterSet, FilterSetSnapshot } from "./filter-sets";
-import type { Formula, FormulaListEntry, PourPhase, PourResult } from "./formulas";
+import type {
+  DistillResult,
+  Formula,
+  FormulaListEntry,
+  MolShow,
+  MolProgress,
+  PourPhase,
+  PourResult,
+} from "./formulas";
 
 export interface Meta {
   kind: "bd" | "demo";
@@ -252,6 +260,22 @@ export const api = {
       body: { vars?: Record<string, string>; phase: PourPhase; dryRun?: boolean },
     ) =>
       request<PourResult>(`${base(projectId)}/formulas/${enc(name)}/pour`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+  },
+
+  mol: {
+    snapshot: (projectId: string, epicId: string) =>
+      request<{ show: MolShow; progress: MolProgress | null }>(
+        `${base(projectId)}/mol/${enc(epicId)}`,
+      ),
+    distill: (
+      projectId: string,
+      epicId: string,
+      body: { name: string; vars?: Record<string, string> },
+    ) =>
+      request<DistillResult>(`${base(projectId)}/mol/${enc(epicId)}/distill`, {
         method: "POST",
         body: JSON.stringify(body),
       }),
