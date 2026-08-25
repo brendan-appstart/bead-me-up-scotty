@@ -1,10 +1,11 @@
 import type { Bead } from "./schema";
 import { beadOrigin } from "./attribution";
+import { parentOf } from "./beads-view";
 
 /**
  * Shared bead filter model used by both the Board and List views. Every facet is
  * multi-select; an empty array means "no constraint" (show all). `search` matches
- * id / title / assignee.
+ * id / title / assignee / labels / description / notes.
  */
 export interface Filters {
   status: string[];
@@ -13,6 +14,7 @@ export interface Filters {
   origin: string[];
   labels: string[];
   assignee: string[];
+  epic: string[];
   search: string;
 }
 
@@ -23,6 +25,7 @@ export const emptyFilters: Filters = {
   origin: [],
   labels: [],
   assignee: [],
+  epic: [],
   search: "",
 };
 
@@ -33,6 +36,7 @@ const FILTER_PARAMS = [
   "origin",
   "label",
   "assignee",
+  "epic",
   "q",
 ] as const;
 
@@ -56,6 +60,7 @@ export function filtersFromSearchParams(params: SearchParamsReader): Filters {
     origin: distinctValues(params, "origin"),
     labels: distinctValues(params, "label"),
     assignee: distinctValues(params, "assignee"),
+    epic: distinctValues(params, "epic"),
     search: params.get("q") ?? "",
   };
 }
@@ -73,6 +78,7 @@ export function writeFiltersToSearchParams(
   for (const origin of filters.origin) params.append("origin", origin);
   for (const label of filters.labels) params.append("label", label);
   for (const assignee of filters.assignee) params.append("assignee", assignee);
+  for (const epic of filters.epic) params.append("epic", epic);
   if (filters.search) params.set("q", filters.search);
 }
 
@@ -122,6 +128,17 @@ export function labelOptionsFrom(beads: Bead[]): { value: string; label: string 
   return [...s].sort().map((l) => ({ value: l, label: l }));
 }
 
+/**
+ * Epics in a bead set, sorted by title, as filter options. Callers pass ALL
+ * beads (not the filtered set) so selecting one epic doesn't hide the rest.
+ */
+export function epicOptionsFrom(beads: Bead[]): { value: string; label: string }[] {
+  return beads
+    .filter((b) => b.issue_type === "epic")
+    .sort((a, b) => a.title.localeCompare(b.title) || a.id.localeCompare(b.id))
+    .map((b) => ({ value: b.id, label: b.title || b.id }));
+}
+
 /** Count of active facet selections (excludes free-text search). */
 export function activeFilterCount(f: Filters): number {
   return (
@@ -130,11 +147,17 @@ export function activeFilterCount(f: Filters): number {
     f.priority.length +
     f.origin.length +
     f.labels.length +
-    f.assignee.length
+    f.assignee.length +
+    f.epic.length
   );
 }
 
-export function matchesFilters(b: Bead, f: Filters, humanAllowlist: string[]): boolean {
+export function matchesFilters(
+  b: Bead,
+  f: Filters,
+  humanAllowlist: string[],
+  index: Map<string, Bead>,
+): boolean {
   if (f.status.length && !f.status.includes(b.status)) return false;
   if (f.type.length && !f.type.includes(b.issue_type)) return false;
   if (f.priority.length && !f.priority.includes(b.priority)) return false;
@@ -142,6 +165,10 @@ export function matchesFilters(b: Bead, f: Filters, humanAllowlist: string[]): b
   if (f.assignee.length && !f.assignee.includes(beadAssignee(b))) return false;
   // OR within the facet, like every other facet above; AND across facets.
   if (f.labels.length && !f.labels.some((l) => (b.labels ?? []).includes(l))) return false;
+  if (f.epic.length) {
+    const parent = parentOf(b, index);
+    if (!parent || !f.epic.includes(parent.id)) return false;
+  }
   const q = f.search.trim().toLowerCase();
   if (
     q &&
@@ -149,7 +176,9 @@ export function matchesFilters(b: Bead, f: Filters, humanAllowlist: string[]): b
       b.title.toLowerCase().includes(q) ||
       b.id.toLowerCase().includes(q) ||
       (b.assignee ?? "").toLowerCase().includes(q) ||
-      (b.labels ?? []).some((l) => l.toLowerCase().includes(q))
+      (b.labels ?? []).some((l) => l.toLowerCase().includes(q)) ||
+      (b.description ?? "").toLowerCase().includes(q) ||
+      (b.notes ?? "").toLowerCase().includes(q)
     )
   )
     return false;

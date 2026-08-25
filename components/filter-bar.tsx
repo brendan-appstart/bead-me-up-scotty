@@ -1,22 +1,109 @@
 "use client";
+import { useState } from "react";
 import { Icon } from "@/components/icons";
 import { MultiSelectFilter, type FilterOption } from "@/components/multi-select-filter";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import { typeLabel, statusLabel, prioLabel } from "@/lib/beads-view";
 import { BEAD_TYPES, BEAD_STATUSES } from "@/lib/schema";
 import { type Filters, toggleStr, toggleNum } from "@/lib/filters";
 
+function EpicFilter({
+  options,
+  selected,
+  onToggle,
+  onClear,
+}: {
+  options: FilterOption[];
+  selected: string[];
+  onToggle: (value: string) => void;
+  onClear: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const q = query.trim().toLowerCase();
+  const shown = q
+    ? options.filter(
+        (o) => o.label.toLowerCase().includes(q) || o.value.toLowerCase().includes(q),
+      )
+    : options;
+  const active = selected.length > 0;
+
+  return (
+    <DropdownMenu onOpenChange={(open) => { if (!open) setQuery(""); }}>
+      <DropdownMenuTrigger
+        className="flex h-9 items-center gap-[6px] rounded-[9px] border px-[11px] text-[12.5px] font-medium focus:outline-none"
+        style={{
+          borderColor: active ? "var(--brand)" : "var(--border)",
+          background: active ? "var(--brand-weak)" : "var(--surface-2)",
+          color: active ? "var(--brand)" : "var(--text-2)",
+        }}
+      >
+        <span>Epic</span>
+        {active && (
+          <span className="rounded-full bg-[var(--brand)] px-[6px] text-[10.5px] font-semibold leading-[16px] text-white">
+            {selected.length}
+          </span>
+        )}
+        <Icon name="chevron" size={13} className="opacity-60" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-[240px]">
+        <DropdownMenuLabel>Epic</DropdownMenuLabel>
+        <div className="px-1.5 pb-1">
+          <input
+            data-epic-search
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => e.stopPropagation()}
+            placeholder="Filter epics…"
+            className="h-7 w-full rounded-[7px] border border-border bg-[var(--surface-2)] px-2 text-[12px] text-[var(--text)] outline-none"
+          />
+        </div>
+        <DropdownMenuSeparator />
+        {shown.length === 0 ? (
+          <div className="px-1.5 py-2 text-[12px] text-[var(--text-3)]">No epics match</div>
+        ) : (
+          shown.map((o) => (
+            <DropdownMenuCheckboxItem
+              key={o.value}
+              checked={selected.includes(o.value)}
+              onCheckedChange={() => onToggle(o.value)}
+              closeOnClick={false}
+            >
+              {o.label}
+            </DropdownMenuCheckboxItem>
+          ))
+        )}
+        {active && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={onClear}>Clear epic</DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 /**
  * Search + multi-select facet filters, shared by the Board and List views so
  * both expose the same controls (status, type, priority, labels, assignee,
- * origin) + archived. Purely presentational: `labelOptions` and
- * `assigneeOptions` are the data-derived facets (the rest come from static
- * enums) and are passed in rather than read from context here.
+ * epic, origin) + archived. Purely presentational: `labelOptions`,
+ * `assigneeOptions`, and `epicOptions` are the data-derived facets (the rest
+ * come from static enums) and are passed in rather than read from context here.
  */
 export function FilterBar({
   filters,
   onChangeAction,
   labelOptions,
   assigneeOptions,
+  epicOptions,
   showArchived,
   onShowArchivedAction,
   onClearAllAction,
@@ -25,6 +112,7 @@ export function FilterBar({
   onChangeAction: (f: Filters) => void;
   labelOptions: FilterOption[];
   assigneeOptions: FilterOption[];
+  epicOptions: FilterOption[];
   showArchived: boolean;
   onShowArchivedAction: (v: boolean) => void;
   onClearAllAction: () => void;
@@ -40,6 +128,7 @@ export function FilterBar({
     (filters.origin.length ? 1 : 0) +
     (filters.labels.length ? 1 : 0) +
     (filters.assignee.length ? 1 : 0) +
+    (filters.epic.length ? 1 : 0) +
     (filters.search.trim() ? 1 : 0) +
     (showArchived ? 1 : 0);
   const clearAll = () => onClearAllAction();
@@ -79,6 +168,14 @@ export function FilterBar({
           onToggle={(v) => set({ priority: toggleNum(filters.priority, Number(v)) })}
           onClear={() => set({ priority: [] })}
         />
+        {epicOptions.length > 0 && (
+          <EpicFilter
+            options={epicOptions}
+            selected={filters.epic}
+            onToggle={(v) => set({ epic: toggleStr(filters.epic, v) })}
+            onClear={() => set({ epic: [] })}
+          />
+        )}
         {labelOptions.length > 0 && (
           <MultiSelectFilter
             label="Labels"

@@ -16,7 +16,8 @@ function sameFacets(a: Filters, b: Filters): boolean {
     a.priority.join("\0") === b.priority.join("\0") &&
     a.origin.join("\0") === b.origin.join("\0") &&
     a.labels.join("\0") === b.labels.join("\0") &&
-    a.assignee.join("\0") === b.assignee.join("\0")
+    a.assignee.join("\0") === b.assignee.join("\0") &&
+    a.epic.join("\0") === b.epic.join("\0")
   );
 }
 

@@ -23,7 +23,7 @@ import { FilterBar } from "@/components/filter-bar";
 import { useOrder, useSetOrder } from "@/hooks/use-order";
 import { useSetStatus } from "@/hooks/use-beads";
 import { useUrlFilters } from "@/hooks/use-url-filters";
-import { matchesFilters, labelOptionsFrom, assigneeOptionsFrom } from "@/lib/filters";
+import { matchesFilters, labelOptionsFrom, assigneeOptionsFrom, epicOptionsFrom } from "@/lib/filters";
 import { BOARD_COLUMNS, COLUMN_ORDER, colOf } from "@/lib/board-columns";
 import { beadOrigin, originTitle } from "@/lib/attribution";
 import {
@@ -67,6 +67,7 @@ export function ListView() {
   // doesn't make the remaining options vanish from the dropdown.
   const labelOptions = React.useMemo(() => labelOptionsFrom(beads), [beads]);
   const assigneeOptions = React.useMemo(() => assigneeOptionsFrom(beads), [beads]);
+  const epicOptions = React.useMemo(() => epicOptionsFrom(beads), [beads]);
   // One pass, not childrenOf() per row (that would be O(n^2)).
   const childCounts = React.useMemo(() => childrenCountMap(beads), [beads]);
 
@@ -88,7 +89,7 @@ export function ListView() {
       .filter((b) => {
         if (b.issue_type === "epic") return false;
         if (!showArchived && (b.labels ?? []).includes("archived")) return false;
-        return matchesFilters(b, filters, humanAllowlist);
+        return matchesFilters(b, filters, humanAllowlist, index);
       })
       .sort((a, b) => {
         const ca = COLUMN_ORDER.indexOf(colById.get(a.id) ?? "");
@@ -162,6 +163,7 @@ export function ListView() {
           onChangeAction={setFilters}
           labelOptions={labelOptions}
           assigneeOptions={assigneeOptions}
+          epicOptions={epicOptions}
           showArchived={showArchived}
           onShowArchivedAction={setShowArchived}
           onClearAllAction={clearFilters}
