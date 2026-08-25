@@ -1,5 +1,6 @@
 export const VIEWS = [
   "focus",
+  "todos",
   "board",
   "list",
   "epics",

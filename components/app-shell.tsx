@@ -14,6 +14,7 @@ import { isView, type View } from "@/lib/views";
 import { Sidebar } from "@/components/sidebar";
 import { Board } from "@/components/board/board";
 import { FocusView } from "@/components/focus-view";
+import { TodosView } from "@/components/todos-view";
 import { ListView } from "@/components/list-view";
 import { EpicsView } from "@/components/epics-view";
 import { GraphView } from "@/components/graph-view";
@@ -265,6 +266,7 @@ export function AppShell({ projectId }: { projectId: string }) {
           ) : (
             <>
               {view === "focus" && <FocusView />}
+              {view === "todos" && <TodosView />}
               {view === "board" && <Board />}
               {view === "list" && <ListView />}
               {view === "epics" && (
