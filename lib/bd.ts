@@ -20,6 +20,7 @@ import {
   type PourFormulaInput,
 } from "./formulas";
 import type { BeadsStore, DoctorInfo } from "./store";
+import { deferArgv } from "./todos";
 
 const pExecFile = promisify(execFile);
 const BD_BIN = process.env.BD_BIN || "bd";
@@ -257,6 +258,13 @@ export function createBdStore(repoPath: string): BeadsStore {
         } else {
           await runBdRaw(["update", id, "-s", status], rw(actor));
         }
+        return show(id);
+      });
+    },
+
+    defer(id, until, actor, reason) {
+      return serializeWrite(repoPath, async () => {
+        await runBdRaw(deferArgv(id, until, reason), rw(actor));
         return show(id);
       });
     },

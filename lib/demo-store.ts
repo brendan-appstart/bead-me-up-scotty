@@ -98,6 +98,12 @@ export const demoStore: BeadsStore = {
     }
     return { ...b };
   },
+  async defer(id, _until, _actor, _reason) {
+    const b = find(id);
+    b.status = "deferred";
+    b.updated_at = nowIso();
+    return { ...b };
+  },
   async remove(id) {
     beads = beads.filter((b) => b.id !== id);
   },

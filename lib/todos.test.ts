@@ -1,6 +1,14 @@
 import { expect, test } from "bun:test";
 import { beadSchema } from "@/lib/schema";
-import { isTodo, listOpenTodos } from "@/lib/todos";
+import {
+  assign,
+  attachParent,
+  deferArgv,
+  isTodo,
+  listOpenTodos,
+  promoteType,
+  raisePriority,
+} from "@/lib/todos";
 
 const openTask = beadSchema.parse({
   id: "todo-open",
@@ -68,5 +76,41 @@ test("listOpenTodos returns only open tasks from a mixed list", () => {
   expect(listOpenTodos(beads).map((bead) => bead.id)).toEqual([
     "todo-open",
     "todo-wip",
+  ]);
+});
+
+test("promoteType('feature') returns issue_type patch", () => {
+  expect(promoteType("feature")).toEqual({ issue_type: "feature" });
+});
+
+test("raisePriority(1) returns priority patch", () => {
+  expect(raisePriority(1)).toEqual({ priority: 1 });
+});
+
+test("attachParent('bd-epic') returns parent patch", () => {
+  expect(attachParent("bd-epic")).toEqual({ parent: "bd-epic" });
+});
+
+test("assign('dana') returns assignee patch", () => {
+  expect(assign("dana")).toEqual({ assignee: "dana" });
+});
+
+test("deferArgv includes --until and the snooze phrase", () => {
+  expect(deferArgv("bd-abc", "tomorrow")).toEqual([
+    "defer",
+    "bd-abc",
+    "--until",
+    "tomorrow",
+  ]);
+});
+
+test("deferArgv appends --reason when given", () => {
+  expect(deferArgv("bd-abc", "+1h", "waiting on API access")).toEqual([
+    "defer",
+    "bd-abc",
+    "--until",
+    "+1h",
+    "--reason",
+    "waiting on API access",
   ]);
 });

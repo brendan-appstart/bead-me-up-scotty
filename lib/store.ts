@@ -30,6 +30,8 @@ export interface BeadsStore {
    * `bd close --reason`, and there is no way to attach one after the fact.
    */
   setStatus(id: string, status: string, actor: string, reason?: string): Promise<Bead>;
+  /** Snooze a bead until a date/phrase (`bd defer --until`). */
+  defer(id: string, until: string, actor: string, reason?: string): Promise<Bead>;
   remove(id: string, actor: string): Promise<void>;
   addComment(id: string, text: string, actor: string): Promise<Bead>;
   addDep(id: string, dependsOnId: string, type: DepType, actor: string): Promise<Bead>;
