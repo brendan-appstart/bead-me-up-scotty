@@ -400,11 +400,7 @@ function DrawerBody({
               <button
                 type="button"
                 onClick={() => pushDetail(ep.id)}
-                title={
-                  ep.issue_type === "epic"
-                    ? `Jump to ${ep.id} on the Epics screen`
-                    : `Open ${ep.id}`
-                }
+                title={`Open ${ep.id}`}
                 className="flex h-9 items-center gap-[7px] rounded-[9px] border border-border bg-[var(--surface-2)] px-[10px] text-left text-[var(--brand)] hover:border-[var(--brand)] hover:bg-[var(--brand-weak)]"
               >
                 <Icon
