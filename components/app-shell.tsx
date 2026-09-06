@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { toast } from "sonner";
 import { type BeadType } from "@/lib/schema";
 import Link from "next/link";
 import { useBeads } from "@/hooks/use-beads";
@@ -46,7 +47,7 @@ export function AppShell({ projectId }: { projectId: string }) {
     const seed = new URLSearchParams(window.location.search).get("bead");
     return seed ? [seed] : [];
   });
-  const openId = openStack.length ? openStack[openStack.length - 1] : null;
+  const rawOpenId = openStack.length ? openStack[openStack.length - 1] : null;
   const [palette, setPalette] = React.useState(false);
   const [create, setCreate] = React.useState<{
     open: boolean;
@@ -60,6 +61,21 @@ export function AppShell({ projectId }: { projectId: string }) {
   const { live } = useBeadsStream(projectId);
   const beads = React.useMemo(() => data?.beads ?? [], [data]);
   const index = React.useMemo(() => makeIndex(beads), [beads]);
+  // Preserve the requested link until a successful response establishes whether
+  // the bead exists. A network error must not erase a valid bookmark.
+  const loaded = !isLoading && !error && !!data;
+  const openId = rawOpenId && loaded && !index.has(rawOpenId) ? null : rawOpenId;
+  const missingToasted = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!loaded) return;
+    if (!rawOpenId || index.has(rawOpenId)) {
+      missingToasted.current = null;
+      return;
+    }
+    if (missingToasted.current === rawOpenId) return;
+    missingToasted.current = rawOpenId;
+    toast.error(`Bead ${rawOpenId} not found in this project`);
+  }, [loaded, rawOpenId, index]);
 
   // RESET. Every caller outside the drawer (board, list, epics, activity,
   // needs-you, palette, assist panel) means "start here", not "continue a trail".

@@ -60,6 +60,9 @@ for AI agents.
 - **Dependencies & graph** — view/add/remove typed dependencies in the detail
   drawer, plus an interactive React Flow dependency graph (drag node→node to link).
 - **Comments** — author-stamped comment threads with a composer on every bead.
+- **Bead links** — open a bead directly with `/p/<project>?bead=<id>`. The address
+  bar follows the open drawer; its **Copy link** button copies a shareable link,
+  including in read-only mode. Drawer navigation keeps its own Back trail.
 - **Archive & delete** — archive (reversible `bd close` + `archived` label) or
   delete (`bd delete`, behind a confirm).
 - **Human-vs-agent attribution** — every bead and comment shows 👤 (human) or 🤖
