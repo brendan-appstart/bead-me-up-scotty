@@ -165,11 +165,7 @@ export function makeIndex(beads: Bead[]): Map<string, Bead> {
 export function isBlocked(b: Bead, index: Map<string, Bead>): boolean {
   if (b.status === "blocked") return true;
   if (b.status !== "open") return false;
-  return (b.dependencies ?? []).some(
-    (d) =>
-      d.type === "blocks" &&
-      (index.get(d.depends_on_id)?.status ?? "open") !== "closed",
-  );
+  return blockingDeps(b, index).length > 0;
 }
 
 /**
@@ -182,9 +178,7 @@ export function isBlocked(b: Bead, index: Map<string, Bead>): boolean {
  * blocker ("blocked by <the epic it lives in>"), which is noise at best and
  * misdirection at worst. Hierarchy is shown as hierarchy elsewhere.
  *
- * Note this is deliberately wider than `isBlocked`, which only counts `blocks`.
- * A bead reaches a "blocked" surface either by status or by a `blocks` edge, and
- * once there, every unresolved gate on it is worth naming.
+ * Shared by isBlocked so the badge, Focus column, and blocker names agree.
  */
 export function blockingDeps(b: Bead, index: Map<string, Bead>): string[] {
   return (b.dependencies ?? [])
