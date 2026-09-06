@@ -107,7 +107,7 @@ function layout(beads: Bead[], onOpen: (id: string) => void, liveOnly: boolean):
   // endless column, so fitView keeps the nodes at a readable scale.
   const loose = visible.filter((b) => b.issue_type !== "epic" && !placedIds.has(b.id));
   const looseCol = epics.length;
-  const LOOSE_ROWS = 14;
+  const LOOSE_ROWS = Math.max(6, Math.ceil(Math.sqrt(loose.length * 2)));
   loose.forEach((b, i) =>
     place(b, (looseCol + Math.floor(i / LOOSE_ROWS)) * COL, (i % LOOSE_ROWS) * ROW),
   );
@@ -142,7 +142,7 @@ export function GraphView() {
   const addDep = useAddDep();
   // Recenter/fit the graph on the current nodes (bead mpe).
   const rf = React.useRef<ReactFlowInstance | null>(null);
-  const center = React.useCallback(() => rf.current?.fitView({ padding: 0.2, duration: 400 }), []);
+  const center = React.useCallback(() => rf.current?.fitView({ padding: 0.2, minZoom: 0.02, duration: 400 }), []);
 
   // Preserve the original archive exclusion; all other pruning is opt-in.
   const { nodes, edges, considered } = React.useMemo(() => {
@@ -208,11 +208,13 @@ export function GraphView() {
           onInit={(inst) => {
             rf.current = inst;
           }}
+          minZoom={0.02}
           fitView
+          fitViewOptions={{ padding: 0.2, minZoom: 0.02 }}
           proOptions={{ hideAttribution: true }}
         >
           <Background gap={22} color="var(--border)" />
-          <Controls />
+          <Controls fitViewOptions={{ padding: 0.2, minZoom: 0.02 }} />
         </ReactFlow>
         {nodes.length === 0 && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">

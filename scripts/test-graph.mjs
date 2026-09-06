@@ -94,6 +94,35 @@ try {
   }));
   assert.ok(new Set(positions.map((p) => p.x)).size > 1, "Loose tasks must wrap into multiple columns");
   assert.ok(Math.max(...positions.map((p) => p.y)) < 3000, "Avoid an excessively tall loose-task column");
+  // A tall epic needs a zoom below React Flow's default fit floor.
+  beads.splice(0, beads.length, bead("large-epic", { issue_type: "epic" }),
+    ...Array.from({ length: 220 }, (_, i) => bead(`large-${i}`, {
+      dependencies: [dep(`large-${i}`, "large-epic", "parent-child")],
+    })));
+  await page.reload();
+  await page.getByRole("button", { name: "Graph", exact: true }).click();
+  await page.locator('.react-flow__node[data-id="large-219"]').waitFor();
+  const fits = () => page.evaluate(() => {
+    const frame = document.querySelector('.react-flow').getBoundingClientRect();
+    return [...document.querySelectorAll('.react-flow__node')].every(n => {
+      const r = n.getBoundingClientRect();
+      return r.left >= frame.left - 1 && r.right <= frame.right + 1 && r.top >= frame.top - 1 && r.bottom <= frame.bottom + 1;
+    });
+  });
+  await page.waitForFunction(() => {
+    const n = document.querySelector('.react-flow__viewport');
+    return n && new DOMMatrix(getComputedStyle(n).transform).a < 0.1;
+  });
+  assert.equal((await ids()).length, 221);
+  assert.ok(await fits(), "Initial fit must include every node of a large epic");
+  await page.getByRole("button", { name: /^zoom in$/i }).click();
+  await page.getByRole("button", { name: "Center", exact: true }).click();
+  await page.waitForTimeout(500);
+  assert.ok(await fits(), "Center must use the same low zoom floor");
+  await page.getByRole("button", { name: /^zoom in$/i }).click();
+  await page.getByRole("button", { name: /^fit view$/i }).click();
+  await page.waitForTimeout(300);
+  assert.ok(await fits(), "Built-in fit control must fit large graphs too");
   assert.deepEqual(errors, []);
   console.log("PASS: full graph, optional pruning, unique nested epics, drag-to-link, closed-task details, empty-filter recovery, and wrapped layout");
 } finally {
