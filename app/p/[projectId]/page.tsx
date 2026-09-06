@@ -16,5 +16,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ProjectPage({ params }: Props) {
   const { projectId } = await params;
-  return <AppShell projectId={projectId} />;
+  // A project route owns transient UI state (drawer trails, palettes, and the
+  // notification watcher baseline). A distinct key prevents state from one
+  // client-side project visit leaking into the next one.
+  return <AppShell key={projectId} projectId={projectId} />;
 }

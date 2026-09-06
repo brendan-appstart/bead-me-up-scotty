@@ -26,6 +26,7 @@ import { CommandPalette } from "@/components/command-palette";
 import { NotificationWatcher } from "@/components/notification-watcher";
 import { ReadOnlyBanner } from "@/components/read-only-banner";
 import { useViewerMode } from "@/hooks/use-viewer-mode";
+import { useNotificationActivation } from "@/hooks/use-notifications";
 
 export function AppShell({ projectId }: { projectId: string }) {
   const [view, setView] = useLastView(projectId);
@@ -33,7 +34,14 @@ export function AppShell({ projectId }: { projectId: string }) {
   // Drawer navigation TRAIL, not a single id: clicking a subtask from its
   // parent used to replace the drawer outright, leaving no way back (GH #15).
   // The visible bead is the last entry.
-  const [openStack, setOpenStack] = React.useState<string[]>([]);
+  // A cross-project notification lands on `/p/<project>?bead=<id>`. Seed the
+  // drawer once; later URL synchronization and copy-link UI are intentionally
+  // separate work.
+  const [openStack, setOpenStack] = React.useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    const beadId = new URLSearchParams(window.location.search).get("bead");
+    return beadId ? [beadId] : [];
+  });
   const openId = openStack.length ? openStack[openStack.length - 1] : null;
   const [palette, setPalette] = React.useState(false);
   const [create, setCreate] = React.useState<{
@@ -52,6 +60,7 @@ export function AppShell({ projectId }: { projectId: string }) {
   // RESET. Every caller outside the drawer (board, list, epics, activity,
   // needs-you, palette, assist panel) means "start here", not "continue a trail".
   const openDetail = React.useCallback((id: string) => setOpenStack([id]), []);
+  useNotificationActivation(projectId, openDetail);
   // PUSH. Drawer-internal navigation only, so back can return.
   const MAX_TRAIL = 25;
   const pushDetail = React.useCallback(
