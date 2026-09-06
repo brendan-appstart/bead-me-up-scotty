@@ -62,8 +62,9 @@ try {
   assert.equal(await page.getByRole('dialog').locator('select').first().isDisabled(), true);
   await page.getByTitle('Close', { exact: true }).click();
   await page.reload();
-  await page.getByRole('heading', { name: 'Focus', exact: true }).waitFor();
-  assert.equal(await page.evaluate(() => localStorage.getItem('bmus.view.demo')), 'focus');
+  await page.locator('article').first().waitFor();
+  assert.equal(await page.getByRole('heading', { name: 'Focus', exact: true }).count(), 0);
+  await page.getByRole('button', { name: 'Focus', exact: true }).click();
   await page.getByRole('button', { name: 'alpha', exact: true }).click();
   beads.forEach(b => { b.labels = []; });
   // Wait for the normal live polling refresh without remounting Focus.
@@ -72,6 +73,7 @@ try {
   assert.match(await ids('Next up'), /ready/);
   lanePrefix = null;
   await page.reload();
+  await page.getByRole('button', { name: 'Focus', exact: true }).click();
   await page.getByRole('heading', { name: 'Focus', exact: true }).waitFor();
   assert.equal(await page.getByRole('button', { name: 'alpha', exact: true }).count(), 0);
   await page.getByRole('button', { name: 'Board', exact: true }).click();
@@ -79,5 +81,5 @@ try {
   await page.locator('article').first().waitFor();
   assert.equal(await page.getByRole('heading', { name: 'Focus', exact: true }).count(), 0);
   assert.deepEqual(errors, []);
-  console.log('PASS: Board default, remembered Focus, blocking columns, hierarchy, lane filters, archived exclusion, and read-only detail navigation');
+  console.log('PASS: Board default, optional Focus, blocking columns, hierarchy, lane filters, archived exclusion, and read-only detail navigation');
 } finally { await browser.close(); }

@@ -76,6 +76,7 @@ try {
 
   beads.splice(0, beads.length, bead("unlinked"), bead("completed", { status: "closed" }));
   await page.reload();
+  await page.getByRole("button", { name: "Graph", exact: true }).click();
   await page.locator('.react-flow__node[data-id="unlinked"]').waitFor();
   await page.getByRole("checkbox", { name: "Live dependencies only" }).check();
   await page.getByRole("button", { name: "Show all beads", exact: true }).click();
@@ -84,6 +85,7 @@ try {
 
   beads.splice(0, beads.length, ...Array.from({ length: 40 }, (_, i) => bead(`loose-${i}`)));
   await page.reload();
+  await page.getByRole("button", { name: "Graph", exact: true }).click();
   await page.locator('.react-flow__node[data-id="loose-39"]').waitFor();
   assert.equal((await ids()).length, 40, "Larger graphs must retain every task");
   const positions = await page.locator(".react-flow__node").evaluateAll((nodes) => nodes.map((n) => {

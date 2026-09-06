@@ -9,6 +9,7 @@ import { useApp } from "@/components/app-context";
 import { api, type DoctorResponse } from "@/lib/api-client";
 import { useNotificationPrefs, type NotifPrefs } from "@/hooks/use-notifications";
 import { useBoardPrefs } from "@/hooks/use-board-prefs";
+import { useDefaultFocus } from "@/hooks/use-default-view";
 import { ViewerModeSetting } from "@/components/read-only-banner";
 
 const inputClass =
@@ -32,7 +33,7 @@ export function SettingsView() {
         </span>
       </header>
       <div className="bd-scroll min-h-0 flex-1 overflow-y-auto p-[24px_22px]">
-        <div className="mx-auto max-w-[620px]"><ViewerModeSetting /></div>
+        <div className="mx-auto mb-[18px] flex max-w-[620px] flex-col gap-[18px]"><ViewerModeSetting /><DefaultViewSetting /></div>
         {data ? (
           <SettingsForm key={key} data={data} />
         ) : (
@@ -40,6 +41,39 @@ export function SettingsView() {
         )}
       </div>
     </div>
+  );
+}
+
+function DefaultViewSetting() {
+  const { enabled, save } = useDefaultFocus();
+  return (
+    <Card title="Default view">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <div id="default-focus-label" className="text-[13px]">Use Focus as the default view</div>
+          <p id="default-focus-description" className="m-0 mt-1 text-[11.5px] text-[var(--text-3)]">
+            Off opens projects in Board. Turn on to open in Focus instead, showing
+            current work, blockers, and high-priority next steps. Applies when you
+            open or reload a project. You can still switch views at any time.
+            Saved automatically for all projects in this browser.
+          </p>
+        </div>
+        <button
+          role="switch"
+          aria-checked={enabled}
+          aria-labelledby="default-focus-label"
+          aria-describedby="default-focus-description"
+          onClick={() => {
+            try { save(!enabled); }
+            catch { toast.error("Could not save the default view. Browser storage may be unavailable."); }
+          }}
+          className="flex h-[34px] shrink-0 items-center gap-[7px] rounded-[9px] border border-border bg-[var(--surface-2)] px-[13px] text-[12.5px] hover:bg-[var(--surface-3)]"
+        >
+          <Icon name={enabled ? "check" : "x"} size={14} />
+          <span>{enabled ? "On" : "Off"}</span>
+        </button>
+      </div>
+    </Card>
   );
 }
 

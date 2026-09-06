@@ -109,8 +109,10 @@ under your OS config dir, not in beads).
 ### Focus view
 
 **Focus** is an optional view for current work: In flight, Blocked, and Next up
-(open, unblocked P0/P1 work). Board remains the default for a first visit; your
-last-used view is remembered. Lower-priority backlog and completed work remain
+(open, unblocked P0/P1 work). Board is the default whenever you open or reload a
+project. Enable **Use Focus as the default view** in Settings to start in Focus instead. This toggle is off
+by default and saves automatically for all projects in the current browser.
+Lower-priority backlog and completed work remain
 available in Board and List.
 
 Set `SCOTTY_LANE_PREFIX=ctx:` to enable lane filters from labels such as
