@@ -106,6 +106,17 @@ npm run dev            # http://localhost:3000
 Set the human actor / allowlist, repo path, and theme in **Settings** (stored
 under your OS config dir, not in beads).
 
+### Focus view
+
+**Focus** is an optional view for current work: In flight, Blocked, and Next up
+(open, unblocked P0/P1 work). Board remains the default for a first visit; your
+last-used view is remembered. Lower-priority backlog and completed work remain
+available in Board and List.
+
+Set `SCOTTY_LANE_PREFIX=ctx:` to enable lane filters from labels such as
+`ctx:frontend`. Without a prefix, lane filters are hidden. If a selected lane
+vanishes during a live refresh, Focus shows all lanes again.
+
 ### Read-only viewing
 
 Enable **Read-only mode** in Settings to monitor progress without editing beads.

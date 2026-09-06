@@ -14,7 +14,7 @@ import type { Bead } from "@/lib/schema";
  *   Next up   — open, unblocked, P0/P1 only
  *
  * Everything else (the deep ready pool, P2+ backlog, closed work) stays behind
- * the Board/List views — that's the point: a landing screen that answers
+ * the Board/List views — that's the point: an optional screen that answers
  * "what's in flight, what's stuck, what would I pick up next" without scrolling.
  *
  * Lane chips: when SCOTTY_LANE_PREFIX is set (e.g. "ctx:"), one chip per lane
@@ -50,13 +50,17 @@ export function FocusView() {
     return [...s].sort();
   }, [active, prefix]);
 
+  // A live update can remove the selected lane. Fall back to All so the
+  // hidden filter cannot strand the user on an empty screen.
+  const selectedLane = lane && !lanes.includes(lane) ? null : lane;
+
   const inLane = React.useCallback(
     (b: Bead) => {
-      if (!prefix || lane === null) return true;
+      if (!prefix || selectedLane === null) return true;
       const l = laneOf(b, prefix);
-      return lane === "" ? l === null : l === lane;
+      return selectedLane === "" ? l === null : l === selectedLane;
     },
-    [prefix, lane],
+    [prefix, selectedLane],
   );
 
   const inFlight = React.useMemo(
@@ -94,19 +98,19 @@ export function FocusView() {
         <span className="flex-1" />
         {prefix && lanes.length > 0 && (
           <div className="flex flex-wrap items-center gap-[6px]">
-            <LaneChip label="All" selected={lane === null} onClick={() => setLane(null)} />
+            <LaneChip label="All" selected={selectedLane === null} onClick={() => setLane(null)} />
             {lanes.map((l) => (
               <LaneChip
                 key={l}
                 label={l}
-                selected={lane === l}
-                onClick={() => setLane(lane === l ? null : l)}
+                selected={selectedLane === l}
+                onClick={() => setLane(selectedLane === l ? null : l)}
               />
             ))}
             <LaneChip
               label="unlabeled"
-              selected={lane === ""}
-              onClick={() => setLane(lane === "" ? null : "")}
+              selected={selectedLane === ""}
+              onClick={() => setLane(selectedLane === "" ? null : "")}
             />
           </div>
         )}
@@ -152,6 +156,7 @@ function LaneChip({
 }) {
   return (
     <button
+      aria-pressed={selected}
       onClick={onClick}
       className="rounded-full border px-[10px] py-[3px] text-[11.5px] font-[550] transition-colors"
       style={
@@ -170,8 +175,17 @@ function FocusCard({ bead, showBlockers }: { bead: Bead; showBlockers?: boolean 
   const blockers = showBlockers ? blockingDeps(bead, index) : [];
   return (
     <article
+      role="button"
+      tabIndex={0}
+      aria-label={bead.title}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openDetail(bead.id);
+        }
+      }}
       onClick={() => openDetail(bead.id)}
-      className="cursor-pointer rounded-[11px] border border-border bg-[var(--surface)] p-[10px_12px] shadow-[var(--shadow)] hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-lg)]"
+      className="cursor-pointer rounded-[11px] border border-border bg-[var(--surface)] p-[10px_12px] shadow-[var(--shadow)] hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-lg)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]"
     >
       <div className="mb-[5px] flex items-center gap-[7px]">
         <span className="h-2 w-2 flex-shrink-0 rounded-full" style={{ background: catColor(bead.status) }} />
