@@ -1,0 +1,113 @@
+// Keyboard integration regression; project data and writes are intercepted.
+import assert from 'node:assert/strict';
+import { chromium } from 'playwright';
+const base = process.env.SCOTTY_TEST_URL;
+assert.ok(base, 'Set SCOTTY_TEST_URL to an isolated demo server');
+const bead = (id, extra = {}) => ({id, title: `Keyboard ${id}`, status:'open', issue_type:'task', priority:2, labels:[], dependencies:[], created_at:'2026-09-01T00:00:00Z', updated_at:'2026-09-01T00:00:00Z', ...extra});
+const beads = [bead('ready-a',{dependencies:[{type:'related',depends_on_id:'ready-a'}]}), bead('ready-b'), bead('active', {status:'in_progress'}), bead('hidden', {labels:['archived']}), bead('epic', {issue_type:'epic'}), bead('epic-child',{dependencies:[{type:'parent-child',depends_on_id:'epic'}]})];
+const writes=[];
+const browser=await chromium.launch();
+let page;
+const errors=[];
+try {
+ const context=await browser.newContext({viewport:{width:1500,height:1000}});
+ page=await context.newPage(); page.setDefaultTimeout(8000);
+ page.on('pageerror',e=>errors.push(e.message));
+ await page.route('**/api/p/demo/**', async route=>{
+  const req=route.request(), path=new URL(req.url()).pathname;
+  if(req.method()!=='GET') {
+   const body=req.postDataJSON(); writes.push({path,method:req.method(),body});
+   const id=path.split('/')[5], target=beads.find(b=>b.id===id);
+   if(target && body) Object.assign(target,body);
+   return route.fulfill({json:target??{}});
+  }
+  if(path.endsWith('/beads/stream')) return route.abort();
+  if(path.endsWith('/beads')) return route.fulfill({json:{beads,meta:{kind:'demo',humanActor:'reviewer',humanAllowlist:['reviewer'],pollIntervalMs:300000}}});
+  return route.fulfill({json:beads.find(b=>path.endsWith(`/beads/${b.id}`))??{}});
+ });
+ const selected=()=>page.locator('[data-keyboard-bead-id][aria-current="true"]');
+ const item=id=>page.locator(`[data-keyboard-bead-id="${id}"]`).first();
+ const chord=async key=>{await page.keyboard.press('g');await page.keyboard.press(key);};
+ const close=async()=>{const dialog=page.getByRole('dialog');await dialog.getByTitle('Close',{exact:true}).click();await dialog.waitFor({state:'detached'});};
+ await page.goto(`${base}/p/demo`);
+ await item('ready-a').waitFor();
+ // Navigation must work even when a clicked sidebar button retains focus.
+ await page.getByRole('button',{name:'Board',exact:true}).click();
+ const ids=await page.locator('[data-keyboard-bead-id]').evaluateAll(es=>es.map(e=>e.dataset.keyboardBeadId));
+ assert.ok(!ids.includes('hidden'));
+ await page.keyboard.press('j');
+ await page.waitForFunction(id=>document.activeElement?.dataset.keyboardBeadId===id,ids[0]);
+ await page.keyboard.press('j');
+ assert.equal(await selected().first().getAttribute('data-keyboard-bead-id'),ids[1]);
+ await page.keyboard.press('k');
+ assert.equal(await selected().first().getAttribute('data-keyboard-bead-id'),ids[0]);
+ for(const key of ['n','e','c','s','p']) {await page.keyboard.press(key);assert.equal(await page.getByRole('dialog').count(),0,`read-only ${key} must not open an editor`);}
+ assert.equal(writes.length,0);
+ await item('ready-a').focus(); await page.keyboard.press('Enter');
+ await page.getByRole('dialog').getByRole('heading',{name:'Keyboard ready-a',exact:true}).waitFor();
+ assert.equal(new URL(page.url()).searchParams.get('bead'),'ready-a');
+ await close();
+ await chord('f'); await page.getByRole('heading',{name:'Focus',exact:true}).waitFor();
+ await page.keyboard.press('j');
+ assert.ok(await selected().count(),'Focus cards participate in keyboard selection');
+ await page.keyboard.press('o'); await page.getByRole('dialog').waitFor(); await close();
+ await chord('e'); await item('epic').waitFor(); await item('epic').focus();
+ if(await item('epic').getAttribute('aria-expanded')==='true') await page.keyboard.press('Space');
+ assert.equal(await page.locator('[data-keyboard-bead-id="epic-child"]').count(),0,'collapsed epic children are not keyboard candidates');
+ await page.keyboard.press('Space'); await item('epic-child').waitFor();
+ await item('epic').focus(); await page.keyboard.press('Space');
+ assert.equal(await page.locator('[data-keyboard-bead-id="epic-child"]').count(),0);
+ await chord('b');
+ await page.keyboard.press('/');
+ const search=page.locator('input[data-search]'); await search.fill('jkgf');
+ assert.equal(await search.inputValue(),'jkgf');
+ assert.equal(await page.getByRole('heading',{name:'Board',exact:true}).count(),1);
+ await search.fill(''); await search.press('Tab');
+ await page.getByRole('button',{name:'Status',exact:true}).click();
+ await page.getByRole('menu').waitFor();
+ await chord('f');
+ assert.equal(await page.getByRole('heading',{name:'Board',exact:true}).count(),1,'an open filter menu suppresses view shortcuts');
+ await page.keyboard.press('Escape');
+ await page.getByRole('menu').waitFor({state:'detached'});
+ await page.keyboard.press('?');
+ const help=page.getByRole('dialog',{name:/keyboard shortcuts/i});await help.waitFor();
+ await help.getByText('Focus',{exact:true}).waitFor(); await page.keyboard.press('Escape');await help.waitFor({state:'detached'});
+ await page.getByRole('button',{name:'Read Only Mode',exact:true}).click();
+ await chord('f');
+ assert.equal(await page.getByRole('heading',{name:'Board',exact:true,includeHidden:true}).count(),1,'viewer dialog suppresses view shortcuts');
+ await page.getByRole('button',{name:'Disable read-only mode',exact:true}).click();
+ await page.getByRole('button',{name:'Read Only Mode',exact:true}).waitFor({state:'detached'});
+ await page.getByRole('dialog').waitFor({state:'detached'});
+ // Editing shortcuts remain useful when explicitly unlocked.
+ await item('ready-a').focus(); await page.keyboard.press('o');
+ const draft=page.getByPlaceholder(/^Comment as/); await draft.fill('Keep this unsaved draft');
+ await page.getByRole('dialog').getByTitle('Open ready-a',{exact:true}).click();
+ assert.equal(await draft.inputValue(),'Keep this unsaved draft','same-bead navigation does not remount the drawer');
+ await context.request.put(`${base}/api/viewer-mode`,{data:{readOnly:true}});
+ await page.getByRole('button',{name:'Read Only Mode',exact:true}).waitFor();
+ assert.equal(await draft.inputValue(),'Keep this unsaved draft','enabling viewer mode must preserve a comment draft');
+ assert.equal(await draft.isDisabled(),true);
+ await context.request.put(`${base}/api/viewer-mode`,{data:{readOnly:false}});
+ await page.getByRole('button',{name:'Read Only Mode',exact:true}).waitFor({state:'detached'});
+ assert.equal(await draft.inputValue(),'Keep this unsaved draft');
+ await close();
+ await item('ready-a').focus(); await page.keyboard.press('e');
+ await page.getByPlaceholder('Title',{exact:true}).waitFor();
+ await close(); await item('ready-a').focus(); await page.keyboard.press('c');
+ await page.getByText('Close reason — optional',{exact:true}).waitFor(); await close();
+ await item('ready-a').focus(); await page.keyboard.press('s');
+ const statusWrite=page.waitForRequest(r=>r.method()==='POST'&&r.url().endsWith('/beads/ready-a/status'));
+ await page.getByRole('dialog').locator('[cmdk-item]').filter({hasText:/In progress/i}).click();
+ const statusRequest=await statusWrite;assert.equal(statusRequest.postDataJSON().status,'in_progress');
+ await page.getByRole('dialog').waitFor({state:'detached'});
+ await item('ready-a').focus(); await page.keyboard.press('p');
+ const priorityWrite=page.waitForRequest(r=>r.method()==='PATCH'&&r.url().endsWith('/beads/ready-a'));
+ await page.getByRole('dialog').locator('[cmdk-item]').filter({hasText:/P1/}).click();
+ assert.equal((await priorityWrite).postDataJSON().priority,1);
+ await page.getByRole('dialog').waitFor({state:'detached'});
+ await item('ready-a').focus(); await page.keyboard.press('n');
+ await page.getByRole('dialog').waitFor(); await page.keyboard.press('Escape');
+ assert.deepEqual(errors,[]);
+ console.log('PASS: keyboard selection, Focus navigation, input/menu/dialog suppression, read-only guards, and editable issue shortcuts');
+} catch(e){console.error({errors,url:page?.url(),body:page?(await page.locator('body').innerText()).slice(0,2500):''});throw e;}
+finally {await browser.close();}
