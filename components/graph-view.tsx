@@ -17,15 +17,24 @@ import { Icon, typeIconName } from "@/components/icons";
 import { useApp } from "@/components/app-context";
 import { useAddDep } from "@/hooks/use-beads";
 import { catColor, typeColor, childrenOf } from "@/lib/beads-view";
+import { graphNeighborhood } from "@/lib/graph-neighborhood";
 import type { Bead } from "@/lib/schema";
 
 type BeadNodeData = { bead: Bead; onOpen: (id: string) => void };
 
+const SpotlightContext = React.createContext<{ selected: string | null; active: Set<string> | null }>({ selected: null, active: null });
+
 function BeadNode({ data }: NodeProps) {
   const { bead, onOpen } = data as unknown as BeadNodeData;
   const { selectedBeadId, selectBead } = useApp();
+  const spotlight = React.useContext(SpotlightContext);
   return (
     <div
+      style={{
+        opacity: !spotlight.active || spotlight.active.has(bead.id) ? 1 : 0.2,
+        outline: spotlight.active && spotlight.selected === bead.id ? "2.5px solid var(--brand)" : undefined,
+        outlineOffset: 3,
+      }}
       role="button"
       tabIndex={0}
       data-keyboard-bead-id={bead.id}
@@ -139,6 +148,12 @@ function layout(beads: Bead[], onOpen: (id: string) => void, liveOnly: boolean):
 export function GraphView() {
   const { beads, openDetail, readOnly } = useApp();
   const [liveOnly, setLiveOnly] = React.useState(false);
+  const [spotlight, setSpotlight] = React.useState(false);
+  const [focusId, setFocusId] = React.useState<string | null>(null);
+  const activateNode = React.useCallback((id: string) => {
+    if (spotlight) setFocusId(id);
+    else openDetail(id);
+  }, [spotlight, openDetail]);
   const addDep = useAddDep();
   // Recenter/fit the graph on the current nodes (bead mpe).
   const rf = React.useRef<ReactFlowInstance | null>(null);
@@ -147,9 +162,21 @@ export function GraphView() {
   // Preserve the original archive exclusion; all other pruning is opt-in.
   const { nodes, edges, considered } = React.useMemo(() => {
     const shown = beads.filter((b) => !(b.labels ?? []).includes("archived"));
-    return { ...layout(shown, openDetail, liveOnly), considered: shown.length };
-  }, [beads, openDetail, liveOnly]);
+    return { ...layout(shown, activateNode, liveOnly), considered: shown.length };
+  }, [beads, activateNode, liveOnly]);
   const hidden = considered - nodes.length;
+  const focus = React.useMemo(() => {
+    if (!spotlight || !focusId || !nodes.some(n => n.id === focusId)) return null;
+    return graphNeighborhood(beads, new Set(nodes.map(n => n.id)), focusId);
+  }, [beads, nodes, spotlight, focusId]);
+  // Keep React Flow node objects stable while highlighting. Replacing raw
+  // nodes discards their measured dimensions and briefly hides click targets.
+  const spotlightContext = React.useMemo(() => ({ selected: focusId, active: focus?.all ?? null }), [focusId, focus]);
+  const shownEdges = React.useMemo(() => focus ? edges.map(e => {
+    const lit = focus.edgeIds.has(e.id) && focus.all.has(e.source) && focus.all.has(e.target);
+    return { ...e, style: { ...e.style, opacity: lit ? 1 : 0.12 }, animated: lit && e.animated };
+  }) : edges, [edges, focus]);
+
 
   const onConnect = React.useCallback(
     (c: Connection) => {
@@ -167,7 +194,7 @@ export function GraphView() {
         <div className="flex-1">
           <h1 className="m-0 text-base font-[650] tracking-[-.01em]">Dependency graph</h1>
           <span className="text-[11.5px] text-[var(--text-3)]">
-            {readOnly ? "Select a bead to view its details" : "Drag between node handles to add a dependency"}
+            {spotlight ? "Select a bead to highlight active blocking chains; double-click for details" : readOnly ? "Select a bead to view its details" : "Drag between node handles to add a dependency"}
             {" · "}{nodes.length} beads shown
             {hidden > 0 && (
               <>
@@ -180,10 +207,15 @@ export function GraphView() {
           </span>
         </div>
         <label className="flex cursor-pointer items-center gap-2 text-[12px] text-[var(--text-2)]">
+          <input type="checkbox" checked={spotlight} className="accent-[var(--brand)]"
+            onChange={e => { setSpotlight(e.target.checked); setFocusId(null); }} />
+          Spotlight dependencies
+        </label>
+        <label className="flex cursor-pointer items-center gap-2 text-[12px] text-[var(--text-2)]">
           <input
             type="checkbox"
             checked={liveOnly}
-            onChange={(e) => setLiveOnly(e.target.checked)}
+            onChange={(e) => { setLiveOnly(e.target.checked); setFocusId(null); }}
             className="accent-[var(--brand)]"
           />
           Live dependencies only
@@ -196,12 +228,28 @@ export function GraphView() {
           <Icon name="target" size={15} />
           <span>Center</span>
         </button>
+        {spotlight && (
+          <div className="flex h-9 basis-full items-center">
+            {focus && focusId ? (
+              <button onClick={() => setFocusId(null)} title="Clear the dependency spotlight"
+                className="flex h-9 items-center gap-2 rounded-[9px] bg-[var(--brand-weak)] px-3 text-[12px] text-[var(--brand)]">
+                <span className="font-mono">{focusId}</span>
+                <span>{focus.up} upstream · {focus.down} downstream</span>
+                <Icon name="x" size={13} />
+              </button>
+            ) : <span className="text-[12px] text-[var(--text-3)]">Choose a bead to highlight its blocking chains.</span>}
+          </div>
+        )}
       </header>
       <div className="relative min-h-0 flex-1">
+        <SpotlightContext.Provider value={spotlightContext}>
         <ReactFlow
           key={liveOnly ? "live" : "all"}
           nodes={nodes}
-          edges={edges}
+          edges={shownEdges}
+          zoomOnDoubleClick={!spotlight}
+          onPaneClick={() => setFocusId(null)}
+          onNodeDoubleClick={(_, node) => { if (spotlight) openDetail(node.id); }}
           nodeTypes={nodeTypes}
           nodesConnectable={!readOnly}
           onConnect={onConnect}
@@ -216,6 +264,7 @@ export function GraphView() {
           <Background gap={22} color="var(--border)" />
           <Controls fitViewOptions={{ padding: 0.2, minZoom: 0.02 }} />
         </ReactFlow>
+        </SpotlightContext.Provider>
         {nodes.length === 0 && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
             <div className="pointer-events-auto max-w-[360px] rounded-[12px] border border-border bg-[var(--surface)] p-[16px_18px] text-center shadow-[var(--shadow)]">
