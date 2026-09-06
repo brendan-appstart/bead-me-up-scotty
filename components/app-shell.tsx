@@ -23,6 +23,8 @@ import { BeadDetailDrawer } from "@/components/bead-detail-drawer";
 import { CreateBeadModal } from "@/components/create-bead-modal";
 import { CommandPalette } from "@/components/command-palette";
 import { NotificationWatcher } from "@/components/notification-watcher";
+import { ReadOnlyBanner } from "@/components/read-only-banner";
+import { useViewerMode } from "@/hooks/use-viewer-mode";
 
 export function AppShell({ projectId }: { projectId: string }) {
   const [view, setView] = useLastView(projectId);
@@ -72,7 +74,8 @@ export function AppShell({ projectId }: { projectId: string }) {
   }, [index]);
   // Viewer mode: every create entry point (board/list buttons, drawer subtask,
   // palette, the `n` key) funnels through openCreate, so one guard covers all.
-  const readOnly = data?.meta?.readOnly ?? false;
+  const viewerMode = useViewerMode();
+  const readOnly = viewerMode.data?.readOnly ?? true;
   // Options object rather than positional args so future presets (assignee,
   // priority) can be added without churning every call site again.
   const openCreate = React.useCallback(
@@ -99,6 +102,7 @@ export function AppShell({ projectId }: { projectId: string }) {
   // keyboard: Cmd/Ctrl+K = command palette, n = new, / = focus search, t = toggle theme, Esc = close overlays
   React.useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement)?.closest("[data-viewer-dialog]")) return;
       const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
       const typing = tag === "input" || tag === "textarea" || tag === "select";
       // Cmd/Ctrl+K toggles the palette — works even while typing in a field.
@@ -149,7 +153,9 @@ export function AppShell({ projectId }: { projectId: string }) {
         openEpic,
       }}
     >
-      <div className="flex h-full overflow-hidden bg-background text-foreground text-sm">
+      <div className="flex h-full flex-col overflow-hidden bg-background text-foreground text-sm">
+        <ReadOnlyBanner />
+        <div className="flex min-h-0 flex-1 overflow-hidden">
         <Sidebar
           view={view}
           onView={setView}
@@ -194,10 +200,11 @@ export function AppShell({ projectId }: { projectId: string }) {
             onClose={closeDetail}
           />
         </main>
+        </div>
       </div>
 
       <CreateBeadModal
-        open={create.open}
+        open={create.open && !readOnly}
         parent={create.parent}
         type={create.type}
         onOpenChange={(o) => setCreate((c) => ({ ...c, open: o }))}

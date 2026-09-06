@@ -9,6 +9,7 @@ import { useApp } from "@/components/app-context";
 import { api, type DoctorResponse } from "@/lib/api-client";
 import { useNotificationPrefs, type NotifPrefs } from "@/hooks/use-notifications";
 import { useBoardPrefs } from "@/hooks/use-board-prefs";
+import { ViewerModeSetting } from "@/components/read-only-banner";
 
 const inputClass =
   "h-[38px] rounded-[9px] border border-border bg-[var(--surface-2)] px-3 text-[12.5px] text-[var(--text)] outline-none focus:border-[var(--brand)]";
@@ -31,6 +32,7 @@ export function SettingsView() {
         </span>
       </header>
       <div className="bd-scroll min-h-0 flex-1 overflow-y-auto p-[24px_22px]">
+        <div className="mx-auto max-w-[620px]"><ViewerModeSetting /></div>
         {data ? (
           <SettingsForm key={key} data={data} />
         ) : (

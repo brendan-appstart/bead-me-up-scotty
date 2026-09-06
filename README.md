@@ -106,6 +106,24 @@ npm run dev            # http://localhost:3000
 Set the human actor / allowlist, repo path, and theme in **Settings** (stored
 under your OS config dir, not in beads).
 
+### Read-only viewing
+
+Enable **Read-only mode** in Settings to monitor progress without editing beads.
+The slim **Read Only Mode** banner stays above the project workspace. Click it
+to keep or disable the mode, choose a small or large banner, or pick its background
+and text colors. Appearance changes are saved automatically in this browser.
+
+The mode applies to the current browser session, including its other tabs. A
+session cookie preserves it through reloads; browser session restoration may
+also restore that cookie. Other browser sessions are unaffected. Settings lets
+you enable it again after dismissing the banner.
+
+Set `SCOTTY_READ_ONLY=1` (or `true`) when launching Scotty to make read-only the
+default for new browser sessions. A browser can explicitly override that default
+from the banner. This is a local viewing preference, not a permissions system.
+Project write requests are rejected by the server while the requesting browser
+is read-only; application settings remain available.
+
 ### Docker
 
 ```bash

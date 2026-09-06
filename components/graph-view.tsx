@@ -45,12 +45,9 @@ function BeadNode({ data }: NodeProps) {
 
 const nodeTypes = { bead: BeadNode };
 
-function layout(beads: Bead[], onOpen: (id: string) => void): { nodes: Node[]; edges: Edge[] } {
-  // On a real project the unpruned graph drowns itself: closed and link-less
-  // beads stack into one column tens of thousands of px tall, and fitView
-  // zooms the whole canvas to sub-pixel scale — it *looks* empty. Show only
-  // the live dependency structure: open beads that are epics, epic children,
-  // or participants in at least one link.
+function layout(beads: Bead[], onOpen: (id: string) => void, liveOnly: boolean): { nodes: Node[]; edges: Edge[] } {
+  // Live structure is an optional view, never the only way to access the graph:
+  // unlinked beads must remain available for creating their first dependency.
   const active = beads.filter((b) => b.status !== "closed");
   const activeIds = new Set(active.map((b) => b.id));
   const linked = new Set<string>();
@@ -63,12 +60,12 @@ function layout(beads: Bead[], onOpen: (id: string) => void): { nodes: Node[]; e
       }
     }
   }
-  const visible = active.filter(
+  const visible = liveOnly ? active.filter(
     (b) =>
       b.issue_type === "epic" ||
       linked.has(b.id) ||
       (b.dependencies ?? []).some((d) => d.type === "parent-child" && activeIds.has(d.depends_on_id)),
-  );
+  ) : beads;
   const present = new Set(visible.map((b) => b.id));
   const epics = visible.filter((b) => b.issue_type === "epic");
 
@@ -128,19 +125,17 @@ function layout(beads: Bead[], onOpen: (id: string) => void): { nodes: Node[]; e
 
 export function GraphView() {
   const { beads, openDetail, readOnly } = useApp();
+  const [liveOnly, setLiveOnly] = React.useState(false);
   const addDep = useAddDep();
   // Recenter/fit the graph on the current nodes (bead mpe).
   const rf = React.useRef<ReactFlowInstance | null>(null);
   const center = React.useCallback(() => rf.current?.fitView({ padding: 0.2, duration: 400 }), []);
 
-  // Pruning is what keeps a large project legible, but it also means the canvas
-  // can be far smaller than the backlog — on a mostly-finished project it can be
-  // empty. Silence there reads as "the graph is broken", which is the very
-  // complaint the pruning was added to fix, so always say what was left out.
+  // Preserve the original archive exclusion; all other pruning is opt-in.
   const { nodes, edges, considered } = React.useMemo(() => {
     const shown = beads.filter((b) => !(b.labels ?? []).includes("archived"));
-    return { ...layout(shown, openDetail), considered: shown.length };
-  }, [beads, openDetail]);
+    return { ...layout(shown, openDetail, liveOnly), considered: shown.length };
+  }, [beads, openDetail, liveOnly]);
   const hidden = considered - nodes.length;
 
   const onConnect = React.useCallback(
@@ -155,22 +150,31 @@ export function GraphView() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="flex flex-shrink-0 items-center gap-3 border-b border-border bg-[var(--surface)] p-[14px_22px]">
+      <header className="flex flex-shrink-0 flex-wrap items-center gap-3 border-b border-border bg-[var(--surface)] p-[14px_22px]">
         <div className="flex-1">
           <h1 className="m-0 text-base font-[650] tracking-[-.01em]">Dependency graph</h1>
           <span className="text-[11.5px] text-[var(--text-3)]">
-            <span className="font-mono">bd dep tree</span> · drag a node handle onto another to link
-            (cycle-checked by bd)
+            {readOnly ? "Select a bead to view its details" : "Drag between node handles to add a dependency"}
+            {" · "}{nodes.length} beads shown
             {hidden > 0 && (
               <>
                 {" · "}
-                <span title="A dependency graph only shows live structure: closed beads, and open beads with no epic and no links, are left out.">
-                  {nodes.length} of {considered} shown, {hidden} hidden
+                <span title="Turn off Live dependencies only to include closed and unlinked beads.">
+                  {hidden} hidden by filter
                 </span>
               </>
             )}
           </span>
         </div>
+        <label className="flex cursor-pointer items-center gap-2 text-[12px] text-[var(--text-2)]">
+          <input
+            type="checkbox"
+            checked={liveOnly}
+            onChange={(e) => setLiveOnly(e.target.checked)}
+            className="accent-[var(--brand)]"
+          />
+          Live dependencies only
+        </label>
         <button
           onClick={center}
           title="Center the graph on all issues"
@@ -182,6 +186,7 @@ export function GraphView() {
       </header>
       <div className="relative min-h-0 flex-1">
         <ReactFlow
+          key={liveOnly ? "live" : "all"}
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
@@ -198,13 +203,23 @@ export function GraphView() {
         </ReactFlow>
         {nodes.length === 0 && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
-            <div className="max-w-[360px] rounded-[12px] border border-border bg-[var(--surface)] p-[16px_18px] text-center shadow-[var(--shadow)]">
-              <div className="text-[13px] font-[650] text-[var(--text)]">No live dependencies</div>
+            <div className="pointer-events-auto max-w-[360px] rounded-[12px] border border-border bg-[var(--surface)] p-[16px_18px] text-center shadow-[var(--shadow)]">
+              <div className="text-[13px] font-[650] text-[var(--text)]">
+                {liveOnly && considered > 0 ? "No live dependencies" : "No beads to show"}
+              </div>
               <p className="m-0 mt-[6px] text-[12px] leading-[1.5] text-[var(--text-2)]">
                 {considered === 0
-                  ? "This project has no beads yet."
-                  : `All ${considered} beads are closed, or have no epic and no links. The graph shows live structure only — open work in an epic, or joined by a dependency.`}
+                  ? "There are no non-archived beads in this project."
+                  : "The current filter hides all beads. Show all beads to inspect completed work or create new dependencies."}
               </p>
+              {liveOnly && considered > 0 && (
+                <button
+                  onClick={() => setLiveOnly(false)}
+                  className="mt-3 rounded-lg border border-border px-3 py-1.5 text-[12px] hover:bg-[var(--surface-2)]"
+                >
+                  Show all beads
+                </button>
+              )}
             </div>
           </div>
         )}

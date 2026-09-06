@@ -15,7 +15,7 @@ const TEMPLATES = [
 const cardBase = "rounded-[12px] border bg-[var(--surface)] p-[14px_16px] text-left transition-colors";
 
 export function PublishView() {
-  const { projectId, beads, meta } = useApp();
+  const { projectId, beads, meta, readOnly } = useApp();
   const [template, setTemplate] = React.useState<(typeof TEMPLATES)[number]["id"]>("manager");
   const [title, setTitle] = React.useState("Look at my productivity 😄");
   const [scope, setScope] = React.useState<"project" | "all">("project");
@@ -158,7 +158,7 @@ export function PublishView() {
           <div className="flex justify-end">
             <button
               onClick={() => build.mutate()}
-              disabled={build.isPending}
+              disabled={readOnly || build.isPending}
               className="flex h-[38px] items-center gap-[7px] rounded-[9px] px-4 text-[13px] font-semibold text-white disabled:opacity-50"
               style={{ background: "var(--brand)", boxShadow: "0 2px 8px -2px var(--brand)" }}
             >
@@ -178,14 +178,14 @@ export function PublishView() {
               <div className="flex gap-2">
                 <button
                   onClick={() => open.mutate()}
-                  disabled={open.isPending}
+                  disabled={readOnly || open.isPending}
                   className="flex h-9 items-center gap-[6px] rounded-[9px] border border-border bg-[var(--surface-2)] px-3 text-[12.5px] font-[550] hover:bg-[var(--surface-3)] disabled:opacity-50"
                 >
                   <Icon name="board" size={14} /> Open preview
                 </button>
                 <button
                   onClick={() => deploy.mutate()}
-                  disabled={deploy.isPending}
+                  disabled={readOnly || deploy.isPending}
                   className="flex h-9 items-center gap-[6px] rounded-[9px] px-3 text-[12.5px] font-[550] text-white disabled:opacity-50"
                   style={{ background: "var(--brand)" }}
                 >

@@ -56,12 +56,20 @@ export class ConfigError extends Error {
 }
 
 /**
- * Viewer mode: SCOTTY_READ_ONLY=1 (or "true") makes the app a pure read-only
- * pane over the beads store — every project-data mutation is refused
- * server-side (see middleware.ts) and the write affordances are hidden in the
- * UI. Useful when bd CLI owns all writes and the board must not diverge.
+ * SCOTTY_READ_ONLY=1 (or "true") supplies the default for new browser sessions.
+ * The session cookie overrides that default when the user changes the mode.
+ * In the effective read-only mode, project writes are refused server-side and
+ * editing controls are disabled. App settings remain available.
  */
-export function isReadOnly(): boolean {
+export const VIEWER_MODE_COOKIE = "scotty-viewer-mode";
+
+export function isReadOnly(request?: Request): boolean {
+  // This is a browser preference, not an authorization boundary. A session
+  // cookie lets one browser override the launch default without affecting others.
+  const cookie = request?.headers.get("cookie")?.split(";").map((v) => v.trim())
+    .find((v) => v.startsWith(`${VIEWER_MODE_COOKIE}=`))?.slice(VIEWER_MODE_COOKIE.length + 1);
+  if (cookie === "read-only") return true;
+  if (cookie === "editing") return false;
   const v = process.env.SCOTTY_READ_ONLY;
   return v === "1" || v === "true";
 }

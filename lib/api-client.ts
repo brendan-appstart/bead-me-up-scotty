@@ -153,6 +153,10 @@ const enc = encodeURIComponent;
 const base = (projectId: string) => `/api/p/${enc(projectId)}`;
 
 export const api = {
+  viewerMode: () => request<{ readOnly: boolean }>("/api/viewer-mode", { cache: "no-store" }),
+  setViewerMode: (readOnly: boolean) => request<{ readOnly: boolean }>("/api/viewer-mode", {
+    method: "PUT", body: JSON.stringify({ readOnly }),
+  }),
   list: (projectId: string) => request<BeadsResponse>(`${base(projectId)}/beads`),
   get: (projectId: string, id: string) => request<Bead>(`${base(projectId)}/beads/${enc(id)}`),
   create: (projectId: string, input: CreateInput) =>

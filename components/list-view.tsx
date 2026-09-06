@@ -249,8 +249,10 @@ function Row({
   childCount: number;
   humanAllowlist: string[];
 }) {
+  const { readOnly } = useApp();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: bead.id,
+    disabled: readOnly,
   });
   const o = beadOrigin(bead, humanAllowlist);
   const labels = (bead.labels ?? []).filter((l) => l !== "archived").slice(0, 2);
@@ -265,7 +267,7 @@ function Row({
     <div
       ref={setNodeRef}
       {...listeners}
-      {...attributes}
+      {...(readOnly ? {} : attributes)}
       role="button"
       tabIndex={0}
       onClick={onOpen}

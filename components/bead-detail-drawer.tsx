@@ -296,7 +296,7 @@ function DrawerBody({
         </IconBtn>
       </div>
 
-      <div className="p-5">
+      <div className="p-5 [&_button:disabled]:cursor-not-allowed [&_button:disabled]:opacity-50 [&_select:disabled]:opacity-60 [&_textarea:disabled]:opacity-60 [&_input:disabled]:opacity-60">
         <div className="mb-[10px] flex items-center gap-2">
           <span className="inline-flex items-center gap-[6px] rounded-[7px] border border-border bg-[var(--surface-2)] px-[9px] py-[3px] text-[12px] text-[var(--text-2)]">
             <Icon name={typeIconName(bead.issue_type)} size={13} style={{ color: typeColor(bead.issue_type) }} />
@@ -312,7 +312,7 @@ function DrawerBody({
               Human approval gate. Approving closes it and unblocks everything waiting on it.
             </span>
             <button
-              disabled={setStatus.isPending}
+              disabled={readOnly || setStatus.isPending}
               onClick={() => setStatus.mutate({ id: bead.id, status: "closed" })}
               className="flex h-8 flex-shrink-0 items-center gap-[6px] rounded-lg px-3 text-[12.5px] font-[550] text-white disabled:opacity-50"
               style={{ background: "var(--brand)" }}
@@ -322,7 +322,7 @@ function DrawerBody({
           </div>
         )}
 
-        {editing ? (
+        {editing && !readOnly ? (
           <>
             <SheetTitle className="sr-only">Edit {bead.id}</SheetTitle>
             <input
@@ -342,8 +342,9 @@ function DrawerBody({
           <label className="flex flex-col gap-[5px]">
             <span className={fieldLabel}>Status</span>
             <select
+              disabled={readOnly}
               className={selectClass}
-              value={closing ? "closed" : bead.status}
+              value={closing && !readOnly ? "closed" : bead.status}
               onChange={(e) => {
                 const next = e.target.value;
                 if (next === "closed" && bead.status !== "closed") startClosing();
@@ -363,6 +364,7 @@ function DrawerBody({
           <label className="flex flex-col gap-[5px]">
             <span className={fieldLabel}>Priority</span>
             <select
+              disabled={readOnly}
               className={selectClass}
               value={String(bead.priority)}
               onChange={(e) =>
@@ -432,7 +434,7 @@ function DrawerBody({
         />
 
 
-        {closing && (
+        {closing && !readOnly && (
           <div className="mb-4 rounded-[10px] border border-border bg-[var(--surface-2)] p-[11px_13px]">
             <div className={`${fieldLabel} mb-[7px]`}>Close reason — optional</div>
             <textarea
@@ -450,7 +452,7 @@ function DrawerBody({
             <div className="mt-[9px] flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                disabled={setStatus.isPending}
+                disabled={readOnly || setStatus.isPending}
                 onClick={confirmClose}
                 className="flex h-8 items-center gap-[6px] rounded-lg px-3 text-[12.5px] font-[550] text-white disabled:opacity-50"
                 style={{ background: "var(--brand)" }}
@@ -460,7 +462,7 @@ function DrawerBody({
               </button>
               <button
                 type="button"
-                disabled={setStatus.isPending}
+                disabled={readOnly || setStatus.isPending}
                 onClick={cancelClosing}
                 className="h-8 rounded-lg border border-border px-3 text-[12.5px] text-[var(--text-2)] hover:bg-[var(--surface-3)] disabled:opacity-50"
               >
@@ -481,12 +483,12 @@ function DrawerBody({
                 {progress.done}/{progress.total} done
               </span>
             )}
-            {editing && !isDemo && !previewEdit && (
+            {editing && !readOnly && !isDemo && !previewEdit && (
               <span className="font-normal normal-case tracking-normal text-[var(--text-3)]">
                 · drop or paste images
               </span>
             )}
-            {editing && (
+            {editing && !readOnly && (
               <button
                 onClick={() => setPreviewEdit((p) => !p)}
                 className="ml-auto rounded-md border border-border bg-[var(--surface-2)] px-[8px] py-[2px] text-[11px] font-normal normal-case tracking-normal text-[var(--text-2)] hover:bg-[var(--surface-3)]"
@@ -495,7 +497,7 @@ function DrawerBody({
               </button>
             )}
           </div>
-          {editing ? (
+          {editing && !readOnly ? (
             <>
               {previewEdit ? (
                 <DescriptionContent
@@ -586,7 +588,7 @@ function DrawerBody({
             <DescriptionContent
               text={bead.description}
               projectId={projectId}
-              onToggleTask={(idx) =>
+              onToggleTask={readOnly ? undefined : (idx) =>
                 update.mutate({
                   id: bead.id,
                   patch: { description: toggleTask(bead.description ?? "", idx) },
@@ -638,6 +640,7 @@ function DrawerBody({
                   />
                   <button
                     title="remove"
+                    disabled={readOnly}
                     onClick={() => removeDep.mutate({ id: bead.id, dependsOnId: d.depends_on_id })}
                     className="flex h-[22px] w-[22px] items-center justify-center rounded-md text-[var(--text-3)] hover:bg-[#ef444415] hover:text-[#ef4444]"
                   >
@@ -655,6 +658,7 @@ function DrawerBody({
             {addingDep ? (
               <div className="flex items-center gap-[7px] rounded-[9px] border border-border bg-[var(--surface)] p-[9px_11px]">
                 <select
+              disabled={readOnly}
                   className={`${selectClass} h-8 flex-1`}
                   value={depTarget}
                   onChange={(e) => setDepTarget(e.target.value)}
@@ -667,6 +671,7 @@ function DrawerBody({
                   ))}
                 </select>
                 <select
+              disabled={readOnly}
                   className={`${selectClass} h-8`}
                   value={depType}
                   onChange={(e) => setDepType(e.target.value as DepType)}
@@ -678,7 +683,7 @@ function DrawerBody({
                   <option value="related">related</option>
                 </select>
                 <button
-                  disabled={!depTarget}
+                  disabled={readOnly || !depTarget}
                   onClick={() => {
                     addDep.mutate({ id: bead.id, dependsOnId: depTarget, type: depType });
                     setAddingDep(false);
@@ -692,6 +697,7 @@ function DrawerBody({
               </div>
             ) : (
               <button
+                disabled={readOnly}
                 onClick={() => setAddingDep(true)}
                 className="flex items-center gap-[7px] rounded-[9px] border border-dashed border-[var(--border-strong)] p-[8px_11px] text-[12.5px] font-medium text-[var(--text-2)] hover:border-[var(--brand)] hover:text-[var(--brand)]"
               >
@@ -703,7 +709,7 @@ function DrawerBody({
             {/* Require a human approval gate before this bead can proceed
                 (bd gate create --type human --blocks <this>). Resolved from the
                 gate's own drawer or the Needs You inbox. */}
-            {!gateBead && bead.status !== "closed" &&
+            {!readOnly && !gateBead && bead.status !== "closed" &&
               (addingGate ? (
                 <div className="flex items-center gap-[7px] rounded-[9px] border border-border bg-[var(--surface)] p-[9px_11px]">
                   <input
@@ -814,6 +820,7 @@ function DrawerBody({
                 <button
                   title={`Detach ${k.id} from this bead`}
                   aria-label={`Detach ${k.id}`}
+                  disabled={readOnly}
                   onClick={(ev) => {
                     ev.stopPropagation();
                     update.mutate({ id: k.id, patch: { parent: "" } });
@@ -930,15 +937,18 @@ function DrawerBody({
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 placeholder={`Comment as ${actor}…`}
+                disabled={readOnly}
                 rows={2}
                 className="w-full resize-y rounded-[10px] border border-border bg-[var(--surface-2)] p-[9px_11px] text-[13px] leading-[1.5] text-[var(--text)] outline-none"
               />
               <div className="flex justify-end">
                 <button
-                  disabled={!draft.trim()}
+                  disabled={readOnly || !draft.trim() || addComment.isPending}
                   onClick={() => {
-                    addComment.mutate({ id: bead.id, text: draft.trim() });
-                    setDraft("");
+                    const submitted = draft;
+                    addComment.mutate({ id: bead.id, text: submitted.trim() }, {
+                      onSuccess: () => setDraft((current) => current === submitted ? "" : current),
+                    });
                   }}
                   className="h-8 rounded-lg px-[14px] text-[12.5px] font-[550] text-white disabled:opacity-50"
                   style={{ background: "var(--brand)" }}
@@ -986,6 +996,7 @@ function LabelsField({
   suggestions: string[];
   onChange: (labels: string[]) => void;
 }) {
+  const { readOnly } = useApp();
   const [draft, setDraft] = React.useState("");
   const listId = `labels-${bead.id}`;
   const all = bead.labels ?? [];
@@ -994,9 +1005,10 @@ function LabelsField({
 
   // Re-attach `archived` to whatever the user ended up with before sending.
   const commitVisible = (next: string[]) =>
-    onChange(isArchived ? [...next, ARCHIVED_LABEL] : next);
+    !readOnly && onChange(isArchived ? [...next, ARCHIVED_LABEL] : next);
 
   const add = () => {
+    if (readOnly) return;
     const v = draft.trim().replace(/,+$/, "").trim();
     setDraft("");
     // Ignore empties, duplicates, and any attempt to hand-type the archive flag.
@@ -1005,7 +1017,7 @@ function LabelsField({
   };
 
   return (
-    <div className="mb-4 flex flex-col gap-[5px]">
+    <fieldset disabled={readOnly} className="mb-4 flex min-w-0 flex-col gap-[5px]">
       <span className={fieldLabel}>Labels</span>
       <div className="flex flex-wrap items-center gap-[6px] rounded-[9px] border border-border bg-[var(--surface-2)] p-[7px_9px]">
         {visible.map((l) => (
@@ -1072,7 +1084,7 @@ function LabelsField({
             ))}
         </datalist>
       </div>
-    </div>
+    </fieldset>
   );
 }
 

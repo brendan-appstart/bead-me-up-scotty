@@ -22,9 +22,10 @@ import {
 } from "@/lib/beads-view";
 
 export function BeadCard({ bead, childCount = 0 }: { bead: Bead; childCount?: number }) {
-  const { index, humanAllowlist, openDetail } = useApp();
+  const { index, humanAllowlist, openDetail, readOnly } = useApp();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: bead.id,
+    disabled: readOnly,
   });
 
   const o = beadOrigin(bead, humanAllowlist);
@@ -39,7 +40,11 @@ export function BeadCard({ bead, childCount = 0 }: { bead: Bead; childCount?: nu
     <article
       ref={setNodeRef}
       {...listeners}
-      {...attributes}
+      {...(readOnly ? { role: "button", tabIndex: 0 } : attributes)}
+      {...(readOnly ? { onKeyDown: (e: React.KeyboardEvent<HTMLElement>) => {
+        if (e.target !== e.currentTarget) return;
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openDetail(bead.id); }
+      } } : {})}
       onClick={() => openDetail(bead.id)}
       style={{
         transform: CSS.Transform.toString(transform),

@@ -44,7 +44,7 @@ function LabelChips({ labels, max }: { labels: string[]; max: number }) {
 }
 
 export function EpicsView({ focusEpic }: { focusEpic?: { id: string; nonce: number } | null }) {
-  const { beads, humanAllowlist, openCreate, openDetail } = useApp();
+  const { beads, humanAllowlist, openCreate, openDetail, readOnly } = useApp();
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
   const [hideClosed, setHideClosed] = React.useState(true);
   // Explicitly ordered: open before closed, then priority ascending, then id
@@ -98,6 +98,7 @@ export function EpicsView({ focusEpic }: { focusEpic?: { id: string; nonce: numb
           <span>Hide closed</span>
         </button>
         <button
+          disabled={readOnly}
           onClick={() => openCreate({ type: "epic" })}
           className="flex h-9 items-center gap-[6px] rounded-[9px] px-[14px] text-[13px] font-[550] text-white"
           style={{ background: "var(--brand)" }}
@@ -268,7 +269,8 @@ export function EpicsView({ focusEpic }: { focusEpic?: { id: string; nonce: numb
                       );
                     })}
                     <button
-                      onClick={() => openCreate({ parent: e.id })}
+                      disabled={readOnly}
+          onClick={() => openCreate({ parent: e.id })}
                       className="m-[2px] flex w-[calc(100%-4px)] items-center gap-[7px] rounded-[9px] p-[9px_12px] text-[12.5px] font-[550] text-[var(--brand)] hover:bg-[var(--surface)]"
                     >
                       <Icon name="plus" size={14} />

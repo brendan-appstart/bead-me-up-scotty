@@ -70,7 +70,7 @@ export function NeedsYouView() {
  * resolves it and unblocks every bead depending on it.
  */
 function GateCard({ gate }: { gate: Bead }) {
-  const { beads, openDetail } = useApp();
+  const { beads, openDetail, readOnly } = useApp();
   const setStatus = useSetStatus();
   const blocks = React.useMemo(() => gateBlocks(gate.id, beads), [gate.id, beads]);
   const busy = setStatus.isPending;
@@ -123,7 +123,7 @@ function GateCard({ gate }: { gate: Bead }) {
       )}
       <div className="flex items-center justify-end gap-2">
         <button
-          disabled={busy}
+          disabled={readOnly || busy}
           onClick={() => setStatus.mutate({ id: gate.id, status: "closed" })}
           className="flex h-8 items-center gap-[6px] rounded-lg px-3 text-[12.5px] font-[550] text-white disabled:opacity-50"
           style={{ background: "var(--brand)" }}
@@ -136,7 +136,7 @@ function GateCard({ gate }: { gate: Bead }) {
 }
 
 function NeedsYouCard({ bead }: { bead: Bead }) {
-  const { humanAllowlist, openDetail } = useApp();
+  const { humanAllowlist, openDetail, readOnly } = useApp();
   const respond = useRespondHuman();
   const dismiss = useDismissHuman();
   const [text, setText] = React.useState("");
@@ -171,6 +171,7 @@ function NeedsYouCard({ bead }: { bead: Bead }) {
         </p>
       )}
       <textarea
+        disabled={readOnly}
         value={text}
         onChange={(e) => setText(e.target.value)}
         rows={2}
@@ -179,14 +180,14 @@ function NeedsYouCard({ bead }: { bead: Bead }) {
       />
       <div className="flex items-center justify-end gap-2">
         <button
-          disabled={busy}
+          disabled={readOnly || busy}
           onClick={() => dismiss.mutate({ id: bead.id })}
           className="h-8 rounded-lg border border-border bg-[var(--surface-2)] px-3 text-[12.5px] font-[550] text-[var(--text-2)] hover:bg-[var(--surface-3)] disabled:opacity-50"
         >
           Dismiss
         </button>
         <button
-          disabled={busy || !text.trim()}
+          disabled={readOnly || busy || !text.trim()}
           onClick={() => respond.mutate({ id: bead.id, text: text.trim() })}
           className="flex h-8 items-center gap-[6px] rounded-lg px-3 text-[12.5px] font-[550] text-white disabled:opacity-50"
           style={{ background: "var(--brand)" }}

@@ -9,11 +9,9 @@ import { isReadOnly } from "@/lib/config";
  * App-level endpoints (/api/config, /api/projects, /api/update) stay available:
  * they manage this app, not the beads data.
  *
- * The UI also hides its write affordances (via meta.readOnly), but this is the
- * authoritative guard — the UI gating is deliberately partial (the drawer's
- * status/priority/label/dependency controls stay mounted, as do the command
- * palette and Needs-You actions), so anything that slips through lands here and
- * surfaces as the existing `read_only` error toast.
+ * The launch flag supplies the default; a session cookie can override it for
+ * one browser. This is a local viewing preference, not access control.
+ * UI editors honor the same effective mode.
  *
  * `proxy`, not `middleware`: Next 16 deprecated the `middleware` file
  * convention in favour of `proxy` and warns on every build. The rename also
@@ -24,9 +22,9 @@ import { isReadOnly } from "@/lib/config";
  * build time would have failed open while the UI still claimed read-only.
  */
 export function proxy(req: NextRequest) {
-  if (isReadOnly() && req.method !== "GET" && req.method !== "HEAD" && req.method !== "OPTIONS") {
+  if (isReadOnly(req) && req.method !== "GET" && req.method !== "HEAD" && req.method !== "OPTIONS") {
     return NextResponse.json(
-      { error: "read-only mode (SCOTTY_READ_ONLY): writes go through the bd CLI", code: "read_only" },
+      { error: "Read Only Mode is enabled. Use the top banner to enable editing for this browser session.", code: "read_only" },
       { status: 403 },
     );
   }

@@ -68,7 +68,7 @@ export function CommandPalette({
 }
 
 function PaletteBody({ onView, close }: { onView: (v: View) => void; close: () => void }) {
-  const { beads, index, openDetail, openCreate, projectId } = useApp();
+  const { beads, index, openDetail, openCreate, projectId, readOnly } = useApp();
   const router = useRouter();
   const { mode, setTheme, toggle } = useTheme();
   const setStatus = useSetStatus();
@@ -153,9 +153,9 @@ function PaletteBody({ onView, close }: { onView: (v: View) => void; close: () =
         {page === "root" && (
           <>
             <Command.Group heading="Actions">
-              <Item icon="plus" value="create bead new" onSelect={() => run(() => openCreate())}>
+              {!readOnly && <Item icon="plus" value="create bead new" onSelect={() => run(() => openCreate())}>
                 Create bead…
-              </Item>
+              </Item>}
               <Item
                 icon={mode === "dark" ? "sun" : "moon"}
                 value="toggle theme dark light"
@@ -208,6 +208,7 @@ function PaletteBody({ onView, close }: { onView: (v: View) => void; close: () =
             >
               Open details
             </Item>
+            {!readOnly && <>
             <Item
               icon="user"
               value="claim in progress"
@@ -228,10 +229,11 @@ function PaletteBody({ onView, close }: { onView: (v: View) => void; close: () =
             <Item icon="chevron" value="set priority" onSelect={() => { setSearch(""); setPage("priority"); }}>
               Set priority…
             </Item>
+            </>}
           </Command.Group>
         )}
 
-        {page === "status" && activeBead && (
+        {!readOnly && page === "status" && activeBead && (
           <Command.Group heading="Set status">
             {BEAD_STATUSES.map((s) => (
               <Item
@@ -246,7 +248,7 @@ function PaletteBody({ onView, close }: { onView: (v: View) => void; close: () =
           </Command.Group>
         )}
 
-        {page === "priority" && activeBead && (
+        {!readOnly && page === "priority" && activeBead && (
           <Command.Group heading="Set priority">
             {[0, 1, 2, 3, 4].map((p) => (
               <Item
