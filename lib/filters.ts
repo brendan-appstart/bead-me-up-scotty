@@ -27,10 +27,10 @@ export const emptyFilters: Filters = {
 };
 
 /**
- * Sentinel facet value for beads with no assignee, so "Unassigned" is
- * selectable alongside real assignees in the same multi-select.
+ * Blank facet value for beads with no assignee. A real username must never
+ * collide with the Unassigned option.
  */
-export const UNASSIGNED = "__unassigned__";
+export const UNASSIGNED = "";
 
 /** A bead's assignee normalized to a facet value (empty/blank → UNASSIGNED). */
 export function beadAssignee(b: Bead): string {
