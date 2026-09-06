@@ -1,17 +1,17 @@
 "use client";
 import * as React from "react";
-import type { View } from "@/components/app-context";
+import { isView, type View } from "@/lib/views";
 import { useDefaultFocus } from "@/hooks/use-default-view";
+import { useUrlState } from "@/hooks/use-url-state";
 
-/**
- * Start each project visit in the selected default, then allow normal navigation.
- * Old last-view storage is deliberately ignored: visiting Focus is not opt-in.
- * The hook name is retained for the AppShell integration.
- */
-export function useLastView(projectId: string): [View, (v: View) => void] {
+/** Explicit view links win; ordinary project links use the user's default. */
+export function useLastView(): [View, (v: View) => void] {
   const { enabled } = useDefaultFocus();
-  const [selection, setSelection] = React.useState<{ projectId: string; view: View } | null>(null);
-  const view = selection?.projectId === projectId ? selection.view : enabled ? "focus" : "board";
-  const setView = React.useCallback((v: View) => setSelection({ projectId, view: v }), [projectId]);
+  const { searchParams, updateUrl } = useUrlState();
+  const requested = searchParams.get("view");
+  const view = isView(requested) ? requested : enabled ? "focus" : "board";
+  const setView = React.useCallback((next: View) => {
+    updateUrl(params => params.set("view", next));
+  }, [updateUrl]);
   return [view, setView];
 }

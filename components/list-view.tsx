@@ -22,7 +22,8 @@ import { CopyableId } from "@/components/copyable-id";
 import { FilterBar } from "@/components/filter-bar";
 import { useOrder, useSetOrder } from "@/hooks/use-order";
 import { useSetStatus } from "@/hooks/use-beads";
-import { matchesFilters, emptyFilters, labelOptionsFrom, assigneeOptionsFrom, type Filters } from "@/lib/filters";
+import { useUrlFilters } from "@/hooks/use-url-filters";
+import { matchesFilters, labelOptionsFrom, assigneeOptionsFrom } from "@/lib/filters";
 import { BOARD_COLUMNS, COLUMN_ORDER, colOf } from "@/lib/board-columns";
 import { beadOrigin, originTitle } from "@/lib/attribution";
 import {
@@ -60,8 +61,8 @@ export function ListView() {
   const setOrder = useSetOrder(projectId);
   const orders = React.useMemo(() => orderData?.orders ?? {}, [orderData]);
 
-  const [filters, setFilters] = React.useState<Filters>(emptyFilters);
-  const [showArchived, setShowArchived] = React.useState(false);
+  const { filters, setFilters, showArchived, setShowArchived, clearFilters } =
+    useUrlFilters();
   // Derived from ALL beads (not the filtered set) so selecting one label
   // doesn't make the remaining options vanish from the dropdown.
   const labelOptions = React.useMemo(() => labelOptionsFrom(beads), [beads]);
@@ -164,6 +165,7 @@ export function ListView() {
           assigneeOptions={assigneeOptions}
           showArchived={showArchived}
           onShowArchived={setShowArchived}
+          onClearAllAction={clearFilters}
         />
 
         {!readOnly && (

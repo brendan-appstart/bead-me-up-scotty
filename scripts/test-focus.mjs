@@ -61,7 +61,7 @@ try {
   await page.getByRole('dialog').waitFor();
   assert.equal(await page.getByRole('dialog').locator('select').first().isDisabled(), true);
   await page.getByTitle('Close', { exact: true }).click();
-  await page.reload();
+  await page.goto(`${base}/p/demo`); // An ordinary project link uses the default.
   await page.locator('article').first().waitFor();
   assert.equal(await page.getByRole('heading', { name: 'Focus', exact: true }).count(), 0);
   await page.getByRole('button', { name: 'Focus', exact: true }).click();

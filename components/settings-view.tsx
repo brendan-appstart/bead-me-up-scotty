@@ -55,8 +55,8 @@ function DefaultViewSetting() {
           <div id="default-focus-label" className="text-[13px]">Use Focus as the default view</div>
           <p id="default-focus-description" className="m-0 mt-1 text-[11.5px] text-[var(--text-3)]">
             Off opens projects in Board. Turn on to open in Focus instead, showing
-            current work, blockers, and high-priority next steps. Applies when you
-            open or reload a project. You can still switch views at any time.
+            current work, blockers, and high-priority next steps. Links to a specific
+            view open that view, including on reload. Switching views does not change this setting.
             Saved automatically for all projects in this browser.
           </p>
         </div>

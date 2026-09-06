@@ -1,4 +1,4 @@
-import type { Bead } from "./schema";
+import { BEAD_STATUSES, BEAD_TYPES, type Bead } from "./schema";
 import { beadOrigin } from "./attribution";
 
 /**
@@ -25,6 +25,67 @@ export const emptyFilters: Filters = {
   assignee: [],
   search: "",
 };
+
+const FILTER_PARAMS = [
+  "status",
+  "type",
+  "priority",
+  "origin",
+  "label",
+  "assignee",
+  "q",
+] as const;
+
+type SearchParamsReader = Pick<URLSearchParams, "get" | "getAll">;
+
+function distinctValues(params: SearchParamsReader, name: string): string[] {
+  return [...new Set(params.getAll(name).filter(Boolean))];
+}
+
+function boundedValues(
+  params: SearchParamsReader,
+  name: string,
+  allowed: readonly string[],
+): string[] {
+  return distinctValues(params, name).filter((value) => allowed.includes(value));
+}
+
+/** Parse the shared Board/List filters from bookmarkable query parameters. */
+export function filtersFromSearchParams(params: SearchParamsReader): Filters {
+  return {
+    status: boundedValues(params, "status", BEAD_STATUSES),
+    type: boundedValues(params, "type", BEAD_TYPES),
+    priority: [...new Set(
+      distinctValues(params, "priority")
+        .filter((value) => /^[0-4]$/.test(value))
+        .map(Number)
+        .filter(
+          (priority) =>
+            Number.isInteger(priority) && priority >= 0 && priority <= 4,
+        ),
+    )],
+    origin: boundedValues(params, "origin", ["human", "agent"]),
+    labels: distinctValues(params, "label"),
+    // Unlike other string facets, empty explicitly means "Unassigned".
+    assignee: [...new Set(params.getAll("assignee"))],
+    search: params.get("q") ?? "",
+  };
+}
+
+/** Replace only filter parameters, preserving every unrelated query parameter. */
+export function writeFiltersToSearchParams(
+  params: URLSearchParams,
+  filters: Filters,
+): void {
+  for (const name of FILTER_PARAMS) params.delete(name);
+  for (const status of filters.status) params.append("status", status);
+  for (const type of filters.type) params.append("type", type);
+  for (const priority of filters.priority) params.append("priority", String(priority));
+  for (const origin of filters.origin) params.append("origin", origin);
+  for (const label of filters.labels) params.append("label", label);
+  for (const assignee of filters.assignee) params.append("assignee", assignee);
+  if (filters.search) params.set("q", filters.search);
+}
 
 /**
  * Blank facet value for beads with no assignee. A real username must never

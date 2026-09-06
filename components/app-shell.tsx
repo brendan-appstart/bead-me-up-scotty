@@ -30,7 +30,7 @@ import { useViewerMode } from "@/hooks/use-viewer-mode";
 import { useNotificationActivation } from "@/hooks/use-notifications";
 
 export function AppShell({ projectId }: { projectId: string }) {
-  const [view, setView] = useLastView(projectId);
+  const [view, setView] = useLastView();
   const { toggle: toggleTheme } = useTheme();
   // Drawer navigation TRAIL, not a single id: clicking a subtask from its
   // parent used to replace the drawer outright, leaving no way back (GH #15).
@@ -114,15 +114,20 @@ export function AppShell({ projectId }: { projectId: string }) {
     setDetailRequest(null);
   }, []);
 
-  // URL-ADDRESSABLE BEAD. `/p/<projectId>?bead=<ID>` opens that bead, and the
-  // drawer keeps the URL in step, so a single bead is linkable — shareable, and
-  // reachable from outside the app (a terminal can turn a bead id into a link).
-  //
-  // Plain History API rather than useSearchParams/router.replace: the URL is
-  // only a bookmark here, never a data source. replaceState keeps the drawer
-  // out of the back-stack (the drawer has its own Back for the trail) and skips
-  // both the Suspense boundary useSearchParams would demand of every page
-  // rendering AppShell and a server round-trip on each open.
+  // Drawer changes replace the current URL entry, preserving its own Back
+  // trail. View/filter entries can still restore their bead on browser Back.
+  React.useEffect(() => {
+    const restore = () => {
+      const id = new URLSearchParams(window.location.search).get("bead");
+      if (id === rawOpenId) return;
+      setOpenStack(id ? [id] : []);
+      setDetailRequest(null);
+      selectBead(id);
+    };
+    window.addEventListener("popstate", restore);
+    return () => window.removeEventListener("popstate", restore);
+  }, [rawOpenId]);
+
   React.useEffect(() => {
     const url = new URL(window.location.href);
     if (openId) url.searchParams.set("bead", openId);
@@ -130,7 +135,7 @@ export function AppShell({ projectId }: { projectId: string }) {
     const next = `${url.pathname}${url.search}${url.hash}`;
     const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     if (next !== current) window.history.replaceState(window.history.state, "", next);
-  }, [openId]);
+  }, [openId, rawOpenId]);
 
   // POP. Skips entries whose bead has since been deleted/archived away, so back
   // can never land on an empty drawer; if nothing valid remains, it closes.

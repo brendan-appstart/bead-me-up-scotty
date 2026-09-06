@@ -20,6 +20,7 @@ export function FilterBar({
   assigneeOptions,
   showArchived,
   onShowArchived,
+  onClearAllAction,
 }: {
   filters: Filters;
   onChange: (f: Filters) => void;
@@ -27,6 +28,7 @@ export function FilterBar({
   assigneeOptions: FilterOption[];
   showArchived: boolean;
   onShowArchived: (v: boolean) => void;
+  onClearAllAction?: () => void;
 }) {
   const set = (patch: Partial<Filters>) => onChange({ ...filters, ...patch });
 
@@ -42,6 +44,10 @@ export function FilterBar({
     (filters.search.trim() ? 1 : 0) +
     (showArchived ? 1 : 0);
   const clearAll = () => {
+    if (onClearAllAction) {
+      onClearAllAction();
+      return;
+    }
     onChange(emptyFilters);
     onShowArchived(false);
   };
