@@ -2,6 +2,7 @@
 import * as React from "react";
 import { GateApproval } from "@/components/gate-approval";
 import { AssigneeField } from "@/components/assignee-field";
+import { DependencyEditor } from "@/components/dependency-editor";
 import { toast } from "sonner";
 import {
   Sheet,
@@ -23,7 +24,6 @@ import {
   useUpdateBead,
   useSetStatus,
   useAddComment,
-  useAddDep,
   useRemoveDep,
   useArchiveBead,
   useDeleteBead,
@@ -54,7 +54,6 @@ import {
   type Bead,
   type BlockingDepType,
   type Dependency,
-  type DepType,
 } from "@/lib/schema";
 
 const selectClass =
@@ -200,7 +199,6 @@ function DrawerBody({
   const update = useUpdateBead();
   const setStatus = useSetStatus();
   const addComment = useAddComment();
-  const addDep = useAddDep();
   const removeDep = useRemoveDep();
   const archive = useArchiveBead();
   const del = useDeleteBead();
@@ -220,8 +218,6 @@ function DrawerBody({
 
   const [draft, setDraft] = React.useState("");
   const [addingDep, setAddingDep] = React.useState(false);
-  const [depTarget, setDepTarget] = React.useState("");
-  const [depType, setDepType] = React.useState<DepType>("blocks");
   const [addingGate, setAddingGate] = React.useState(false);
   const [gateReason, setGateReason] = React.useState("");
   const gateBead = isHumanGate(bead);
@@ -361,10 +357,6 @@ function DrawerBody({
     bead.updated_at ? { label: "Last updated", time: fmtDate(bead.updated_at) } : null,
     bead.closed_at ? { label: "Closed", time: fmtDate(bead.closed_at) } : null,
   ].filter(Boolean) as { label: string; time: string }[];
-
-  const otherBeads = beads.filter(
-    (b) => b.id !== bead.id && !deps.some((d) => d.depends_on_id === b.id),
-  );
 
   // Every label already in use across the project, offered as datalist
   // suggestions so labels converge instead of sprouting near-duplicates.
@@ -777,45 +769,7 @@ function DrawerBody({
             )}
 
             {addingDep ? (
-              <div className="flex items-center gap-[7px] rounded-[9px] border border-border bg-[var(--surface)] p-[9px_11px]">
-                <select
-              disabled={readOnly}
-                  className={`${selectClass} h-8 flex-1`}
-                  value={depTarget}
-                  onChange={(e) => setDepTarget(e.target.value)}
-                >
-                  <option value="">Select bead…</option>
-                  {otherBeads.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.id} · {b.title.slice(0, 40)}
-                    </option>
-                  ))}
-                </select>
-                <select
-              disabled={readOnly}
-                  className={`${selectClass} h-8`}
-                  value={depType}
-                  onChange={(e) => setDepType(e.target.value as DepType)}
-                >
-                  {/* parent-child deliberately absent: the Subtasks section and
-                      the Parent field own that relationship now. Offering it here
-                      created links this list then filtered out, so they vanished. */}
-                  <option value="blocks">blocked by</option>
-                  <option value="related">related</option>
-                </select>
-                <button
-                  disabled={readOnly || !depTarget}
-                  onClick={() => {
-                    addDep.mutate({ id: bead.id, dependsOnId: depTarget, type: depType });
-                    setAddingDep(false);
-                    setDepTarget("");
-                  }}
-                  className="flex h-8 items-center rounded-md px-3 text-[12px] font-[550] text-white disabled:opacity-50"
-                  style={{ background: "var(--brand)" }}
-                >
-                  Add
-                </button>
-              </div>
+              <DependencyEditor bead={bead} onDone={() => setAddingDep(false)} />
             ) : (
               <button
                 disabled={readOnly}
