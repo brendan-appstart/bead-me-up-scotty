@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { GateApproval } from "@/components/gate-approval";
 import { toast } from "sonner";
 import {
   Sheet,
@@ -440,14 +441,7 @@ function DrawerBody({
             <span className="flex-1 text-[12.5px] leading-[1.45] text-[var(--text-2)]">
               Human approval gate. Approving closes it and unblocks everything waiting on it.
             </span>
-            <button
-              disabled={readOnly || setStatus.isPending}
-              onClick={() => setStatus.mutate({ id: bead.id, status: "closed" })}
-              className="flex h-8 flex-shrink-0 items-center gap-[6px] rounded-lg px-3 text-[12.5px] font-[550] text-white disabled:opacity-50"
-              style={{ background: "var(--brand)" }}
-            >
-              <Icon name="check" size={14} /> Approve
-            </button>
+            <GateApproval id={bead.id} />
           </div>
         )}
 

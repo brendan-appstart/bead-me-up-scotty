@@ -1,7 +1,8 @@
 "use client";
 import * as React from "react";
+import { GateApproval } from "@/components/gate-approval";
 import { useApp } from "@/components/app-context";
-import { useRespondHuman, useDismissHuman, useSetStatus } from "@/hooks/use-beads";
+import { useRespondHuman, useDismissHuman } from "@/hooks/use-beads";
 import { Icon, typeIconName } from "@/components/icons";
 import { OriginBadge } from "@/components/board/bead-card";
 import { beadOrigin } from "@/lib/attribution";
@@ -102,10 +103,8 @@ function ReviewLinks({ bead }: { bead: Bead }) {
  * resolves it and unblocks every bead depending on it.
  */
 function GateCard({ gate }: { gate: Bead }) {
-  const { beads, openDetail, readOnly, selectedBeadId, selectBead } = useApp();
-  const setStatus = useSetStatus();
+  const { beads, openDetail, selectedBeadId, selectBead } = useApp();
   const blocks = React.useMemo(() => gateBlocks(gate.id, beads), [gate.id, beads]);
-  const busy = setStatus.isPending;
 
   return (
     <div
@@ -166,14 +165,7 @@ function GateCard({ gate }: { gate: Bead }) {
         </p>
       )}
       <div className="flex items-center justify-end gap-2">
-        <button
-          disabled={readOnly || busy}
-          onClick={() => setStatus.mutate({ id: gate.id, status: "closed" })}
-          className="flex h-8 items-center gap-[6px] rounded-lg px-3 text-[12.5px] font-[550] text-white disabled:opacity-50"
-          style={{ background: "var(--brand)" }}
-        >
-          <Icon name="check" size={14} /> Approve
-        </button>
+        <GateApproval id={gate.id} />
       </div>
     </div>
   );
