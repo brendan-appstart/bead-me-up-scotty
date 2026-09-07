@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
 import { GateApproval } from "@/components/gate-approval";
+import { AssigneeField } from "@/components/assignee-field";
 import { toast } from "sonner";
 import {
   Sheet,
@@ -502,18 +503,7 @@ function DrawerBody({
               ))}
             </select>
           </label>
-          <div className="flex flex-col gap-[5px]">
-            <span className={fieldLabel}>Assignee</span>
-            <div className="flex h-9 items-center gap-[7px] rounded-[9px] border border-border bg-[var(--surface-2)] px-[10px]">
-              <span
-                className="flex h-[18px] w-[18px] items-center justify-center rounded-full text-[9px] font-semibold text-white"
-                style={{ background: avatarColor(bead.assignee ?? "") }}
-              >
-                {initials(bead.assignee ?? "")}
-              </span>
-              <span className="text-[13px]">{bead.assignee || "Unassigned"}</span>
-            </div>
-          </div>
+          <AssigneeField bead={bead} />
           <div className="flex flex-col gap-[5px]">
             {/* Labelled by what the parent actually IS. Only epics get routed to
                 the Epics screen — it renders issue_type === "epic" only, so
