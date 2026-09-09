@@ -10,6 +10,20 @@ import { getTheme, type ThemeDef, type ThemeMode } from "@/lib/themes";
  * launcher (no project) uses a shared key.
  */
 const LEGACY_KEY = "bmus-theme";
+const THEME_EVENT = "bmus:theme";
+
+function subscribe(callback: () => void) {
+  window.addEventListener(THEME_EVENT, callback);
+  window.addEventListener("storage", callback);
+  return () => {
+    window.removeEventListener(THEME_EVENT, callback);
+    window.removeEventListener("storage", callback);
+  };
+}
+
+function serverSnapshot(): string {
+  return "light";
+}
 
 function storageKey(projectId: string | null): string {
   return projectId ? `bmus.theme.${projectId}` : "bmus.theme";
@@ -42,11 +56,15 @@ function projectIdFromPath(pathname: string | null): string | null {
 
 /** Reads the saved theme id for a project, falling back to the legacy key, then default. */
 function readThemeId(projectId: string | null): string {
-  const store = getStore();
-  const stored = store
-    ? (store.getItem(storageKey(projectId)) ?? store.getItem(LEGACY_KEY))
-    : null;
-  return getTheme(stored).id;
+  try {
+    const store = getStore();
+    const stored = store
+      ? (store.getItem(storageKey(projectId)) ?? store.getItem(LEGACY_KEY))
+      : null;
+    return getTheme(stored).id;
+  } catch {
+    return "light";
+  }
 }
 
 interface ThemeContextValue {
@@ -70,14 +88,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const projectId = projectIdFromPath(pathname);
 
-  // localStorage (keyed by the active project) is the source of truth; this is a
-  // bare re-render trigger for in-session changes. Reading the value in render —
-  // rather than mirroring it into state — keeps us clear of the React Compiler
-  // lints against setState-in-render / setState-in-effect, and means a project
-  // switch (projectId changes → re-render) re-skins with no sync code at all.
-  const [, bump] = React.useReducer((n: number) => n + 1, 0);
-
-  const themeId = readThemeId(projectId);
+  // Hydration must match the server's light snapshot before reading browser
+  // preferences. React then applies the saved project theme and subscribes to changes.
+  const themeId = React.useSyncExternalStore(
+    subscribe,
+    () => readThemeId(projectId),
+    serverSnapshot,
+  );
 
   // Apply to <html>: data-theme drives the palette; .dark drives Tailwind/shadcn.
   React.useEffect(() => {
@@ -87,17 +104,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, [themeId]);
 
   // Plain handlers (no manual memoization — React Compiler handles it, and the
-  // provider only re-renders on a theme change or navigation). They write the
-  // active project's key and bump to re-render.
+  // provider updates from the external store). Notify this tab after saving;
+  // the native storage event handles other tabs.
   function setTheme(id: string) {
     getStore()?.setItem(storageKey(projectId), getTheme(id).id);
-    bump();
+    window.dispatchEvent(new Event(THEME_EVENT));
   }
   // Quick Light<->Dark switch (sidebar button, T shortcut, launcher).
   function toggle() {
     const next = getTheme(readThemeId(projectId)).mode === "dark" ? "light" : "dark";
     getStore()?.setItem(storageKey(projectId), next);
-    bump();
+    window.dispatchEvent(new Event(THEME_EVENT));
   }
 
   const theme = getTheme(themeId);
