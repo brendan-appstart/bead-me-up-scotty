@@ -1,5 +1,5 @@
 import type { Bead, CreateInput, UpdateInput, DepType } from "./schema";
-import type { UpdateStatus, UpdateResult } from "./update-types";
+import type { UpdateStatus, UpdateResult, UpdateChannel, UpdateTarget } from "./update-types";
 
 export interface Meta {
   kind: "bd" | "demo";
@@ -298,8 +298,8 @@ export const api = {
   // Self-update (bead bgb) — app-level, not project-scoped. Named `selfUpdate`
   // to avoid colliding with `update` (the per-bead PATCH method above).
   selfUpdate: {
-    check: () => request<UpdateStatus>("/api/update/check"),
-    run: () => request<UpdateResult>("/api/update/run", { method: "POST", body: "{}" }),
+    check: (channel: UpdateChannel = "stable") => request<UpdateStatus>(`/api/update/check?channel=${channel}`),
+    run: (target: UpdateTarget) => request<UpdateResult>("/api/update/run", { method: "POST", body: JSON.stringify(target) }),
   },
 
   saveConfig: (patch: Record<string, unknown>) =>

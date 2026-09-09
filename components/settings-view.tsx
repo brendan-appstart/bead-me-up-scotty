@@ -369,12 +369,14 @@ function UpdatesCard() {
         <div>
           <div className="text-[13px]">Check for new versions</div>
           <div className="text-[11.5px] text-[var(--text-3)]">
-            When running from the app’s git clone, check GitHub for newer commits on{" "}
-            <span className="font-mono">main</span> and show an update indicator in the sidebar.
-            Per-device.
+            Check GitHub every five minutes and show new versions in the sidebar.
+            This choice applies to this browser.
           </div>
         </div>
         <button
+          role="switch"
+          aria-label="Check for new versions"
+          aria-checked={on}
           onClick={() => setPrefs({ ...prefs, checkUpdates: !on })}
           className="flex h-[34px] flex-shrink-0 items-center gap-[7px] rounded-[9px] border border-border bg-[var(--surface-2)] px-[13px] text-[12.5px] hover:bg-[var(--surface-3)]"
         >
@@ -382,6 +384,19 @@ function UpdatesCard() {
           <span>{on ? "Enabled" : "Disabled"}</span>
         </button>
       </div>
+      <label className="mt-4 flex items-center justify-between gap-4 text-[13px]">
+        Update channel
+        <select aria-label="Update channel" value={prefs.updateChannel}
+          onChange={e => setPrefs({ ...prefs, updateChannel: e.target.value === "development" ? "development" : "stable" })}
+          className="rounded-lg border border-border bg-[var(--surface-2)] p-2">
+          <option value="stable">Stable releases (recommended)</option>
+          <option value="development">Development (main)</option>
+        </select>
+      </label>
+      <p className="mt-2 text-[11.5px] text-[var(--text-3)]">
+        Stable follows published versions and includes release notes. Development follows the latest
+        commits on main and requires a Git checkout. Updates only install when you choose Update now.
+      </p>
     </Card>
   );
 }

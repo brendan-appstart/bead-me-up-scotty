@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import packageInfo from "./package.json";
 import { execSync } from "node:child_process";
 
 // Build metadata baked in at build time (bead wxu). BUILD_NUMBER = git commit
@@ -23,6 +24,7 @@ const nextConfig: NextConfig = {
   ...(process.env.NEXT_STANDALONE ? { output: "standalone" as const } : {}),
   // Inlined into the bundle (client + server) so the build badge can read them.
   env: {
+    NEXT_PUBLIC_APP_VERSION: packageInfo.version,
     NEXT_PUBLIC_BUILD_NUMBER: BUILD_NUMBER,
     NEXT_PUBLIC_BUILD_SHA: BUILD_SHA,
   },

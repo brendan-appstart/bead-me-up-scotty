@@ -1,14 +1,11 @@
 import { ok, fail } from "@/lib/api";
 import { checkForUpdate } from "@/lib/self-update";
-
+import { z } from "zod";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-/** Is the app's clone behind origin/main? (bead bgb) Read-only: only `git fetch`. */
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    return ok(await checkForUpdate());
-  } catch (e) {
-    return fail(e);
-  }
+    const channel = z.enum(["stable", "development"]).parse(new URL(request.url).searchParams.get("channel") || "stable");
+    return ok(await checkForUpdate(channel));
+  } catch (e) { return fail(e); }
 }

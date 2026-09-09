@@ -17,3 +17,6 @@ export const BUILD_SHA = process.env.NEXT_PUBLIC_BUILD_SHA || "";
 export function commitUrl(sha: string): string {
   return `https://github.com/${GITHUB_REPO}/commit/${sha}#commitcomments`;
 }
+
+/** Version of the running build, unaffected by a source update until rebuilt/restarted. */
+export const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION || "0.2.0";

@@ -1,57 +1,46 @@
 "use client";
 import * as React from "react";
 import type { BoardSortMode } from "@/lib/board-columns";
-
-/**
- * Per-device board display preferences (localStorage, not server config — they're
- * a viewing choice, like theme/notifications). This includes column visibility
- * and the active board sort mode.
- */
-
+import type { UpdateChannel } from "@/lib/update-types";
 const PREFS_KEY = "bmus.board";
-
+const EVENT = "bmus.board.changed";
 export type BlockedColumnMode = "auto" | "always";
 export interface BoardPrefs {
   blockedColumn: BlockedColumnMode;
-  /** How cards are ordered within each board column. */
   sortMode: BoardSortMode;
-  /** Check GitHub for a newer app version and show the update indicator (bead bgb). */
   checkUpdates: boolean;
+  updateChannel: UpdateChannel;
 }
-const DEFAULTS: BoardPrefs = {
-  blockedColumn: "auto",
-  sortMode: "manual",
-  checkUpdates: true,
-};
-
-export function loadBoardPrefs(): BoardPrefs {
-  if (typeof window === "undefined") return DEFAULTS;
+const DEFAULTS: BoardPrefs = { blockedColumn: "auto", sortMode: "manual", checkUpdates: true, updateChannel: "stable" };
+function snapshot() {
+  try { return globalThis.localStorage?.getItem(PREFS_KEY) || ""; } catch { return ""; }
+}
+function parse(raw: string): BoardPrefs {
   try {
-    const stored = JSON.parse(localStorage.getItem(PREFS_KEY) || "{}");
-    const sortMode = ["priority", "updated", "manual"].includes(stored?.sortMode)
-      ? stored.sortMode as BoardSortMode : DEFAULTS.sortMode;
-    return { ...DEFAULTS, ...stored, sortMode };
-  } catch {
-    return DEFAULTS;
-  }
+    const stored = JSON.parse(raw || "{}");
+    return { blockedColumn: stored?.blockedColumn === "always" ? "always" : "auto",
+      sortMode: ["priority", "updated", "manual"].includes(stored?.sortMode) ? stored.sortMode : "manual",
+      checkUpdates: typeof stored?.checkUpdates === "boolean" ? stored.checkUpdates : true,
+      updateChannel: stored?.updateChannel === "development" ? "development" : "stable" };
+  } catch { return DEFAULTS; }
 }
-function saveBoardPrefs(p: BoardPrefs) {
-  try {
-    if (typeof window !== "undefined") localStorage.setItem(PREFS_KEY, JSON.stringify(p));
-  } catch { /* Keep the current choice usable when browser storage is unavailable. */ }
+export function loadBoardPrefs(): BoardPrefs { return parse(snapshot()); }
+function subscribe(callback: () => void) {
+  window.addEventListener(EVENT, callback); window.addEventListener("storage", callback);
+  return () => { window.removeEventListener(EVENT, callback); window.removeEventListener("storage", callback); };
 }
-
-/**
- * Lazy-initializes from localStorage during render (no setState-in-effect). This
- * is hydration-safe: the Board only renders its columns after client-side beads
- * data loads — the SSR/first-paint output is the "Loading…" state with no columns
- * — so the persisted value never diverges from the server HTML at hydration.
- */
+let sessionValue: string | undefined;
+function clientSnapshot() { return sessionValue ?? snapshot(); }
+function serverSnapshot() { return null; }
+// Use a shared external store so Settings takes effect in the sidebar immediately.
 export function useBoardPrefs() {
-  const [prefs, setPrefsState] = React.useState<BoardPrefs>(() => loadBoardPrefs());
-  const setPrefs = React.useCallback((p: BoardPrefs) => {
-    setPrefsState(p);
-    saveBoardPrefs(p);
+  const raw = React.useSyncExternalStore(subscribe, clientSnapshot, serverSnapshot);
+  const prefs = parse(raw || "");
+  const setPrefs = React.useCallback((next: BoardPrefs) => {
+    const value = JSON.stringify(next);
+    try { localStorage.setItem(PREFS_KEY, value); sessionValue = undefined; }
+    catch { sessionValue = value; }
+    window.dispatchEvent(new Event(EVENT));
   }, []);
-  return { prefs, setPrefs };
+  return { prefs, setPrefs, ready: raw !== null };
 }

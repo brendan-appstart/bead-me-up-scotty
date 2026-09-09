@@ -108,6 +108,28 @@ detail links, and read-only protections also work in the grouped layout.
   as 👤, everyone else as 🤖. **Archive** = `bd close` + an `archived` label
   (reversible); **Delete** = `bd delete`.
 
+## Releases and updates
+
+[Latest stable release](https://github.com/brendan-appstart/bead-me-up-scotty/releases/latest)
+contains version-specific installation instructions, changes, and screenshots.
+The sidebar displays the running app version.
+
+In **Settings → Software updates**, choose **Stable releases** (the default) or
+**Development (main)**. Stable checks published GitHub releases for all installation
+types. Development checks the latest main commit and requires a Git checkout.
+Checks run on load and every five minutes; disabling them takes effect immediately.
+These GitHub requests are independent of the optional usage-statistics setting.
+
+When a new version is available, click the sidebar notice to read its release notes.
+A clean main/detached Git checkout can install the exact advertised target with
+**Update now**. Dependencies are restored with `npm ci` and the app is rebuilt.
+The supervised `npm run serve` launcher restarts automatically; other launchers
+need a manual restart. Local changes or diverged history must be resolved first.
+Global copies, source downloads, and Docker installations receive the notice with
+manual update instructions. No update is installed automatically.
+
+See [v0.2.0 release notes](docs/releases/v0.2.0.md) for the first versioned release.
+
 ## Run it
 
 **Prerequisites:** Node 20+ and npm. For live mode you also need the
