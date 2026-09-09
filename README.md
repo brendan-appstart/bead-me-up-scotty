@@ -257,3 +257,71 @@ npm run lint          # eslint
 ## License
 
 [MIT](LICENSE) © Brendan
+
+### Basic usage statistics
+
+When `POSTHOG_KEY` (the PostHog **project token**, not a personal API key) is set
+on the app server, Scotty reports `app_active` at most once per UTC day while the
+UI is used. Set `POSTHOG_HOST=https://us.i.posthog.com` for US Cloud (the default).
+These are runtime environment settings; Next.js also loads them from a local
+`.env`. Do not commit `.env`. Fresh clones/global installs/Docker deployments need
+these settings supplied separately; GitHub repository secrets are not
+implicitly available to a running installation.
+
+**Settings → Usage statistics → Share basic usage statistics** is enabled by
+default. Switching it off stops future events across all projects and browsers
+connected to that local server. It does not delete previously received events.
+The preference lives in
+`$XDG_CONFIG_HOME/bead-me-up-scotty/telemetry.json` (default:
+`~/.config/bead-me-up-scotty/telemetry.json`), outside the Beads database.
+The random ID is stored alongside it in `telemetry.json.id`; empty daily
+reservation files live in `telemetry.json.days/`. They prevent duplicate events
+across server processes without a lock that could remain stuck after a crash.
+
+The only event data is the random ID, app version, timestamp, and PostHog flags
+that disable person profiles and GeoIP enrichment. No browser analytics SDK is
+loaded; no automatic page/click capture or session recording is enabled. Bead
+content, project names/paths, user names, emails, URLs, and browser headers are
+never included. PostHog still receives a network connection from the app server.
+An idle server/background tab sends nothing. Failures time out after three
+seconds, never affect app operations, and are not retried/backfilled that day.
+If the preference cannot be read or the daily reservation cannot be saved,
+reporting stops.
+
+In PostHog, create a Product Analytics trend for `app_active`, choose **Unique
+users**, and use daily, weekly, or monthly intervals. This measures approximate
+active **installations**, not people: multiple machines count separately, shared
+servers count once, and offline or opted-out installations are absent. Deleting the preference file restores the default setting; deleting the ID file
+resets the installation identity.
+
+Verify the capture and privacy rules with `node scripts/test-telemetry.mjs`
+(Node 22.18+ for native TypeScript support). The tests use temporary local storage
+and a fake network transport; they do not send production events.
+
+For the Settings browser checks, start an isolated server with
+`XDG_CONFIG_HOME=/tmp/scotty-usage-test POSTHOG_KEY='' BEADS_DEMO=1 SCOTTY_READ_ONLY=1 npm run start -- --port 3197`,
+then run `SCOTTY_TEST_URL=http://localhost:3197 node scripts/test-telemetry-ui.mjs`.
+The test refuses to run against an installation configured to send events.
+
+## A small usage signal, and a thank you
+
+When PostHog reporting is configured, Scotty sends a small signal that the app
+was used, at most once a day. It helps us get a rough sense of how many
+installations are active and whether people keep coming back.
+
+The event includes a randomly generated installation ID, the app version, and
+a timestamp. The ID lets us recognize the same installation on another day;
+it isn't your name, email, or account. We don't send your beads, project names,
+file paths, or anything you type, and we don't record your sessions or clicks.
+Person profiles and location enrichment are disabled. PostHog still receives
+the network connection, so we don't promise “100% anonymity.”
+
+**You can turn it off at any time in Settings → Usage statistics → Share basic
+usage statistics.** That stops future events, and your choice stays saved across
+restarts. The app works just as well with reporting disabled.
+
+Feel free to disable it. But knowing that people are using the app helps my
+team and me decide where to focus our time, and encourages us to keep adding
+updates and making it better. I truly appreciate everyone who shares feedback,
+including through this small usage signal. Seeing that something we've built
+is useful to you is inspiring. Thank you for being part of it.

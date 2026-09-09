@@ -5,6 +5,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 
+import { UsageActivity } from "@/components/usage-statistics";
+
 export function Providers({ children }: { children: React.ReactNode }) {
   const [client] = React.useState(
     () =>
@@ -17,6 +19,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={client}>
       <ThemeProvider>
+        <UsageActivity />
         <TooltipProvider>{children}</TooltipProvider>
         <Toaster position="bottom-center" />
       </ThemeProvider>

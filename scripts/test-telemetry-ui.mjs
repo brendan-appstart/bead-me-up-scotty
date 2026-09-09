@@ -1,0 +1,38 @@
+import assert from 'node:assert/strict';
+import { chromium } from 'playwright';
+const base = process.env.SCOTTY_TEST_URL;
+assert.ok(base, 'Set SCOTTY_TEST_URL to an isolated server with POSTHOG_KEY empty');
+const settings = await (await fetch(`${base}/api/telemetry`)).json();
+assert.equal(settings.configured, false, 'UI test must not send production events');
+assert.equal((await fetch(`${base}/api/telemetry`, {method:'PUT',headers:{origin:base,'content-type':'application/json'},body:'{"enabled":true}'})).status,200);
+const browser = await chromium.launch();
+try {
+ const page = await browser.newPage();
+ const errors=[]; page.on('pageerror', e=>errors.push(e.message));
+ await page.goto(`${base}/p/demo?view=settings`);
+ await page.getByRole('button',{name:'Settings',exact:true}).click();
+ const toggle = page.getByRole('switch',{name:'Share basic usage statistics'});
+ await toggle.waitFor();
+ await page.waitForFunction(()=>document.querySelector('[aria-labelledby="usage-label"]')?.textContent === 'Enabled');
+ await toggle.click();
+ await page.waitForFunction(()=>document.querySelector('[aria-labelledby="usage-label"]')?.textContent === 'Disabled');
+ await page.reload();
+ await toggle.waitFor();
+ await page.waitForFunction(()=>document.querySelector('[aria-labelledby="usage-label"]')?.textContent === 'Disabled');
+ assert.equal(await toggle.getAttribute('aria-checked'),'false');
+ const other = await browser.newPage();
+ await other.goto(`${base}/p/demo?view=settings`);
+ await other.getByRole('button',{name:'Settings',exact:true}).click();
+ await other.waitForFunction(()=>document.querySelector('[aria-labelledby="usage-label"]')?.textContent === 'Disabled');
+ await page.route('**/api/telemetry', route => route.request().method()==='PUT' ? route.fulfill({status:500,body:'{}'}) : route.continue());
+ await toggle.click();
+ await page.getByText('Could not save usage preference. Please try again.').waitFor();
+ assert.equal(await toggle.getAttribute('aria-checked'),'false');
+ await page.unroute('**/api/telemetry');
+ await toggle.scrollIntoViewIfNeeded();
+ await page.screenshot({path:'/tmp/scotty-usage-settings.png'});
+ assert.equal((await fetch(`${base}/api/telemetry`,{method:'PUT',headers:{origin:'https://foreign.example','content-type':'application/json'},body:'{"enabled":true}'})).status,403);
+ assert.equal((await fetch(`${base}/api/telemetry`,{method:'PUT',headers:{origin:base,'content-type':'application/json'},body:'{"enabled":"true"}'})).status,400);
+ assert.deepEqual(errors,[]);
+ console.log('PASS: Settings toggle in read-only mode, reload, shared browser preference, save failure, invalid input and foreign-origin rejection');
+} finally { await browser.close(); }
