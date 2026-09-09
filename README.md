@@ -70,6 +70,26 @@ for AI agents.
 - **Settings** — repo path, human actor + allowlist, poll interval, and light/dark
   theme. Live polling keeps the board fresh when agents change data underneath you.
 
+### Focus: compare assignees and recent completions
+
+Open **Focus** in the project sidebar. It starts with the existing ungrouped
+**In flight**, **Blocked**, and **Next up** columns. In flight includes work
+marked `in_progress` or `hooked`; Next up remains ready P0/P1 work.
+
+Choose **Group by → Assignee** in the Focus header to compare each assignee's
+work across those columns. Work without an assignee has its own **No assignee**
+row. Choose **None** to return to the original layout.
+
+Turn on **Recently finished** to add the latest seven matching completions,
+ordered by completion time. The count shows how many are displayed out of the
+full matching set; **Show all … completed** expands it, and **Show latest 7**
+restores the summary. Existing label-lane filters apply before this limit.
+Active and blocked work is never capped, and archived beads stay excluded.
+
+These are temporary display controls for the current Focus visit. They don't
+change bead data or the project landing-view preference. Keyboard navigation,
+detail links, and read-only protections also work in the grouped layout.
+
 ## How it works
 
 - **beads has no HTTP API**, so the app shells out to the `bd` CLI
