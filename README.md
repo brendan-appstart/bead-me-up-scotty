@@ -8,6 +8,16 @@
   <i>Brainstorm, create, and organize work in the same place your AI agent does.</i>
 </p>
 
+<table>
+  <tr>
+    <td>
+      <p><strong>✨ A rich, interactive workspace for Beads</strong></p>
+      <p><strong>Create beads, edit their details, drag them between columns, and change their status directly in the UI.</strong> Organize subtasks, connect dependencies, and steer the work alongside your AI agents — with changes written back to Beads.</p>
+      <p>This is why Scotty was built: to give humans a visual way to <strong>work with beads</strong>, beyond simply viewing them.</p>
+    </td>
+  </tr>
+</table>
+
 <p>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-6d5ef0?style=flat-square" alt="MIT License"></a>
   <img src="https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js&logoColor=white" alt="Next.js 16">
