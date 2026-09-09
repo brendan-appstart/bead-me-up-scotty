@@ -2,10 +2,13 @@ import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 
+// Public ingestion-only project token: safe to distribute; never use a personal API key here.
+const DEFAULT_POSTHOG_KEY = "phc_rgigo4YQzZwrhRSzFkpBt2ZUuiKkRbXvN9wrCmn6Er4a";
+
 type State = { enabled: boolean };
 type Options = {
   file: string;
-  key: string;
+  key?: string;
   host: string;
   version: string;
   now?: () => Date;
@@ -14,6 +17,8 @@ type Options = {
 
 /** Only this allowlisted event leaves the machine. No bead/config/request data is accepted. */
 export function createTelemetry(options: Options) {
+  // An explicit empty token is an operator-level opt-out.
+  const key = options.key ?? DEFAULT_POSTHOG_KEY;
   const now = options.now ?? (() => new Date());
   function read(): State {
     try {
@@ -36,7 +41,7 @@ export function createTelemetry(options: Options) {
     }
   }
   function settings() {
-    return { enabled: read().enabled, configured: !!options.key.trim() };
+    return { enabled: read().enabled, configured: !!key.trim() };
   }
   function setEnabled(enabled: boolean) {
     write({ ...read(), enabled }); // Report save failures instead of pretending opt-out persisted.
@@ -57,9 +62,19 @@ export function createTelemetry(options: Options) {
       return id;
     } finally { fs.rmSync(temp, { force: true }); }
   }
+  // Publish complete records exclusively, including across independent server processes.
+  // A crash before publication leaves no half-written record for another process to read.
+  function reserve(file: string, value: unknown): boolean {
+    const temp = `${file}.${randomUUID()}.tmp`;
+    try {
+      fs.writeFileSync(temp, JSON.stringify(value), { mode: 0o600 });
+      try { fs.linkSync(temp, file); return true; }
+      catch (e) { if ((e as NodeJS.ErrnoException).code === "EEXIST") return false; throw e; }
+    } finally { fs.rmSync(temp, { force: true }); }
+  }
   async function capture(): Promise<void> {
     try {
-      if (!options.key.trim()) return;
+      if (!key.trim()) return;
       const host = new URL(options.host);
       if (host.protocol !== "https:" || host.username || host.password) return;
       if (!read().enabled) return;
@@ -69,29 +84,47 @@ export function createTelemetry(options: Options) {
       const day = timestamp.slice(0, 10);
       const days = `${options.file}.days`;
       fs.mkdirSync(days, { recursive: true });
-      // A permanent, exclusive reservation for this day, not a process lock.
-      // A crash can miss one day, but cannot block tomorrow or overwrite opt-out.
-      const claim = fs.openSync(path.join(days, day), "wx", 0o600);
-      fs.closeSync(claim);
-      if (!read().enabled) return;
-      await (options.send ?? fetch)(new URL("/i/v0/e/", host).toString(), {
+      const complete = path.join(days, day);
+      // Also honor legacy daily reservations, whose delivery status is unknown.
+      if (fs.existsSync(complete)) return;
+      const eventFile = `${complete}.event.json`;
+      reserve(eventFile, { uuid: randomUUID(), timestamp, version: options.version });
+      const event = JSON.parse(fs.readFileSync(eventFile, "utf8"));
+      if (!/^[0-9a-f-]{36}$/.test(event.uuid) || typeof event.version !== "string" ||
+          typeof event.timestamp !== "string" || event.timestamp.slice(0, 10) !== day ||
+          !Number.isFinite(Date.parse(event.timestamp))) return;
+      // At most three attempts, ten minutes apart, triggered only by current-day UI use.
+      // Immutable attempt records survive crashes without a stale lock or endless retries.
+      let claimed = false;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        const attemptFile = `${complete}.attempt-${attempt}.json`;
+        if (reserve(attemptFile, timestamp)) { claimed = true; break; }
+        const previous = Date.parse(JSON.parse(fs.readFileSync(attemptFile, "utf8")));
+        if (!Number.isFinite(previous) || Date.parse(timestamp) - previous < 10 * 60_000) return;
+      }
+      if (!claimed || !read().enabled || fs.existsSync(complete)) return;
+      const response = await (options.send ?? fetch)(new URL("/i/v0/e/", host).toString(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         redirect: "error",
         signal: AbortSignal.timeout(3000),
         body: JSON.stringify({
-          api_key: options.key,
+          api_key: key,
           event: "app_active",
           distinct_id: id,
-          timestamp,
+          uuid: event.uuid,
+          timestamp: event.timestamp,
           properties: {
-            app_version: options.version,
+            app_version: event.version,
             $process_person_profile: false,
             $geoip_disable: true,
           },
         }),
       });
-      // No retries or backfill: offline/failed days may be undercounted.
+      if (!response.ok) return;
+      const acknowledgement = await response.json();
+      if (acknowledgement === 1 || ((acknowledgement?.status === 1 || acknowledgement?.status === "Ok") &&
+          !acknowledgement.quota_limited?.length)) reserve(complete, true);
     } catch {
       // Analytics must never interrupt use or log tokens / request details.
     }

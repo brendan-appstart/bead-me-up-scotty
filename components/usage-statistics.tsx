@@ -56,8 +56,9 @@ export function UsageStatisticsSetting() {
       <div>
         <div id="usage-label" className="text-[13px]">Share basic usage statistics</div>
         <p id="usage-description" className="m-0 mt-1 text-[11.5px] text-[var(--text-3)]">
-          Sends a random installation ID and app version to PostHog in the US, at most once daily
-          while you use the app. No bead content, project paths, names, emails, or session recordings.
+          Reports one daily activity event with a random installation ID and app version to PostHog
+          in the US while you use the app. Failed deliveries may retry. No bead content, project paths,
+          names, emails, or session recordings.
           Enabled by default. Turning this off stops future events for all projects and browsers
           using this installation, including after restarting.
         </p>

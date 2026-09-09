@@ -312,13 +312,16 @@ npm run lint          # eslint
 
 ### Basic usage statistics
 
-When `POSTHOG_KEY` (the PostHog **project token**, not a personal API key) is set
-on the app server, Scotty reports `app_active` at most once per UTC day while the
-UI is used. Set `POSTHOG_HOST=https://us.i.posthog.com` for US Cloud (the default).
-These are runtime environment settings; Next.js also loads them from a local
-`.env`. Do not commit `.env`. Fresh clones/global installs/Docker deployments need
-these settings supplied separately; GitHub repository secrets are not
-implicitly available to a running installation.
+Scotty ships with a public, ingestion-only PostHog project token and reports one
+`app_active` event per UTC day while the UI is used. **Fresh installations are
+enabled and configured by default; no `.env` setup is needed.** Cloning or
+installing alone does not send an event; opening the app does.
+
+Operators can set `POSTHOG_KEY` to their own PostHog **project token**, never a
+personal API key, and `POSTHOG_HOST` to their ingestion endpoint (default:
+`https://us.i.posthog.com`). An explicitly empty `POSTHOG_KEY=` disables reporting
+even when the preference is on. These are runtime environment settings; Next.js
+also loads them from a local `.env`. Do not commit `.env` or private API keys.
 
 **Settings → Usage statistics → Share basic usage statistics** is enabled by
 default. Switching it off stops future events across all projects and browsers
@@ -326,17 +329,23 @@ connected to that local server. It does not delete previously received events.
 The preference lives in
 `$XDG_CONFIG_HOME/bead-me-up-scotty/telemetry.json` (default:
 `~/.config/bead-me-up-scotty/telemetry.json`), outside the Beads database.
-The random ID is stored alongside it in `telemetry.json.id`; empty daily
-reservation files live in `telemetry.json.days/`. They prevent duplicate events
-across server processes without a lock that could remain stuck after a crash.
+The random installation ID is stored alongside it in `telemetry.json.id`;
+daily event records, attempt reservations, and acknowledgements live in
+`telemetry.json.days/`. They coordinate server processes without a lock that
+could remain stuck after a crash. Existing opt-outs and daily reservations
+remain honored after an update.
 
-The only event data is the random ID, app version, timestamp, and PostHog flags
-that disable person profiles and GeoIP enrichment. No browser analytics SDK is
+Scotty sends only the random installation/event IDs, app version, timestamp,
+and PostHog flags that disable person profiles and GeoIP enrichment. No browser analytics SDK is
 loaded; no automatic page/click capture or session recording is enabled. Bead
 content, project names/paths, user names, emails, URLs, and browser headers are
-never included. PostHog still receives a network connection from the app server.
+never included. PostHog receives the network connection and records the app
+server's IP address, even though GeoIP enrichment is disabled.
 An idle server/background tab sends nothing. Failures time out after three
-seconds, never affect app operations, and are not retried/backfilled that day.
+seconds and never affect app operations. Failed deliveries can retry during
+later UI use, at least ten minutes apart and at most three attempts per UTC day.
+Retries retain the same event ID and timestamp for PostHog's eventual
+deduplication; no past days are backfilled. Opting out stops pending retries.
 If the preference cannot be read or the daily reservation cannot be saved,
 reporting stops.
 
