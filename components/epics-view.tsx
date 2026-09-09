@@ -134,11 +134,11 @@ export function EpicsView({
         </div>
         <button
           onClick={() => setHideClosed((v) => !v)}
-          title={hideClosed ? "Closed epics and children are hidden" : "Showing closed epics and children"}
+          title={hideClosed ? "Show closed epics and children" : "Hide closed epics and children"}
           className="flex h-9 items-center gap-[7px] rounded-[9px] border border-border bg-[var(--surface-2)] px-[12px] text-[12.5px] font-[550] text-[var(--text-2)] hover:bg-[var(--surface-3)]"
         >
           <Icon name={hideClosed ? "check" : "x"} size={14} />
-          <span>Hide closed</span>
+          <span>{hideClosed ? "Show Closed" : "Hide Closed"}</span>
         </button>
         <button
           disabled={readOnly}

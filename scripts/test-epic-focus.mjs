@@ -45,7 +45,7 @@ try {
   });
 
   const epic = () => page.locator('[data-epic-id="closed-epic"]');
-  const hideClosed = () => page.getByRole("button", { name: "Hide closed", exact: true });
+  const hideClosed = () => page.getByRole("button", { name: "Hide Closed", exact: true });
   const openChildDetail = async () => {
     await page.getByRole("button", { name: "Board", exact: true }).click();
     await page.locator("article").filter({ hasText: "open-child" }).click();
@@ -74,8 +74,8 @@ try {
   await epic().waitFor();
   assert.equal(await epic().getByRole("button").first().getAttribute("aria-expanded"), "true",
     "focused closed epic expands to reveal children");
-  assert.equal(await hideClosed().getAttribute("title"), "Showing closed epics and children",
-    "navigating to a closed epic disables Hide closed");
+  assert.equal(await hideClosed().getAttribute("title"), "Hide closed epics and children",
+    "navigating to a closed epic offers the Hide Closed action");
   await hideClosed().click();
   await epic().waitFor({ state: "detached" });
 
@@ -85,7 +85,7 @@ try {
 
   await navigateFromList();
   await epic().waitFor();
-  assert.equal(await hideClosed().getAttribute("title"), "Showing closed epics and children",
+  assert.equal(await hideClosed().getAttribute("title"), "Hide closed epics and children",
     "a later parent navigation creates a fresh focus request");
   assert.deepEqual(errors, []);
   console.log("PASS: drawer parent trail, closed epic focus, authoritative hide-closed, no stale focus, repeat navigation, and read-only detail controls");
