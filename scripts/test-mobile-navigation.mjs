@@ -18,6 +18,8 @@ async function assertNoPageOverflow(page, label) {
 
 async function assertSheetClosed(page, label, { expectFocus = true } = {}) {
   await page.getByRole("heading", { name: "Project and view navigation", exact: true }).waitFor({ state: "detached" });
+  await page.locator('[data-slot="sheet-content"]').waitFor({ state: "detached" });
+  await page.locator('[data-slot="sheet-overlay"]').waitFor({ state: "detached" });
   if (expectFocus) {
     assert.equal(
       await page.evaluate(() => document.activeElement?.getAttribute("aria-label")),
@@ -37,6 +39,25 @@ async function mobileCheck(width) {
     await menu.waitFor();
     assert.equal(await menu.isVisible(), true, `${width}px Menu trigger must be visible`);
     await assertNoPageOverflow(page, `${width}px initial`);
+
+    const bodyLockBaseline = await page.evaluate(() => document.body.style.overflow);
+    await menu.click();
+    await page.getByRole("heading", { name: "Project and view navigation", exact: true }).waitFor();
+    await page.setViewportSize({ width: 1280, height: 844 });
+    await assertSheetClosed(page, `${width}px → 1280px resize`, { expectFocus: false });
+    assert.equal(
+      await page.evaluate(() => document.body.style.overflow),
+      bodyLockBaseline,
+      `${width}px → 1280px resize must restore the body lock baseline`,
+    );
+    await page.setViewportSize({ width, height: 844 });
+    await menu.waitFor({ state: "visible" });
+    assert.equal(await menu.isVisible(), true, `${width}px Menu must be visible after returning from desktop`);
+    assert.equal(
+      await page.getByRole("heading", { name: "Project and view navigation", exact: true }).count(),
+      0,
+      `${width}px Sheet must remain closed after returning from desktop`,
+    );
 
     await menu.click();
     await page.getByRole("heading", { name: "Project and view navigation", exact: true }).waitFor();
@@ -100,7 +121,7 @@ try {
   await mobileCheck(320);
   await desktopCheck();
   assert.deepEqual(errors, [], "browser page errors");
-  console.log("PASS: demo mobile Sheet navigation at 390px and 320px, project/view navigation, Escape/backdrop closure, Settings guidance, desktop Sidebar");
+  console.log("PASS: demo mobile Sheet navigation at 390px and 320px, resize closure/body-lock restoration, project/view navigation, Escape/backdrop closure, Settings guidance, desktop Sidebar");
 } finally {
   await browser.close();
 }

@@ -188,6 +188,14 @@ export function AppShell({ projectId }: { projectId: string }) {
     setView(next);
     setMobileNavOpen(false);
   }, [setView]);
+  React.useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 48rem)");
+    const onChange = (event: MediaQueryListEvent) => {
+      if (event.matches) setMobileNavOpen(false);
+    };
+    desktop.addEventListener("change", onChange);
+    return () => desktop.removeEventListener("change", onChange);
+  }, []);
 
   return (
     <AppProvider
