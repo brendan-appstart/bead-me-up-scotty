@@ -140,7 +140,7 @@ function SettingsForm({ data }: { data: DoctorResponse }) {
           </span>
         </div>
         <div className="text-[11.5px] text-[var(--text-3)]">
-          Switch or add projects from the project menu in the sidebar.
+          Use the project menu on desktop or open the mobile Menu to switch projects.
         </div>
       </Card>
 
