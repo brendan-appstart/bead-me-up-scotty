@@ -1,10 +1,10 @@
 # ── bd: download prebuilt beads CLI from GitHub releases ───────────────────
 # bd uses embedded Dolt (CGO), so the prebuilt Linux binary is glibc-linked.
-# That's why the runner stage uses Debian slim instead of Alpine (musl).
+# All stages share Node's Debian slim base for layer reuse and glibc compatibility.
 # Release filenames use Docker's TARGETARCH values (amd64/arm64) verbatim.
 ARG BD_VERSION=1.1.0
 ARG NODE_VERSION=26.4.0
-FROM alpine:3.22 AS bd
+FROM node:${NODE_VERSION}-slim AS bd
 ARG BD_VERSION
 ARG TARGETARCH
 ADD https://github.com/gastownhall/beads/releases/download/v${BD_VERSION}/beads_${BD_VERSION}_linux_${TARGETARCH}.tar.gz /tmp/bd.tar.gz
@@ -16,12 +16,12 @@ RUN tar -xzf /tmp/bd.tar.gz -C /tmp && mv /tmp/bd /usr/local/bin/bd
 # Next's standalone output tracing does not include it. Install it with its
 # full dependency tree here and copy it into the runner below.
 # Keep the version in sync with package.json.
-FROM node:${NODE_VERSION}-alpine AS eleventy
+FROM node:${NODE_VERSION}-slim AS eleventy
 WORKDIR /eleventy
 RUN npm install --no-save @11ty/eleventy@3.1.6
 
 # ── Builder: install deps and build the Next.js app ──────────────────────────
-FROM node:${NODE_VERSION}-alpine AS builder
+FROM node:${NODE_VERSION}-slim AS builder
 
 WORKDIR /app
 
