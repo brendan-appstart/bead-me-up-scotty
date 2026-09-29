@@ -1,5 +1,6 @@
 import { getStore } from "@/lib/store";
 import { getConfig } from "@/lib/config";
+import { parseKnownStatus } from "@/lib/schema";
 import { ok, fail } from "@/lib/api";
 import { z } from "zod";
 
@@ -17,10 +18,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
     const store = await getStore(projectId);
     const cfg = getConfig();
     const { status, reason } = bodySchema.parse(await req.json());
-    const statuses = await store.statuses();
-    if (!statuses.some((candidate) => candidate.name === status)) {
-      throw new Error(`Unknown bead status: ${status}`);
-    }
+    const statusInfo = await store.statuses();
+    parseKnownStatus(status, statusInfo);
     const bead = await store.setStatus(id, status, cfg.humanActor, reason);
     return ok(bead);
   } catch (e) {

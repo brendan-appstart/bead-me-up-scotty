@@ -1,6 +1,6 @@
 import { getStore } from "@/lib/store";
 import { getConfig } from "@/lib/config";
-import { updateInputSchema } from "@/lib/schema";
+import { parseKnownStatus, updateInputSchema } from "@/lib/schema";
 import { ok, fail } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +25,9 @@ export async function PATCH(req: Request, { params }: Ctx) {
     const store = await getStore(projectId);
     const cfg = getConfig();
     const patch = updateInputSchema.parse(await req.json());
+    if (patch.status !== undefined) {
+      parseKnownStatus(patch.status, await store.statuses());
+    }
     const bead = await store.update(id, patch, cfg.humanActor);
     return ok(bead);
   } catch (e) {

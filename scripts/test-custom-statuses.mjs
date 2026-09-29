@@ -108,6 +108,35 @@ try {
   await page.getByTitle("Close", { exact: true }).click();
   assert.equal(await page.getByText("Ready for review", { exact: true }).count() >= 1, true, "custom status column remains rendered after a status transition");
 
+  // Exercise the real API routes (without the intercepted custom-status fixture)
+  // to ensure unknown statuses are rejected as client errors and never persist.
+  const apiData = await (await fetch(base + "/api/p/demo/beads")).json();
+  assert.ok(apiData.beads?.length, "demo beads API returns at least one bead");
+  const target = apiData.beads[0];
+  const originalStatus = target.status;
+  const invalidStatus = "definitely_not_configured";
+
+  const patchResponse = await fetch(base + "/api/p/demo/beads/" + target.id, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ status: invalidStatus }),
+  });
+  const patchBody = await patchResponse.json();
+  assert.equal(patchResponse.status, 400, "PATCH rejects an unknown status as a client error");
+  assert.equal(patchBody.code, "invalid_input", "PATCH exposes the validation error code");
+
+  const statusResponse = await fetch(base + "/api/p/demo/beads/" + target.id + "/status", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ status: invalidStatus }),
+  });
+  const statusBody = await statusResponse.json();
+  assert.equal(statusResponse.status, 400, "status endpoint rejects an unknown status as a client error");
+  assert.equal(statusBody.code, "invalid_input", "status endpoint exposes the validation error code");
+
+  const after = await (await fetch(base + "/api/p/demo/beads/" + target.id)).json();
+  assert.equal(after.status, originalStatus, "unknown status requests do not mutate the bead");
+
   assert.deepEqual(errors, []);
 
   console.log("PASS: custom status is rendered, filterable, editable, writable, and available in the command palette without runtime errors");

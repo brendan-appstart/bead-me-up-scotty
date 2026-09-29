@@ -35,6 +35,17 @@ export const statusInfoSchema = z.object({
   description: z.string().optional(),
 });
 
+export function parseKnownStatus(status: string, statuses: readonly StatusInfo[]): string {
+  return z
+    .string()
+    .min(1)
+    .max(100)
+    .refine((candidate) => statuses.some((configured) => configured.name === candidate), {
+      message: `Unknown bead status: ${status}`,
+    })
+    .parse(status);
+}
+
 export const BUILT_IN_STATUS_INFO: readonly StatusInfo[] = [
   { name: "open", category: "active", icon: "○", description: "Available to work (default)" },
   { name: "in_progress", category: "wip", icon: "◐", description: "Actively being worked on" },
