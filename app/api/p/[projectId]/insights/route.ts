@@ -17,11 +17,12 @@ export async function GET(req: Request, { params }: Ctx) {
     const store = await getStore(projectId);
     const cfg = getConfig();
     const beads = await store.list();
+    const statuses = await store.statuses();
     const project = getProject(projectId);
     const repoPath = project && "path" in project ? project.path : null;
     const events = repoPath ? readInteractions(repoPath) : [];
 
-    const data = computeInsights(beads, events, cfg.humanAllowlist, days, Date.now());
+    const data = computeInsights(beads, events, cfg.humanAllowlist, days, Date.now(), statuses);
     return ok(data);
   } catch (e) {
     return fail(e);

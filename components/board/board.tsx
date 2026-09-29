@@ -25,7 +25,7 @@ import { isBlocked, childrenCountMap } from "@/lib/beads-view";
 import { FilterBar } from "@/components/filter-bar";
 import { matchesFilters, labelOptionsFrom, assigneeOptionsFrom } from "@/lib/filters";
 import {
-  BOARD_COLUMNS as COLUMNS,
+  buildBoardColumns,
   sortBoardCards,
   type BoardSortMode,
 } from "@/lib/board-columns";
@@ -44,12 +44,13 @@ const pointerFirstCollision: CollisionDetection = (args) => {
 };
 
 export function Board() {
-  const { beads, index, humanAllowlist, openCreate, loading, projectId, readOnly } = useApp();
+  const { beads, index, humanAllowlist, meta, openCreate, loading, projectId, readOnly } = useApp();
   const setStatus = useSetStatus();
   const { data: orderData } = useOrder(projectId);
   const setOrder = useSetOrder(projectId);
   const { prefs: boardPrefs, setPrefs: setBoardPrefs } = useBoardPrefs();
   const orders = React.useMemo(() => orderData?.orders ?? {}, [orderData]);
+  const boardColumns = React.useMemo(() => buildBoardColumns(meta?.statuses), [meta?.statuses]);
   const { filters, setFilters, showArchived, setShowArchived, clearFilters } =
     useUrlFilters();
   const { searchParams, updateUrl } = useUrlState();
@@ -98,7 +99,7 @@ export function Board() {
   const visible = React.useMemo(() => beads.filter(matchFilters), [beads, matchFilters]);
   const columns = React.useMemo(
     () =>
-      COLUMNS.map((c) => {
+      boardColumns.map((c) => {
         let cards = visible.filter((b) => c.test(b, isBlocked(b, index)));
         // Done column: optionally keep only beads closed within the chosen window.
         if (c.id === "done" && doneWindow !== null) {
@@ -113,7 +114,7 @@ export function Board() {
           cards: sortBoardCards(cards, boardPrefs.sortMode, orders[c.id]),
         };
       }),
-    [visible, index, orders, boardPrefs.sortMode, doneWindow, now],
+    [visible, index, orders, boardPrefs.sortMode, doneWindow, now, boardColumns],
   );
 
   // Hide the Blocked column when it's empty, unless the user pinned it to always
@@ -138,7 +139,7 @@ export function Board() {
   // `over` is a column id (pointer over empty column space) or a bead id (over a card).
   function columnUnder(overId: string | null): string | undefined {
     if (!overId) return undefined;
-    return COLUMNS.some((c) => c.id === overId) ? overId : colOfBead.get(overId);
+    return boardColumns.some((c) => c.id === overId) ? overId : colOfBead.get(overId);
   }
 
   function endDrag() {
@@ -169,7 +170,7 @@ export function Board() {
 
     if (overCol !== activeCol) {
       // Cross-column → status change (existing behavior).
-      const target = COLUMNS.find((c) => c.id === overCol);
+      const target = boardColumns.find((c) => c.id === overCol);
       if (!target || !target.droppable || !target.status) return;
       const bead = index.get(activeId);
       if (!bead || bead.status === target.status) return;
@@ -190,7 +191,7 @@ export function Board() {
   const draggingBead = draggingId ? index.get(draggingId) : undefined;
   // Advertise only a column that a drop would actually move the card into.
   const sourceColumnId = draggingId ? colOfBead.get(draggingId) : undefined;
-  const dropColumn = COLUMNS.find(
+  const dropColumn = boardColumns.find(
     (c) => c.id === overColumnId && c.id !== sourceColumnId && c.droppable && c.status &&
       draggingBead?.status !== c.status,
   );
@@ -210,6 +211,7 @@ export function Board() {
           onChange={setFilters}
           labelOptions={labelOptions}
           assigneeOptions={assigneeOptions}
+          statusOptions={meta?.statuses ?? []}
           showArchived={showArchived}
           onShowArchived={setShowArchived}
           onClearAllAction={clearFilters}

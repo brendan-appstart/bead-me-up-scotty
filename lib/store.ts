@@ -1,5 +1,5 @@
 import "server-only";
-import type { Bead, CreateInput, UpdateInput, DepType } from "./schema";
+import type { Bead, CreateInput, UpdateInput, DepType, StatusInfo } from "./schema";
 import { getProject, touchProject, DEMO_PROJECT, ConfigError } from "./config";
 import { createBdStore, isBdAvailable } from "./bd";
 import { demoStore } from "./demo-store";
@@ -21,6 +21,7 @@ export interface DoctorInfo {
 export interface BeadsStore {
   kind: "bd" | "demo";
   list(): Promise<Bead[]>;
+  statuses(): Promise<StatusInfo[]>;
   get(id: string): Promise<Bead | null>;
   create(input: CreateInput, actor: string): Promise<Bead>;
   update(id: string, patch: UpdateInput, actor: string): Promise<Bead>;

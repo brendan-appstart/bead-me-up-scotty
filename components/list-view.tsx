@@ -24,7 +24,7 @@ import { useOrder, useSetOrder } from "@/hooks/use-order";
 import { useSetStatus } from "@/hooks/use-beads";
 import { useUrlFilters } from "@/hooks/use-url-filters";
 import { matchesFilters, labelOptionsFrom, assigneeOptionsFrom } from "@/lib/filters";
-import { BOARD_COLUMNS, COLUMN_ORDER, colOf } from "@/lib/board-columns";
+import { buildBoardColumns, colOf } from "@/lib/board-columns";
 import { beadOrigin, originTitle } from "@/lib/attribution";
 import {
   catColor,
@@ -54,12 +54,14 @@ function rankOf(order: string[] | undefined, id: string): number {
 }
 
 export function ListView() {
-  const { beads, index, humanAllowlist, openDetail, openCreate, openEpic, loading, projectId, readOnly } =
+  const { beads, index, humanAllowlist, meta, openDetail, openCreate, openEpic, loading, projectId, readOnly } =
     useApp();
   const setStatus = useSetStatus();
   const { data: orderData } = useOrder(projectId);
   const setOrder = useSetOrder(projectId);
   const orders = React.useMemo(() => orderData?.orders ?? {}, [orderData]);
+  const boardColumns = React.useMemo(() => buildBoardColumns(meta?.statuses), [meta?.statuses]);
+  const columnOrder = React.useMemo(() => boardColumns.map((c) => c.id), [boardColumns]);
 
   const { filters, setFilters, showArchived, setShowArchived, clearFilters } =
     useUrlFilters();
@@ -76,11 +78,11 @@ export function ListView() {
   const colById = React.useMemo(() => {
     const m = new Map<string, string>();
     for (const b of beads) {
-      const c = colOf(b, index);
+      const c = colOf(b, index, meta?.statuses);
       if (c) m.set(b.id, c);
     }
     return m;
-  }, [beads, index]);
+  }, [beads, index, meta?.statuses]);
 
   // Sort: by board column order, then the column's shared manual rank, then priority.
   const rows = React.useMemo(() => {
@@ -91,8 +93,8 @@ export function ListView() {
         return matchesFilters(b, filters, humanAllowlist);
       })
       .sort((a, b) => {
-        const ca = COLUMN_ORDER.indexOf(colById.get(a.id) ?? "");
-        const cb = COLUMN_ORDER.indexOf(colById.get(b.id) ?? "");
+        const ca = columnOrder.indexOf(colById.get(a.id) ?? "");
+        const cb = columnOrder.indexOf(colById.get(b.id) ?? "");
         if (ca !== cb) return ca - cb;
         const col = colById.get(a.id);
         const order = col ? orders[col] : undefined;
@@ -108,7 +110,7 @@ export function ListView() {
         if (ea !== eb) return ea - eb;
         return (b.updated_at ?? "").localeCompare(a.updated_at ?? "");
       });
-  }, [beads, filters, showArchived, humanAllowlist, colById, orders, index]);
+  }, [beads, filters, showArchived, humanAllowlist, colById, orders, index, columnOrder]);
 
   // Per-column counts for the group headers. Derived from `rows` (not `beads`)
   // so the count always matches what is rendered beneath the header once the
@@ -140,7 +142,7 @@ export function ListView() {
       setOrder.mutate({ columnId: activeCol, ids: arrayMove(ids, oldI, newI) });
     } else {
       // Across columns → status change (cross-column = status, like the Board).
-      const target = BOARD_COLUMNS.find((c) => c.id === overCol);
+      const target = boardColumns.find((c) => c.id === overCol);
       if (!target || !target.droppable || !target.status) return;
       const bead = index.get(activeId);
       if (!bead || bead.status === target.status) return;
@@ -163,6 +165,7 @@ export function ListView() {
           onChange={setFilters}
           labelOptions={labelOptions}
           assigneeOptions={assigneeOptions}
+          statusOptions={meta?.statuses ?? []}
           showArchived={showArchived}
           onShowArchived={setShowArchived}
           onClearAllAction={clearFilters}
@@ -195,17 +198,17 @@ export function ListView() {
                   const col = colById.get(b.id);
                   const prevCol = i > 0 ? colById.get(rows[i - 1].id) : undefined;
                   const showGroup = col && col !== prevCol;
-                  const meta = BOARD_COLUMNS.find((c) => c.id === col);
+                  const columnMeta = boardColumns.find((c) => c.id === col);
                   return (
                     <React.Fragment key={b.id}>
-                      {showGroup && meta && (
+                      {showGroup && columnMeta && (
                         <div className="flex items-center gap-2 px-1 pb-px pt-3 first:pt-0">
                           <span
                             className="h-[7px] w-[7px] rounded-[2px]"
-                            style={{ background: meta.color }}
+                            style={{ background: columnMeta.color }}
                           />
                           <span className="text-[11px] font-semibold uppercase tracking-[.04em] text-[var(--text-3)]">
-                            {meta.name}
+                            {columnMeta.name}
                           </span>
                           <span className="rounded-full border border-border bg-[var(--surface-2)] px-2 py-px font-mono text-[10.5px] text-[var(--text-3)]">
                             {countByCol.get(col) ?? 0}
@@ -253,7 +256,7 @@ function Row({
   childCount: number;
   humanAllowlist: string[];
 }) {
-  const { readOnly, selectedBeadId, selectBead } = useApp();
+  const { meta, readOnly, selectedBeadId, selectBead } = useApp();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: bead.id,
     disabled: readOnly,
@@ -296,7 +299,7 @@ function Row({
     >
       <span
         className="h-[9px] w-[9px] flex-shrink-0 rounded-full"
-        style={{ background: blocked ? "#ef4444" : catColor(bead.status) }}
+        style={{ background: blocked ? "#ef4444" : catColor(bead.status, meta?.statuses) }}
         title={blocked ? "Blocked" : statusLabel(bead.status)}
       />
       <Icon

@@ -3,6 +3,7 @@ import * as React from "react";
 import { Icon, typeIconName } from "@/components/icons";
 import { OriginBadge, PriorityChip } from "@/components/board/bead-card";
 import { useApp } from "@/components/app-context";
+import type { StatusInfo } from "@/lib/schema";
 import { beadOrigin, originTitle } from "@/lib/attribution";
 import {
   catColor,
@@ -58,6 +59,7 @@ export function EpicsView({
     selectedBeadId,
     selectBead,
     readOnly,
+    meta,
   } = useApp();
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
   const [hideClosed, setHideClosed] = React.useState(true);
@@ -212,7 +214,7 @@ export function EpicsView({
                       <span className="flex-shrink-0 font-mono text-[11.5px] text-[var(--text-3)]">
                         {e.id}
                       </span>
-                      <StatusChip status={e.status} />
+                      <StatusChip status={e.status} statuses={meta?.statuses} />
                       <PriorityChip p={e.priority} />
                       <LabelChips labels={e.labels ?? []} max={3} />
                     </div>
@@ -303,7 +305,7 @@ export function EpicsView({
                         >
                           <span
                             className="h-2 w-2 flex-shrink-0 rounded-full"
-                            style={{ background: catColor(k.status) }}
+                            style={{ background: catColor(k.status, meta?.statuses) }}
                           />
                           <span className="w-[74px] flex-shrink-0 font-mono text-[11px] text-[var(--text-3)]">
                             {k.id}
@@ -353,8 +355,8 @@ export function EpicsView({
   );
 }
 
-function StatusChip({ status }: { status: string }) {
-  const c = catColor(status);
+function StatusChip({ status, statuses }: { status: string; statuses?: readonly StatusInfo[] }) {
+  const c = catColor(status, statuses);
   return (
     <span
       className="inline-flex items-center rounded-full px-2 py-px text-[10.5px] font-semibold tracking-[.01em]"
