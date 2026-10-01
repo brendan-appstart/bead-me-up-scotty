@@ -77,3 +77,11 @@ export const KEYBOARD_SHORTCUT_GROUPS: KeyboardShortcutGroup[] = [
     ],
   },
 ];
+
+// Looks up by label (and optionally first key) so other surfaces, such as the
+// command palette, stay in sync with the help dialog instead of restating keys.
+export function findShortcut(topic: string, label: string, firstKey?: string): KeyboardShortcut | undefined {
+  return KEYBOARD_SHORTCUT_GROUPS.find((group) => group.topic === topic)?.shortcuts.find(
+    (shortcut) => shortcut.label === label && (firstKey === undefined || shortcut.keys[0] === firstKey),
+  );
+}

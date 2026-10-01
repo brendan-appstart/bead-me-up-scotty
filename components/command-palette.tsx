@@ -11,6 +11,8 @@ import { useProjects } from "@/hooks/use-projects";
 import { useSetStatus, useUpdateBead } from "@/hooks/use-beads";
 import { BEAD_STATUSES, type Bead } from "@/lib/schema";
 import { statusLabel, catColor, typeLabel } from "@/lib/beads-view";
+import { findShortcut, type KeyboardShortcut } from "@/lib/keyboard-shortcuts";
+import { ShortcutKeys } from "@/components/keyboard-help-dialog";
 
 const VIEWS: { key: View; label: string; icon: string }[] = [
   { key: "focus", label: "Focus", icon: "bolt" },
@@ -21,6 +23,18 @@ const VIEWS: { key: View; label: string; icon: string }[] = [
   { key: "publish", label: "Publish", icon: "rocket" },
   { key: "settings", label: "Settings", icon: "settings" },
 ];
+
+// Issue shortcuts act on the board selection; the ones listed here open the
+// same palette page or detail view as the matching bead-page entry. "Close" is
+// left without one because C opens the close-with-reason dialog instead.
+const SHORTCUTS = {
+  create: findShortcut("Global", "Create an issue"),
+  toggleTheme: findShortcut("Global", "Toggle light / dark theme"),
+  switchProject: findShortcut("Repositories", "Choose a repository"),
+  openDetails: findShortcut("Issues", "Open selected issue", "O"),
+  setStatus: findShortcut("Issues", "Set selected issue status"),
+  setPriority: findShortcut("Issues", "Set selected issue priority"),
+};
 
 const PRIORITIES = ["Critical", "High", "Medium", "Low", "Backlog"];
 const RECENTS_KEY = "bmus.palette.recentBeads";
@@ -180,12 +194,13 @@ function PaletteBody({
         {page === "root" && (
           <>
             <Command.Group heading="Actions">
-              {!readOnly && <Item icon="plus" value="create bead new" onSelect={() => run(() => openCreate())}>
+              {!readOnly && <Item icon="plus" value="create bead new" shortcut={SHORTCUTS.create} onSelect={() => run(() => openCreate())}>
                 Create bead…
               </Item>}
               <Item
                 icon={mode === "dark" ? "sun" : "moon"}
                 value="toggle theme dark light"
+                shortcut={SHORTCUTS.toggleTheme}
                 onSelect={() => run(() => toggle())}
               >
                 Toggle theme · {mode === "dark" ? "light" : "dark"}
@@ -197,14 +212,19 @@ function PaletteBody({
               >
                 Change theme…
               </Item>
-              <Item icon="logo" value="switch project" onSelect={() => { setSearch(""); setPage("projects"); }}>
+              <Item icon="logo" value="switch project" shortcut={SHORTCUTS.switchProject} onSelect={() => { setSearch(""); setPage("projects"); }}>
                 Switch project…
               </Item>
             </Command.Group>
 
             <Command.Group heading="Go to">
               {VIEWS.map((v) => (
-                <Item key={v.key} icon={v.icon} value={`go ${v.label}`} onSelect={() => run(() => onView(v.key))}>
+                <Item
+                  key={v.key}
+                  icon={v.icon}
+                  value={`go ${v.label}`}
+                  shortcut={findShortcut("Views", v.label)}
+                  onSelect={() => run(() => onView(v.key))}>
                   {v.label}
                 </Item>
               ))}
@@ -231,6 +251,7 @@ function PaletteBody({
             <Item
               icon="search"
               value="open details view"
+              shortcut={SHORTCUTS.openDetails}
               onSelect={() => { pushRecent(activeBead.id); run(() => openDetail(activeBead.id)); }}
             >
               Open details
@@ -250,10 +271,10 @@ function PaletteBody({
             >
               Close
             </Item>
-            <Item icon="chevron" value="set status" onSelect={() => { setSearch(""); setPage("status"); }}>
+            <Item icon="chevron" value="set status" shortcut={SHORTCUTS.setStatus} onSelect={() => { setSearch(""); setPage("status"); }}>
               Set status…
             </Item>
-            <Item icon="chevron" value="set priority" onSelect={() => { setSearch(""); setPage("priority"); }}>
+            <Item icon="chevron" value="set priority" shortcut={SHORTCUTS.setPriority} onSelect={() => { setSearch(""); setPage("priority"); }}>
               Set priority…
             </Item>
             </>}
@@ -333,12 +354,14 @@ function Item({
   icon,
   dotColor,
   value,
+  shortcut,
   children,
   onSelect,
 }: {
   icon?: string;
   dotColor?: string;
   value?: string;
+  shortcut?: KeyboardShortcut;
   children: React.ReactNode;
   onSelect: () => void;
 }) {
@@ -356,6 +379,13 @@ function Item({
         <span className="w-[15px] flex-shrink-0" />
       )}
       <span className="flex-1 truncate">{children}</span>
+      {shortcut && (
+        // The help dialog's key caps are taller than a palette row's text, so let
+        // them overhang the padding rather than making keyed rows taller.
+        <span className="-my-1">
+          <ShortcutKeys keys={shortcut.keys} sequence={shortcut.sequence} />
+        </span>
+      )}
     </Command.Item>
   );
 }
