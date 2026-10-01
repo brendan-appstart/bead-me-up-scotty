@@ -27,11 +27,12 @@ try{
  const open=async()=>{await page.goto(`${base}/p/demo`);await page.getByRole('button',{name:'Needs You',exact:true}).click();await page.getByText('Links & attachments',{exact:true}).waitFor();};
  await open();
  const card=page.locator('[data-keyboard-bead-id="decision"]');
- const links=await card.locator('a').evaluateAll(as=>as.map(a=>({href:a.getAttribute('href'),target:a.target,rel:a.rel})));
+ const links=await card.locator('[data-review-links] a').evaluateAll(as=>as.map(a=>({href:a.getAttribute('href'),target:a.target,rel:a.rel})));
  assert.equal(links.length,5);
  assert.ok(links.some(a=>a.href==='/api/p/demo/attachments/decision/screen.png'),'attachment refs resolve to the current project');
  assert.ok(links.some(a=>a.href==='/api/p/demo/attachments/decision/local.png'),'local API attachment links are surfaced');
  assert.ok(links.every(a=>a.target==='_blank'&&a.rel.includes('noopener')));
+ assert.equal(await card.locator('.bd-md a',{hasText:'Review'}).count(),1,'the full description renders as Markdown');
  await page.getByText('No supporting links found. Review the bead details before deciding.',{exact:true}).waitFor();
  assert.equal(await page.getByRole('button',{name:'Approve',exact:true}).isDisabled(),true,'read-only approval guard remains');
  await context.request.put(`${base}/api/viewer-mode`,{data:{readOnly:false}});await open();
