@@ -15,7 +15,8 @@ import {
   fmtDateTime,
 } from "@/lib/beads-view";
 import { reviewLinks } from "@/lib/review-links";
-import { api } from "@/lib/api-client";
+import { DescriptionContent } from "@/components/description-content";
+import { ReviewLinkChips } from "@/components/review-link-chips";
 import type { Bead } from "@/lib/schema";
 
 /**
@@ -68,8 +69,24 @@ export function NeedsYouView() {
   );
 }
 
-function ReviewLinks({ bead }: { bead: Bead }) {
+/**
+ * The full description, rendered as markdown like the detail drawer: the
+ * person is deciding from this card, so a clamped plain-text excerpt hides
+ * the context they need.
+ */
+function CardDescription({ bead }: { bead: Bead }) {
   const { projectId } = useApp();
+  if (!bead.description) return null;
+  return (
+    <DescriptionContent
+      text={bead.description}
+      projectId={projectId}
+      className="mb-3 text-[12.5px] leading-[1.5] text-[var(--text-2)]"
+    />
+  );
+}
+
+function ReviewLinks({ bead }: { bead: Bead }) {
   const links = reviewLinks(bead);
   if (!links.length) return (
     <p className="mb-3 text-[12px] text-[var(--text-3)]">
@@ -79,21 +96,7 @@ function ReviewLinks({ bead }: { bead: Bead }) {
   return (
     <div className="mb-3">
       <div className="mb-1 text-[11px] font-semibold text-[var(--text-3)]">Links &amp; attachments</div>
-      <div className="flex flex-wrap gap-[6px]">
-        {links.map(link => {
-          const attachment = link.startsWith("attachment://");
-          const href = attachment ? api.attachments.urlFor(projectId, link) : link;
-          const label = attachment || link.startsWith("/api/p/")
-            ? `Attachment: ${link.split("/").at(-1)}` : link.replace(/^https?:\/\//i, "");
-          return (
-            <a key={link} href={href} target="_blank" rel="noopener noreferrer" title={href}
-              className="flex h-8 max-w-[300px] items-center gap-[6px] rounded-[9px] border border-border bg-[var(--surface-2)] px-[11px] text-[12px] text-[var(--brand)] hover:underline">
-              <Icon name="link" size={13} className="flex-shrink-0" />
-              <span className="truncate">{label}</span>
-            </a>
-          );
-        })}
-      </div>
+      <ReviewLinkChips links={links} />
     </div>
   );
 }
@@ -141,11 +144,7 @@ function GateCard({ gate }: { gate: Bead }) {
       >
         {gate.title}
       </button>
-      {gate.description && (
-        <p className="mb-3 line-clamp-3 whitespace-pre-wrap text-[12.5px] leading-[1.5] text-[var(--text-2)]">
-          {gate.description}
-        </p>
-      )}
+      <CardDescription bead={gate} />
       <ReviewLinks bead={gate} />
       {blocks.length > 0 && (
         <p className="mb-3 text-[12px] leading-[1.5] text-[var(--text-2)]">
@@ -212,11 +211,7 @@ function NeedsYouCard({ bead }: { bead: Bead }) {
       >
         {bead.title}
       </button>
-      {bead.description && (
-        <p className="mb-3 line-clamp-3 whitespace-pre-wrap text-[12.5px] leading-[1.5] text-[var(--text-2)]">
-          {bead.description}
-        </p>
-      )}
+      <CardDescription bead={bead} />
       <ReviewLinks bead={bead} />
       <textarea
         disabled={readOnly}
