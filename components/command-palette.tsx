@@ -13,16 +13,7 @@ import { BEAD_STATUSES, type Bead } from "@/lib/schema";
 import { statusLabel, catColor, typeLabel } from "@/lib/beads-view";
 import { findShortcut, type KeyboardShortcut } from "@/lib/keyboard-shortcuts";
 import { ShortcutKeys } from "@/components/keyboard-help-dialog";
-
-const VIEWS: { key: View; label: string; icon: string }[] = [
-  { key: "focus", label: "Focus", icon: "bolt" },
-  { key: "board", label: "Board", icon: "board" },
-  { key: "list", label: "List", icon: "list" },
-  { key: "epics", label: "Epics", icon: "target" },
-  { key: "graph", label: "Graph", icon: "graph" },
-  { key: "publish", label: "Publish", icon: "rocket" },
-  { key: "settings", label: "Settings", icon: "settings" },
-];
+import { navViews } from "@/lib/views";
 
 // Issue shortcuts act on the board selection; the ones listed here open the
 // same palette page or detail view as the matching bead-page entry. "Close" is
@@ -101,7 +92,7 @@ function PaletteBody({
   initialPage: PalettePage;
   initialBeadId: string | null;
 }) {
-  const { beads, index, openDetail, openCreate, projectId, readOnly } = useApp();
+  const { beads, index, meta, openDetail, openCreate, projectId, readOnly } = useApp();
   const router = useRouter();
   const { mode, setTheme, toggle } = useTheme();
   const setStatus = useSetStatus();
@@ -218,7 +209,7 @@ function PaletteBody({
             </Command.Group>
 
             <Command.Group heading="Go to">
-              {VIEWS.map((v) => (
+              {navViews(!!meta?.gamification).map((v) => (
                 <Item
                   key={v.key}
                   icon={v.icon}
