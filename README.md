@@ -55,6 +55,18 @@ but no interactive visualizer that also lets you *create* work. This app is that
 visualizer: a fast, graph-aware task board for humans, on top of a tracker built
 for AI agents.
 
+## Quick install
+
+With [Homebrew](https://brew.sh) (macOS or Linux):
+
+```bash
+brew install brendan-appstart/tap/bead-me-up-scotty
+scotty
+```
+
+Update with `brew upgrade bead-me-up-scotty`. Other options (from source, global
+npm, Docker) are below.
+
 ## Features
 
 - **Board** — a five-column view (Backlog · Ready · In Progress · Blocked · Done)
