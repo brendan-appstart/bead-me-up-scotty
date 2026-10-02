@@ -18,6 +18,7 @@ import { GITHUB_REPO } from "@/lib/build-info";
 import { BuildBadge } from "@/components/build-badge";
 import { UpdateIndicator } from "@/components/update-indicator";
 import { cn } from "@/lib/utils";
+import { navViews } from "@/lib/views";
 
 function githubIssueUrl(kind: "bug" | "feature"): string {
   const isBug = kind === "bug";
@@ -34,20 +35,6 @@ function githubIssueUrl(kind: "bug" | "feature"): string {
 function openIssue(kind: "bug" | "feature") {
   window.open(githubIssueUrl(kind), "_blank", "noopener,noreferrer");
 }
-
-const NAV: { key: View; label: string; icon: string }[] = [
-  { key: "focus", label: "Focus", icon: "bolt" },
-  { key: "board", label: "Board", icon: "board" },
-  { key: "list", label: "List", icon: "list" },
-  { key: "epics", label: "Epics", icon: "target" },
-  { key: "graph", label: "Graph", icon: "graph" },
-  { key: "insights", label: "Insights", icon: "milestone" },
-  { key: "activity", label: "Activity", icon: "comment" },
-  { key: "needsyou", label: "Needs You", icon: "user" },
-  { key: "achievements", label: "Achievements", icon: "feature" },
-  { key: "publish", label: "Publish", icon: "rocket" },
-  { key: "settings", label: "Settings", icon: "settings" },
-];
 
 export function Sidebar({
   view,
@@ -89,7 +76,7 @@ export function Sidebar({
 
 
       <nav className="flex flex-col gap-[2px]">
-        {NAV.filter((n) => n.key !== "achievements" || meta?.gamification).map((n) => {
+        {navViews(!!meta?.gamification).map((n) => {
           const active = view === n.key;
           return (
             <button
