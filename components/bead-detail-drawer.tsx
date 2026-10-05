@@ -49,7 +49,6 @@ import {
   closeReasonOf,
 } from "@/lib/beads-view";
 import {
-  BEAD_STATUSES,
   BLOCKING_DEP_TYPES,
   type Bead,
   type BlockingDepType,
@@ -380,9 +379,9 @@ function DrawerBody({
             <Icon name="chevron" size={15} className="rotate-90" />
           </IconBtn>
         )}
-        <span className="h-[9px] w-[9px] rounded-full" style={{ background: catColor(bead.status) }} />
+        <span className="h-[9px] w-[9px] rounded-full" style={{ background: catColor(bead.status, meta?.statuses) }} />
         <CopyableId id={bead.id} className="font-mono text-[13px] text-[var(--text-2)]" />
-        <StatusChip status={bead.status} />
+        <StatusChip status={bead.status} statuses={meta?.statuses} />
         <span className="flex-1" />
         <IconBtn title="Copy link" onClick={copyLink}>
           <Icon name="link" size={15} />
@@ -471,9 +470,9 @@ function DrawerBody({
                 }
               }}
             >
-              {BEAD_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {statusLabel(s)}
+              {(meta?.statuses ?? []).map((s) => (
+                <option key={s.name} value={s.name}>
+                  {statusLabel(s.name)}
                 </option>
               ))}
             </select>
@@ -742,7 +741,7 @@ function DrawerBody({
                     </span>
                     <span
                       className="h-[7px] w-[7px] flex-shrink-0 rounded-full"
-                      style={{ background: catColor(row.target?.status ?? "open") }}
+                      style={{ background: catColor(row.target?.status ?? "open", meta?.statuses) }}
                       title={statusLabel(row.target?.status ?? "open")}
                     />
                   </button>
@@ -865,7 +864,7 @@ function DrawerBody({
               >
                 <span
                   className="h-[7px] w-[7px] flex-shrink-0 rounded-full"
-                  style={{ background: catColor(k.status) }}
+                  style={{ background: catColor(k.status, meta?.statuses) }}
                   title={statusLabel(k.status)}
                 />
                 <span className="flex-shrink-0 font-mono text-[11px] text-[var(--text-3)]">
@@ -1175,8 +1174,8 @@ function Header({ icon, label, count }: { icon: string; label: string; count?: n
   );
 }
 
-function StatusChip({ status }: { status: string }) {
-  const c = catColor(status);
+function StatusChip({ status, statuses }: { status: string; statuses?: readonly import("@/lib/schema").StatusInfo[] }) {
+  const c = catColor(status, statuses);
   return (
     <span
       className="inline-flex items-center rounded-full px-2 py-px text-[10.5px] font-semibold tracking-[.01em]"

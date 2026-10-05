@@ -15,7 +15,46 @@ export const BEAD_STATUSES = [
   "pinned",
   "hooked",
 ] as const;
-export type BeadStatus = (typeof BEAD_STATUSES)[number];
+export type BeadStatus = string;
+
+export const STATUS_CATEGORIES = ["active", "wip", "done", "frozen"] as const;
+export type StatusCategory = (typeof STATUS_CATEGORIES)[number];
+
+export interface StatusInfo {
+  name: string;
+  category: StatusCategory;
+  icon?: string;
+  description?: string;
+  custom?: boolean;
+}
+
+export const statusInfoSchema = z.object({
+  name: z.string().min(1).max(100),
+  category: z.enum(STATUS_CATEGORIES),
+  icon: z.string().optional(),
+  description: z.string().optional(),
+});
+
+export function parseKnownStatus(status: string, statuses: readonly StatusInfo[]): string {
+  return z
+    .string()
+    .min(1)
+    .max(100)
+    .refine((candidate) => statuses.some((configured) => configured.name === candidate), {
+      message: `Unknown bead status: ${status}`,
+    })
+    .parse(status);
+}
+
+export const BUILT_IN_STATUS_INFO: readonly StatusInfo[] = [
+  { name: "open", category: "active", icon: "○", description: "Available to work (default)" },
+  { name: "in_progress", category: "wip", icon: "◐", description: "Actively being worked on" },
+  { name: "blocked", category: "wip", icon: "●", description: "Blocked by a dependency" },
+  { name: "deferred", category: "frozen", icon: "❄", description: "Deliberately put on ice for later" },
+  { name: "closed", category: "done", icon: "✓", description: "Completed" },
+  { name: "pinned", category: "frozen", icon: "📌", description: "Persistent, stays open indefinitely" },
+  { name: "hooked", category: "wip", icon: "◇", description: "Attached to an agent's hook" },
+];
 
 // Human-facing subset of bd issue_type (internal molecule/gate/event omitted).
 export const BEAD_TYPES = [
@@ -165,7 +204,7 @@ export type CreateInput = z.infer<typeof createInputSchema>;
 export const updateInputSchema = z.object({
   title: z.string().min(1).max(500).optional(),
   description: z.string().optional(),
-  status: z.enum(BEAD_STATUSES).optional(),
+  status: z.string().min(1).max(100).optional(),
   priority: z.coerce.number().int().min(0).max(4).optional(),
   issue_type: z.enum(BEAD_TYPES).optional(),
   assignee: z.string().optional(),

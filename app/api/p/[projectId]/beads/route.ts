@@ -12,7 +12,7 @@ export async function GET(_req: Request, { params }: Ctx) {
     const { projectId } = await params;
     const store = await getStore(projectId);
     const cfg = getConfig();
-    const beads = await store.list();
+    const [beads, statuses] = await Promise.all([store.list(), store.statuses()]);
     return ok({
       beads,
       meta: {
@@ -23,6 +23,7 @@ export async function GET(_req: Request, { params }: Ctx) {
         gamification: cfg.gamification,
         readOnly: isReadOnly(_req),
         lanePrefix: lanePrefix(),
+        statuses,
       },
     });
   } catch (e) {

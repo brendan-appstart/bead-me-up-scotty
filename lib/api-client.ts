@@ -1,4 +1,4 @@
-import type { Bead, CreateInput, UpdateInput, DepType } from "./schema";
+import type { Bead, CreateInput, UpdateInput, DepType, StatusInfo } from "./schema";
 import type { UpdateStatus, UpdateResult, UpdateChannel, UpdateTarget } from "./update-types";
 
 export interface Meta {
@@ -11,6 +11,8 @@ export interface Meta {
   readOnly?: boolean;
   /** Label prefix (SCOTTY_LANE_PREFIX) that partitions work into Focus-view lane chips. */
   lanePrefix?: string | null;
+  /** Valid built-in and custom statuses reported by the active bd project. */
+  statuses?: StatusInfo[];
 }
 export interface BeadsResponse {
   beads: Bead[];

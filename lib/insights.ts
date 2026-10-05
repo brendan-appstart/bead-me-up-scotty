@@ -1,8 +1,8 @@
 import "server-only";
-import type { Bead } from "./schema";
+import { BUILT_IN_STATUS_INFO, type Bead, type StatusInfo } from "./schema";
 import { originOf, type Origin } from "./attribution";
 import type { RawInteraction } from "./interactions";
-import { BOARD_COLUMNS, colOf } from "./board-columns";
+import { buildBoardColumns, colOf } from "./board-columns";
 import { makeIndex } from "./beads-view";
 
 /**
@@ -75,6 +75,7 @@ export function computeInsights(
   humanAllowlist: string[],
   days: number,
   now: number,
+  statuses: readonly StatusInfo[] = BUILT_IN_STATUS_INFO,
 ): InsightsData {
   const start = now - days * DAY;
   const index = makeIndex(beads);
@@ -167,13 +168,15 @@ export function computeInsights(
   }
   aging.sort((a, b) => b.days - a.days);
 
-  // Column counts (current snapshot) for WIP limits.
-  const counts = new Map(BOARD_COLUMNS.map((c) => [c.id, 0]));
+  // Column counts (current snapshot) for WIP limits. Custom bd statuses are
+  // real board columns too, so Insights must use the same column model.
+  const boardColumns = buildBoardColumns(statuses);
+  const counts = new Map(boardColumns.map((c) => [c.id, 0]));
   for (const b of beads) {
-    const col = colOf(b, index);
+    const col = colOf(b, index, statuses);
     if (col) counts.set(col, (counts.get(col) ?? 0) + 1);
   }
-  const columns = BOARD_COLUMNS.map((c) => ({
+  const columns = boardColumns.map((c) => ({
     id: c.id,
     name: c.name,
     color: c.color,

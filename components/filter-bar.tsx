@@ -3,7 +3,7 @@ import * as React from "react";
 import { Icon } from "@/components/icons";
 import { MultiSelectFilter, type FilterOption } from "@/components/multi-select-filter";
 import { typeLabel, statusLabel, prioLabel } from "@/lib/beads-view";
-import { BEAD_TYPES, BEAD_STATUSES } from "@/lib/schema";
+import { BEAD_TYPES, BUILT_IN_STATUS_INFO, type StatusInfo } from "@/lib/schema";
 import { type Filters, emptyFilters, toggleStr, toggleNum } from "@/lib/filters";
 
 /**
@@ -18,6 +18,7 @@ export function FilterBar({
   onChange,
   labelOptions,
   assigneeOptions,
+  statusOptions,
   showArchived,
   onShowArchived,
   onClearAllAction,
@@ -26,6 +27,7 @@ export function FilterBar({
   onChange: (f: Filters) => void;
   labelOptions: FilterOption[];
   assigneeOptions: FilterOption[];
+  statusOptions: readonly StatusInfo[];
   showArchived: boolean;
   onShowArchived: (v: boolean) => void;
   onClearAllAction?: () => void;
@@ -68,7 +70,7 @@ export function FilterBar({
       <div className="flex items-center gap-[7px]">
         <MultiSelectFilter
           label="Status"
-          options={BEAD_STATUSES.map((s) => ({ value: s, label: statusLabel(s) }))}
+          options={(statusOptions.length ? statusOptions : BUILT_IN_STATUS_INFO).map((s) => ({ value: s.name, label: statusLabel(s.name) }))}
           selected={filters.status}
           onToggle={(v) => set({ status: toggleStr(filters.status, v) })}
           onClear={() => set({ status: [] })}

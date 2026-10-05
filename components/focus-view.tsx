@@ -263,7 +263,7 @@ function LaneChip({
 }
 
 function FocusCard({ bead, showBlockers }: { bead: Bead; showBlockers?: boolean }) {
-  const { index, openDetail, selectedBeadId, selectBead } = useApp();
+  const { index, meta, openDetail, selectedBeadId, selectBead } = useApp();
   const blockers = showBlockers ? blockingDeps(bead, index) : [];
   const timestamp = bead.status === "closed" ? completionDate(bead) : bead.updated_at;
   return (
@@ -292,7 +292,7 @@ function FocusCard({ bead, showBlockers }: { bead: Bead; showBlockers?: boolean 
       }`}
     >
       <div className="mb-[5px] flex items-center gap-[7px]">
-        <span className="h-2 w-2 flex-shrink-0 rounded-full" style={{ background: catColor(bead.status) }} />
+        <span className="h-2 w-2 flex-shrink-0 rounded-full" style={{ background: catColor(bead.status, meta?.statuses) }} />
         <span className="font-mono text-[10.5px] text-[var(--text-3)]">{bead.id}</span>
         <span className="flex-1" />
         <PriorityChip p={bead.priority} />

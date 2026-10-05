@@ -1,4 +1,4 @@
-import type { Bead } from "./schema";
+import type { Bead, StatusInfo } from "./schema";
 import { BLOCKING_DEP_TYPES } from "./schema";
 
 /**
@@ -82,11 +82,15 @@ export function closeReasonOf(b: Bead): string {
 
 export type StatusCategory = "done" | "wip" | "blocked" | "frozen" | "active";
 
-export function category(status: string): StatusCategory {
+export function category(status: string, statuses?: readonly StatusInfo[]): StatusCategory {
+  // Keep Scotty's special built-in visual semantics stable; `bd statuses`
+  // reports `blocked` as WIP, but Scotty deliberately renders it as blocked.
   if (status === "closed") return "done";
   if (status === "in_progress" || status === "hooked") return "wip";
   if (status === "blocked") return "blocked";
   if (status === "deferred" || status === "pinned") return "frozen";
+  const dynamic = statuses?.find((s) => s.name === status)?.category;
+  if (dynamic) return dynamic;
   return "active";
 }
 
@@ -97,8 +101,8 @@ const CAT_COLORS: Record<StatusCategory, string> = {
   frozen: "#64748b",
   active: "#3b82f6",
 };
-export function catColor(status: string): string {
-  return CAT_COLORS[category(status)];
+export function catColor(status: string, statuses?: readonly StatusInfo[]): string {
+  return CAT_COLORS[category(status, statuses)];
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -111,7 +115,10 @@ const STATUS_LABELS: Record<string, string> = {
   hooked: "Hooked",
 };
 export function statusLabel(status: string): string {
-  return STATUS_LABELS[status] ?? status;
+  const known = STATUS_LABELS[status];
+  if (known) return known;
+  const label = status.replace(/[_-]+/g, " ");
+  return label ? label.charAt(0).toUpperCase() + label.slice(1) : label;
 }
 
 const PRIO_COLORS = ["#ef4444", "#f97316", "#eab308", "#0ea5e9", "#64748b"];
