@@ -1,0 +1,74 @@
+artifacts:
+  beads: .beads
+  evidence: .agent-workflow/runtime/evidence
+  knowledge: .planning/knowledge
+  plans: .planning/plans
+  runtime: .agent-workflow/runtime
+  worktrees: .planning/worktrees
+capabilities: {}
+harness: codex
+model_tiers:
+  brainstorm: high_reasoning
+  design: high_reasoning
+  docs: cheap_simple
+  implement: standard_impl
+  plan: high_reasoning
+  review: high_reasoning
+  verify: standard_impl
+policy:
+  approval:
+    bind_to_scope: true
+    ttl_seconds: 86400
+project:
+  monorepo: false
+  review: self_check
+  review_ledger: false
+  rigor: easy
+  shape: frontend
+  stage: brownfield
+  worktree: never
+provider_mode: single
+quick:
+  max_files: 5
+routing:
+  circuit_breaker:
+    failure_threshold: 3
+  queue:
+    max_wait_seconds: 600
+  review:
+    allow_self_review_fallback: true
+    independence: session
+    max_cycles: 2
+    require_independent: false
+    role: review
+  roles:
+    docs:
+      preferred:
+      - main_harness
+    frontend:
+      preferred:
+      - main_harness
+    general:
+      preferred:
+      - main_harness
+    review:
+      preferred:
+      - main_harness
+  worker:
+    max_retries: 2
+rules:
+  packs:
+  - core
+  - typescript
+  - nextjs
+  - react
+schema_version: '2.5'
+setup_cli_version: '2.5'
+verify:
+  checks:
+    build: npm run build
+    e2e: ''
+    lint: npm run lint
+    test: ''
+    typecheck: npx tsc --noEmit
+workflow_version: '2.5'
