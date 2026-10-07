@@ -54,15 +54,21 @@ export function FilterBar({
 
   return (
     <>
-      <div className="flex h-9 max-w-[280px] flex-1 items-center gap-[7px] rounded-[9px] border border-border bg-[var(--surface-2)] px-[11px]">
-        <Icon name="search" size={15} className="flex-shrink-0 text-[var(--text-3)]" />
-        <input
-          data-search
-          value={filters.search}
-          onChange={(e) => set({ search: e.target.value })}
-          placeholder="Search beads…  (/)"
-          className="w-full border-none bg-transparent text-[13px] text-[var(--text)] outline-none"
-        />
+      <div className="relative h-9 min-w-9 max-w-[280px] flex-1">
+        <label className="absolute inset-y-0 left-0 z-10 flex w-full cursor-text items-center gap-[7px] overflow-hidden rounded-[9px] border border-border bg-[var(--surface-2)] px-[11px] transition-[width] duration-150 focus-within:z-30 focus-within:w-[280px] focus-within:shadow-lg">
+          <Icon
+            name="search"
+            size={15}
+            className={`flex-shrink-0 ${filters.search.trim() ? "text-[var(--brand)]" : "text-[var(--text-3)]"}`}
+          />
+          <input
+            data-search
+            value={filters.search}
+            onChange={(e) => set({ search: e.target.value })}
+            placeholder="Search beads…  (/)"
+            className="w-full min-w-0 border-none bg-transparent text-[13px] text-[var(--text)] outline-none"
+          />
+        </label>
       </div>
 
       <div className="flex items-center gap-[7px]">
