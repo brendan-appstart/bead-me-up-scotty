@@ -20,6 +20,14 @@ import { catColor, typeColor, childrenOf } from "@/lib/beads-view";
 import { buildEpicGraphScope, graphDependencyLayers } from "@/lib/graph-epic";
 import { graphNeighborhood } from "@/lib/graph-neighborhood";
 import type { Bead } from "@/lib/schema";
+import { MultiSelectFilter } from "@/components/multi-select-filter";
+import {
+  matchesFilters,
+  labelOptionsFrom,
+  assigneeOptionsFrom,
+  toggleStr,
+  type Filters,
+} from "@/lib/filters";
 
 type BeadNodeData = {
   bead: Bead;
@@ -231,11 +239,14 @@ function epicLayout(
 }
 
 export function GraphView() {
-  const { beads, openDetail, readOnly } = useApp();
+  const { beads, openDetail, readOnly, humanAllowlist } = useApp();
   const [epicId, setEpicId] = React.useState("");
   const [liveOnly, setLiveOnly] = React.useState(true);
   const [spotlight, setSpotlight] = React.useState(false);
   const [focusId, setFocusId] = React.useState<string | null>(null);
+  const [search, setSearch] = React.useState("");
+  const [assignees, setAssignees] = React.useState<string[]>([]);
+  const [labels, setLabels] = React.useState<string[]>([]);
   const activateNode = React.useCallback((id: string) => {
     if (spotlight) setFocusId(id);
     else openDetail(id);
@@ -257,24 +268,57 @@ export function GraphView() {
   );
   const effectiveEpicId = epics.some((epic) => epic.id === epicId) ? epicId : "";
 
+  const labelOptions = React.useMemo(() => labelOptionsFrom(beads), [beads]);
+  const assigneeOptions = React.useMemo(() => assigneeOptionsFrom(beads), [beads]);
+  const filters: Filters = React.useMemo(
+    () => ({ status: [], type: [], priority: [], origin: [], labels, assignee: assignees, search }),
+    [labels, assignees, search],
+  );
+  const filterCount = (search.trim() ? 1 : 0) + (assignees.length ? 1 : 0) + (labels.length ? 1 : 0);
+  const clearFilters = React.useCallback(() => {
+    setSearch("");
+    setAssignees([]);
+    setLabels([]);
+    setFocusId(null);
+  }, []);
+
   // Preserve the original archive exclusion. Closed and unlinked work is hidden
   // by default ("Live dependencies only" starts checked); epic scope additionally
   // adds only direct outside neighbors.
   const { nodes, edges, considered } = React.useMemo(() => {
     const nonArchived = beads.filter((bead) => !(bead.labels ?? []).includes("archived"));
+    const matched = nonArchived.filter((bead) => matchesFilters(bead, filters, humanAllowlist));
     if (effectiveEpicId) {
-      const scope = buildEpicGraphScope(nonArchived, effectiveEpicId);
+      // Keep the scoped epic visible even when it doesn't match the filters, so the
+      // user retains scope context.
+      const anchor = nonArchived.find((bead) => bead.id === effectiveEpicId);
+      const pool =
+        !anchor || matched.some((bead) => bead.id === effectiveEpicId)
+          ? matched
+          : [anchor, ...matched];
+      const scope = buildEpicGraphScope(pool, effectiveEpicId);
       const visible = liveOnly
         ? liveGraphBeads(scope.beads, new Set([effectiveEpicId]))
         : scope.beads;
       return {
         ...epicLayout(visible, activateNode, scope.outsideIds),
-        considered: scope.beads.length,
+        // Pre-facet scope size so `hidden` and the empty state reflect facet losses.
+        considered: buildEpicGraphScope(nonArchived, effectiveEpicId).beads.length,
       };
     }
-    const visible = liveOnly ? liveGraphBeads(nonArchived) : nonArchived;
+    const visible = liveOnly ? liveGraphBeads(matched) : matched;
     return { ...layout(visible, activateNode), considered: nonArchived.length };
-  }, [beads, activateNode, effectiveEpicId, liveOnly]);
+  }, [beads, activateNode, effectiveEpicId, liveOnly, filters, humanAllowlist]);
+  const visibleIds = React.useMemo(
+    () => nodes.map((node) => node.id).sort().join("|"),
+    [nodes],
+  );
+  const previousVisibleIds = React.useRef(visibleIds);
+  React.useEffect(() => {
+    if (previousVisibleIds.current === visibleIds) return;
+    previousVisibleIds.current = visibleIds;
+    center();
+  }, [visibleIds, center]);
   const hidden = Math.max(0, considered - nodes.length);
   const focus = React.useMemo(() => {
     if (!spotlight || !focusId || !nodes.some(n => n.id === focusId)) return null;
@@ -325,12 +369,26 @@ export function GraphView() {
             {hidden > 0 && (
               <>
                 {" · "}
-                <span title="Turn off Live dependencies only to include closed and unlinked beads.">
+                <span title="Hidden by the live-dependencies filter or the active search/assignee/label filters.">
                   {hidden} hidden by filter
                 </span>
               </>
             )}
           </span>
+        </div>
+        <div className="flex h-9 w-[220px] flex-shrink-0 items-center gap-[7px] rounded-[9px] border border-border bg-[var(--surface-2)] px-[11px]">
+          <Icon name="search" size={15} className="flex-shrink-0 text-[var(--text-3)]" />
+          <input
+            data-search
+            aria-label="Search beads"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setFocusId(null);
+            }}
+            placeholder="Search beads…  (/)"
+            className="w-full border-none bg-transparent text-[13px] text-[var(--text)] outline-none"
+          />
         </div>
         <select
           aria-label="Graph scope"
@@ -349,6 +407,46 @@ export function GraphView() {
             </option>
           ))}
         </select>
+        {assigneeOptions.length > 0 && (
+          <MultiSelectFilter
+            label="Assignee"
+            options={assigneeOptions}
+            selected={assignees}
+            onToggle={(v) => {
+              setAssignees((current) => toggleStr(current, v));
+              setFocusId(null);
+            }}
+            onClear={() => {
+              setAssignees([]);
+              setFocusId(null);
+            }}
+          />
+        )}
+        {labelOptions.length > 0 && (
+          <MultiSelectFilter
+            label="Labels"
+            options={labelOptions}
+            selected={labels}
+            onToggle={(v) => {
+              setLabels((current) => toggleStr(current, v));
+              setFocusId(null);
+            }}
+            onClear={() => {
+              setLabels([]);
+              setFocusId(null);
+            }}
+          />
+        )}
+        {filterCount > 0 && (
+          <button
+            onClick={clearFilters}
+            title="Clear all filters"
+            className="flex h-9 flex-shrink-0 items-center gap-[6px] rounded-[9px] border border-border bg-[var(--surface-2)] px-[11px] text-[12.5px] font-medium text-[var(--text-2)] hover:bg-[var(--surface-3)]"
+          >
+            <Icon name="x" size={14} />
+            <span>Clear · {filterCount}</span>
+          </button>
+        )}
         <label className="flex cursor-pointer items-center gap-2 text-[12px] text-[var(--text-2)]">
           <input type="checkbox" checked={spotlight} className="accent-[var(--brand)]"
             onChange={e => { setSpotlight(e.target.checked); setFocusId(null); }} />
@@ -412,20 +510,38 @@ export function GraphView() {
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
             <div className="pointer-events-auto max-w-[360px] rounded-[12px] border border-border bg-[var(--surface)] p-[16px_18px] text-center shadow-[var(--shadow)]">
               <div className="text-[13px] font-[650] text-[var(--text)]">
-                {liveOnly && considered > 0 ? "No live dependencies" : "No beads to show"}
+                {considered === 0
+                  ? "No beads to show"
+                  : filterCount > 0
+                    ? "No beads match your filters"
+                    : "No live dependencies"}
               </div>
               <p className="m-0 mt-[6px] text-[12px] leading-[1.5] text-[var(--text-2)]">
                 {considered === 0
                   ? "There are no non-archived beads in this project."
-                  : "The current filter hides all beads. Show all beads to inspect completed work or create new dependencies."}
+                  : filterCount > 0
+                    ? "No bead matches the current search, assignee, or label filters."
+                    : "The current filter hides all beads. Show all beads to inspect completed work or create new dependencies."}
               </p>
-              {liveOnly && considered > 0 && (
-                <button
-                  onClick={() => setLiveOnly(false)}
-                  className="mt-3 rounded-lg border border-border px-3 py-1.5 text-[12px] hover:bg-[var(--surface-2)]"
-                >
-                  Show all beads
-                </button>
+              {considered > 0 && (
+                <div className="mt-3 flex items-center justify-center gap-2">
+                  {filterCount > 0 && (
+                    <button
+                      onClick={clearFilters}
+                      className="rounded-lg border border-border px-3 py-1.5 text-[12px] hover:bg-[var(--surface-2)]"
+                    >
+                      Clear filters
+                    </button>
+                  )}
+                  {liveOnly && (
+                    <button
+                      onClick={() => setLiveOnly(false)}
+                      className="rounded-lg border border-border px-3 py-1.5 text-[12px] hover:bg-[var(--surface-2)]"
+                    >
+                      Show all beads
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           </div>

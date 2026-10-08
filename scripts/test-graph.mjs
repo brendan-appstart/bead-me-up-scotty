@@ -13,7 +13,8 @@ const bead = (id, extra = {}) => ({
 const dep = (id, target, type = "blocks") => ({ issue_id: id, depends_on_id: target, type });
 const beads = [
   bead("new-a"), bead("new-b"), bead("finished", { status: "closed" }),
-  bead("linked-a", { dependencies: [dep("linked-a", "linked-b")] }), bead("linked-b"),
+  bead("linked-a", { assignee: "alice", dependencies: [dep("linked-a", "linked-b")] }),
+  bead("linked-b", { labels: ["infra"] }),
   bead("epic", { issue_type: "epic" }),
   bead("nested", { issue_type: "epic", dependencies: [dep("nested", "epic", "parent-child")] }),
   bead("child", { dependencies: [dep("child", "nested", "parent-child")] }),
@@ -77,11 +78,41 @@ try {
   await page.getByTitle("Close", { exact: true }).waitFor();
   await page.getByTitle("Close", { exact: true }).click();
 
+  // Search matches id/title/labels/assignee; the assignee and label facets narrow
+  // the same set; Clear restores it.
+  const search = page.locator('input[data-search]');
+  await search.fill('linked');
+  assert.deepEqual(await ids(), ['linked-a', 'linked-b'], 'Search must match bead ids');
+  await search.fill('infra');
+  assert.deepEqual(await ids(), ['linked-b'], 'Search must match labels');
+  await search.fill('alice');
+  assert.deepEqual(await ids(), ['linked-a'], 'Search must match assignees');
+  await search.fill('');
+  await page.getByRole('button', { name: /^Assignee/ }).click();
+  await page.getByRole('menuitemcheckbox', { name: 'alice' }).click();
+  await page.keyboard.press('Escape');
+  assert.deepEqual(await ids(), ['linked-a'], 'Assignee filter must narrow to one owner');
+  await page.getByRole('button', { name: /^Assignee/ }).click();
+  await page.getByRole('menuitemcheckbox', { name: 'alice' }).click();
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: /^Labels/ }).click();
+  await page.getByRole('menuitemcheckbox', { name: 'infra' }).click();
+  await page.keyboard.press('Escape');
+  assert.deepEqual(await ids(), ['linked-b'], 'Label filter must narrow by exact label');
+  await page.getByRole('button', { name: /^Clear/ }).click();
+  assert.deepEqual(await ids(), beads.filter((b) => b.id !== 'archived').map((b) => b.id).sort(),
+    'Clear must restore every bead');
+
   beads.splice(0, beads.length, bead("unlinked"), bead("completed", { status: "closed" }));
   await page.reload();
   await page.getByRole("button", { name: "Graph", exact: true }).click();
-  // Default live-only hides both beads, so the empty state must offer recovery.
+  // Default live-only hides both beads; with a facet active too, both recovery
+  // actions must be offered.
+  await page.locator('input[data-search]').fill('zzz');
+  await page.getByRole("button", { name: "Clear filters", exact: true }).waitFor();
   await page.getByRole("button", { name: "Show all beads", exact: true }).waitFor();
+  assert.deepEqual(await ids(), [], "Both filters hide every bead");
+  await page.getByRole("button", { name: "Clear filters", exact: true }).click();
   await page.getByRole("button", { name: "Show all beads", exact: true }).click();
   await page.locator('.react-flow__node[data-id="completed"]').waitFor();
   assert.deepEqual(await ids(), ["completed", "unlinked"], "Empty filter must offer recovery");

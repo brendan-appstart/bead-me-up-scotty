@@ -1,0 +1,579 @@
+{
+  "schema_version": "1.0",
+  "review_state": "review-approved",
+  "repositories": [
+    {
+      "repository_id": "scotty",
+      "role": "primary",
+      "repository_path": ".",
+      "review_ref": "refs/gin/review/scotty-ek0.2",
+      "checkpoint_ref": "refs/gin/review/scotty-ek0.2",
+      "review_base_sha": "46f2f6e0b3721b7d78049c7216a94a587aff8eb4",
+      "reviewed_source_sha": "8756947edd12aa79e540843749cfbf2b0dec055a",
+      "checkpoint_sha": "8756947edd12aa79e540843749cfbf2b0dec055a",
+      "source_scope_hash": "01cab63eed4ead1acc5e1fb4224a503ed696056403b2e46a842e69d3d3910aac",
+      "source_tree_hash": "97cffce469a6c58025a3b029afd048e9d8ee78c1761496422d26679f2763ce22",
+      "reviewed_source_tree_hash": "97cffce469a6c58025a3b029afd048e9d8ee78c1761496422d26679f2763ce22",
+      "source_identity_status": "complete"
+    }
+  ],
+  "source_scope": {
+    "included_paths": [
+      "components/graph-view.tsx",
+      "scripts/test-graph.mjs"
+    ],
+    "excluded_artifact_paths": [],
+    "allowed_generated_paths": [],
+    "nested_repository_paths": []
+  },
+  "active_lease": null,
+  "ledger_revision": 27,
+  "next_finding_number": 1,
+  "findings": {
+    "F1-hidden-count": {
+      "finding_id": "F1-hidden-count",
+      "severity": "MINOR",
+      "status": "verified",
+      "clarification_count": 0,
+      "deferral_reason": null,
+      "follow_up_bead_id": null,
+      "follow_up_bead_title": null,
+      "decision": null,
+      "waived_reason": null,
+      "location": "",
+      "expected_behavior": "",
+      "evidence": ""
+    },
+    "F2-search-label": {
+      "finding_id": "F2-search-label",
+      "severity": "MINOR",
+      "status": "verified",
+      "clarification_count": 0,
+      "deferral_reason": null,
+      "follow_up_bead_id": null,
+      "follow_up_bead_title": null,
+      "decision": null,
+      "waived_reason": null,
+      "location": "",
+      "expected_behavior": "",
+      "evidence": ""
+    },
+    "F3-search-coverage": {
+      "finding_id": "F3-search-coverage",
+      "severity": "SUGGESTION",
+      "status": "verified",
+      "clarification_count": 0,
+      "deferral_reason": null,
+      "follow_up_bead_id": null,
+      "follow_up_bead_title": null,
+      "decision": null,
+      "waived_reason": null,
+      "location": "",
+      "expected_behavior": "",
+      "evidence": ""
+    },
+    "F4-empty-state-coverage": {
+      "finding_id": "F4-empty-state-coverage",
+      "severity": "SUGGESTION",
+      "status": "verified",
+      "clarification_count": 0,
+      "deferral_reason": null,
+      "follow_up_bead_id": null,
+      "follow_up_bead_title": null,
+      "decision": null,
+      "waived_reason": null,
+      "location": "",
+      "expected_behavior": "",
+      "evidence": ""
+    },
+    "F5-onclear-focus": {
+      "finding_id": "F5-onclear-focus",
+      "severity": "SUGGESTION",
+      "status": "verified",
+      "clarification_count": 0,
+      "deferral_reason": null,
+      "follow_up_bead_id": null,
+      "follow_up_bead_title": null,
+      "decision": null,
+      "waived_reason": null,
+      "location": "",
+      "expected_behavior": "",
+      "evidence": ""
+    }
+  },
+  "events": [
+    {
+      "event_id": "EV-000001",
+      "action": "ledger-created",
+      "timestamp": "2026-10-08T07:02:14.518632Z",
+      "actor": {
+        "role": "worker",
+        "actor_id": "implementer:antigravity"
+      },
+      "payload": {
+        "repositories": [
+          {
+            "repository_id": "scotty",
+            "role": "primary",
+            "repository_path": ".",
+            "review_ref": "refs/gin/review/scotty-ek0.2",
+            "checkpoint_ref": "refs/gin/review/scotty-ek0.2",
+            "review_base_sha": "46f2f6e0b3721b7d78049c7216a94a587aff8eb4",
+            "reviewed_source_sha": "d40a8f0926af223b7ac26767ee7305b977d88be4",
+            "checkpoint_sha": "d40a8f0926af223b7ac26767ee7305b977d88be4",
+            "source_scope_hash": "01cab63eed4ead1acc5e1fb4224a503ed696056403b2e46a842e69d3d3910aac",
+            "source_tree_hash": "94fe10ac8496feba73a45e26416aa95b5bbc064c1a79b6c48bb73da657c0c2f3",
+            "reviewed_source_tree_hash": "94fe10ac8496feba73a45e26416aa95b5bbc064c1a79b6c48bb73da657c0c2f3",
+            "source_identity_status": "complete"
+          }
+        ],
+        "source_scope": {
+          "included_paths": [
+            "components/graph-view.tsx",
+            "scripts/test-graph.mjs"
+          ],
+          "excluded_artifact_paths": [],
+          "allowed_generated_paths": [],
+          "nested_repository_paths": []
+        }
+      },
+      "previous_event_hash": null,
+      "event_hash": "29e53b105e7a7d2c6716fadaee00fa122ffeec0ca7d20018896453ee70c8c2f0"
+    },
+    {
+      "event_id": "EV-000002",
+      "action": "source-checkpoint-created",
+      "timestamp": "2026-10-08T07:02:24.789415Z",
+      "actor": {
+        "role": "worker",
+        "actor_id": "implementer:antigravity"
+      },
+      "payload": {
+        "repositories": [
+          {
+            "repository_id": "scotty",
+            "role": "primary",
+            "repository_path": ".",
+            "review_ref": "refs/gin/review/scotty-ek0.2",
+            "checkpoint_ref": "refs/gin/review/scotty-ek0.2",
+            "review_base_sha": "46f2f6e0b3721b7d78049c7216a94a587aff8eb4",
+            "reviewed_source_sha": "767fc981d224b9cfdc22de0a25ef3e1e41e6ae73",
+            "checkpoint_sha": "767fc981d224b9cfdc22de0a25ef3e1e41e6ae73",
+            "source_scope_hash": "01cab63eed4ead1acc5e1fb4224a503ed696056403b2e46a842e69d3d3910aac",
+            "source_tree_hash": "94fe10ac8496feba73a45e26416aa95b5bbc064c1a79b6c48bb73da657c0c2f3",
+            "reviewed_source_tree_hash": "94fe10ac8496feba73a45e26416aa95b5bbc064c1a79b6c48bb73da657c0c2f3",
+            "source_identity_status": "complete"
+          }
+        ]
+      },
+      "previous_event_hash": "29e53b105e7a7d2c6716fadaee00fa122ffeec0ca7d20018896453ee70c8c2f0",
+      "event_hash": "30d5914d04ec6865badee7bbf0767734ae555ff84954fd1ff683566f73bfa5f2"
+    },
+    {
+      "event_id": "EV-000003",
+      "action": "review-requested",
+      "timestamp": "2026-10-08T07:02:25.917006Z",
+      "actor": {
+        "role": "worker",
+        "actor_id": "implementer:antigravity"
+      },
+      "payload": {
+        "to": "review-requested"
+      },
+      "previous_event_hash": "30d5914d04ec6865badee7bbf0767734ae555ff84954fd1ff683566f73bfa5f2",
+      "event_hash": "7e460c6308ec85f33f19875897faf07710eecc2e16d119246ed6d0fab16c98c8"
+    },
+    {
+      "event_id": "EV-000004",
+      "action": "lease-acquired",
+      "timestamp": "2026-10-08T07:02:26.904227Z",
+      "actor": {
+        "role": "reviewer",
+        "actor_id": "reviewer:antigravity:session-1"
+      },
+      "payload": {
+        "lease_id": "d8b29f8fe4e34278bd8cbb093981ca44",
+        "actor_role": "reviewer",
+        "actor_id": "reviewer:antigravity:session-1",
+        "acquired_at": "2026-10-08T07:02:26.860330Z",
+        "expires_at": "2026-10-08T09:02:26.860330Z"
+      },
+      "previous_event_hash": "7e460c6308ec85f33f19875897faf07710eecc2e16d119246ed6d0fab16c98c8",
+      "event_hash": "7f09296f50f4f76a071d575e1dffd7b589b14283c6733664cae57dbd0a8d0258"
+    },
+    {
+      "event_id": "EV-000005",
+      "action": "review-started",
+      "timestamp": "2026-10-08T07:02:26.929668Z",
+      "actor": {
+        "role": "reviewer",
+        "actor_id": "reviewer:antigravity:session-1"
+      },
+      "payload": {},
+      "previous_event_hash": "7f09296f50f4f76a071d575e1dffd7b589b14283c6733664cae57dbd0a8d0258",
+      "event_hash": "96c0fd13834527dac1eef3189c02928e2766b2f24c2902e74d7204a0cf87db81"
+    },
+    {
+      "event_id": "EV-000006",
+      "action": "lease-released",
+      "timestamp": "2026-10-08T07:36:48.248874Z",
+      "actor": {
+        "role": "reviewer",
+        "actor_id": "reviewer:antigravity:session-1"
+      },
+      "payload": {
+        "lease_id": "d8b29f8fe4e34278bd8cbb093981ca44",
+        "released_at": "2026-10-08T07:36:48.222633Z"
+      },
+      "previous_event_hash": "96c0fd13834527dac1eef3189c02928e2766b2f24c2902e74d7204a0cf87db81",
+      "event_hash": "2929a1cfdaeb88431734d2775601235f441fb4a0bcdd341140523ee88a374dc3"
+    },
+    {
+      "event_id": "EV-000007",
+      "action": "lease-acquired",
+      "timestamp": "2026-10-08T07:37:13.561681Z",
+      "actor": {
+        "role": "reviewer",
+        "actor_id": "reviewer:antigravity:session-1"
+      },
+      "payload": {
+        "lease_id": "bac4212991904949935f86969a7bad26",
+        "actor_role": "reviewer",
+        "actor_id": "reviewer:antigravity:session-1",
+        "acquired_at": "2026-10-08T07:37:13.282675Z",
+        "expires_at": "2026-10-08T09:37:13.282675Z"
+      },
+      "previous_event_hash": "2929a1cfdaeb88431734d2775601235f441fb4a0bcdd341140523ee88a374dc3",
+      "event_hash": "b9c60b91855e579d6051ccbc60d9f6a62e936fe29c7c79b9804b73f83d5f994e"
+    },
+    {
+      "event_id": "EV-000008",
+      "action": "finding-created",
+      "timestamp": "2026-10-08T07:37:14.860193Z",
+      "actor": {
+        "role": "reviewer",
+        "actor_id": "reviewer:antigravity:session-1"
+      },
+      "payload": {
+        "finding_id": "F1-hidden-count",
+        "severity": "MINOR"
+      },
+      "previous_event_hash": "b9c60b91855e579d6051ccbc60d9f6a62e936fe29c7c79b9804b73f83d5f994e",
+      "event_hash": "993914cadc53767ee5daaf0bb722e9582deb4a7f4d619b6467aed11ed877a676"
+    },
+    {
+      "event_id": "EV-000009",
+      "action": "finding-created",
+      "timestamp": "2026-10-08T07:37:16.200093Z",
+      "actor": {
+        "role": "reviewer",
+        "actor_id": "reviewer:antigravity:session-1"
+      },
+      "payload": {
+        "finding_id": "F2-search-label",
+        "severity": "MINOR"
+      },
+      "previous_event_hash": "993914cadc53767ee5daaf0bb722e9582deb4a7f4d619b6467aed11ed877a676",
+      "event_hash": "c505069da727ec1d8905fa7cc5e6a92b800c78143b82dd05d8289089c9edea24"
+    },
+    {
+      "event_id": "EV-000010",
+      "action": "finding-created",
+      "timestamp": "2026-10-08T07:37:17.511583Z",
+      "actor": {
+        "role": "reviewer",
+        "actor_id": "reviewer:antigravity:session-1"
+      },
+      "payload": {
+        "finding_id": "F3-search-coverage",
+        "severity": "SUGGESTION"
+      },
+      "previous_event_hash": "c505069da727ec1d8905fa7cc5e6a92b800c78143b82dd05d8289089c9edea24",
+      "event_hash": "c3e72ee953cd75319aa76476146f814b3aa619d4ae35499562239aa585559652"
+    },
+    {
+      "event_id": "EV-000011",
+      "action": "finding-created",
+      "timestamp": "2026-10-08T07:37:18.468595Z",
+      "actor": {
+        "role": "reviewer",
+        "actor_id": "reviewer:antigravity:session-1"
+      },
+      "payload": {
+        "finding_id": "F4-empty-state-coverage",
+        "severity": "SUGGESTION"
+      },
+      "previous_event_hash": "c3e72ee953cd75319aa76476146f814b3aa619d4ae35499562239aa585559652",
+      "event_hash": "48d6436146a794a063ade051874ecc13fadec41a8b2c84002c653c15853610ae"
+    },
+    {
+      "event_id": "EV-000012",
+      "action": "finding-created",
+      "timestamp": "2026-10-08T07:37:19.970035Z",
+      "actor": {
+        "role": "reviewer",
+        "actor_id": "reviewer:antigravity:session-1"
+      },
+      "payload": {
+        "finding_id": "F5-onclear-focus",
+        "severity": "SUGGESTION"
+      },
+      "previous_event_hash": "48d6436146a794a063ade051874ecc13fadec41a8b2c84002c653c15853610ae",
+      "event_hash": "5ea002100559e56909b7990e09ce03e41de29cfa5ee7ed0261f708b45ba8b8d6"
+    },
+    {
+      "event_id": "EV-000013",
+      "action": "finding-fixed",
+      "timestamp": "2026-10-08T07:37:21.815669Z",
+      "actor": {
+        "role": "worker",
+        "actor_id": "implementer:antigravity"
+      },
+      "payload": {
+        "finding_id": "F1-hidden-count"
+      },
+      "previous_event_hash": "5ea002100559e56909b7990e09ce03e41de29cfa5ee7ed0261f708b45ba8b8d6",
+      "event_hash": "ee5c5ecf354b6dbd842ddb47eb4fbeafd2924ba1ec1d771d0ad9e2520e341d40"
+    },
+    {
+      "event_id": "EV-000014",
+      "action": "finding-verified",
+      "timestamp": "2026-10-08T07:37:23.460165Z",
+      "actor": {
+        "role": "reviewer",
+        "actor_id": "reviewer:antigravity:session-1"
+      },
+      "payload": {
+        "finding_id": "F1-hidden-count"
+      },
+      "previous_event_hash": "ee5c5ecf354b6dbd842ddb47eb4fbeafd2924ba1ec1d771d0ad9e2520e341d40",
+      "event_hash": "15cc4bb4437d9188a5e702be22ed8b2bb7d2f7121d6d70a4ca06c4dc88c72560"
+    },
+    {
+      "event_id": "EV-000015",
+      "action": "finding-fixed",
+      "timestamp": "2026-10-08T07:37:24.518774Z",
+      "actor": {
+        "role": "worker",
+        "actor_id": "implementer:antigravity"
+      },
+      "payload": {
+        "finding_id": "F2-search-label"
+      },
+      "previous_event_hash": "15cc4bb4437d9188a5e702be22ed8b2bb7d2f7121d6d70a4ca06c4dc88c72560",
+      "event_hash": "34d6c3a6ccb087225a3ebe71c6307d5e6b5263b25e9aa6a7c8859ceac924cae9"
+    },
+    {
+      "event_id": "EV-000016",
+      "action": "finding-verified",
+      "timestamp": "2026-10-08T07:37:25.592858Z",
+      "actor": {
+        "role": "reviewer",
+        "actor_id": "reviewer:antigravity:session-1"
+      },
+      "payload": {
+        "finding_id": "F2-search-label"
+      },
+      "previous_event_hash": "34d6c3a6ccb087225a3ebe71c6307d5e6b5263b25e9aa6a7c8859ceac924cae9",
+      "event_hash": "b5350f8bb1934619a57980b923f03392fd2c023ab74a90d21c8bc6e407d98c29"
+    },
+    {
+      "event_id": "EV-000017",
+      "action": "finding-fixed",
+      "timestamp": "2026-10-08T07:37:26.795390Z",
+      "actor": {
+        "role": "worker",
+        "actor_id": "implementer:antigravity"
+      },
+      "payload": {
+        "finding_id": "F3-search-coverage"
+      },
+      "previous_event_hash": "b5350f8bb1934619a57980b923f03392fd2c023ab74a90d21c8bc6e407d98c29",
+      "event_hash": "df4418769e7e8ee1aab5e4cdcc9cbb5af0978d8c9dfd03026006ae93736c73f8"
+    },
+    {
+      "event_id": "EV-000018",
+      "action": "finding-verified",
+      "timestamp": "2026-10-08T07:37:27.989715Z",
+      "actor": {
+        "role": "reviewer",
+        "actor_id": "reviewer:antigravity:session-1"
+      },
+      "payload": {
+        "finding_id": "F3-search-coverage"
+      },
+      "previous_event_hash": "df4418769e7e8ee1aab5e4cdcc9cbb5af0978d8c9dfd03026006ae93736c73f8",
+      "event_hash": "8e8ccf53be6b3ec3296a3a36901cc81e3fd3a9dba7e161d6d1ee171f82bb35a9"
+    },
+    {
+      "event_id": "EV-000019",
+      "action": "finding-fixed",
+      "timestamp": "2026-10-08T07:37:29.481592Z",
+      "actor": {
+        "role": "worker",
+        "actor_id": "implementer:antigravity"
+      },
+      "payload": {
+        "finding_id": "F4-empty-state-coverage"
+      },
+      "previous_event_hash": "8e8ccf53be6b3ec3296a3a36901cc81e3fd3a9dba7e161d6d1ee171f82bb35a9",
+      "event_hash": "6f17cb26dc312aacc650c83691751185d8d0451c90ea930d55b553528fc45d70"
+    },
+    {
+      "event_id": "EV-000020",
+      "action": "finding-verified",
+      "timestamp": "2026-10-08T07:37:30.578227Z",
+      "actor": {
+        "role": "reviewer",
+        "actor_id": "reviewer:antigravity:session-1"
+      },
+      "payload": {
+        "finding_id": "F4-empty-state-coverage"
+      },
+      "previous_event_hash": "6f17cb26dc312aacc650c83691751185d8d0451c90ea930d55b553528fc45d70",
+      "event_hash": "65ca14d520ac8f1661b7383f022d99b2bffa87c55d84a01e3f5ea1ec706c37e9"
+    },
+    {
+      "event_id": "EV-000021",
+      "action": "finding-fixed",
+      "timestamp": "2026-10-08T07:37:32.631707Z",
+      "actor": {
+        "role": "worker",
+        "actor_id": "implementer:antigravity"
+      },
+      "payload": {
+        "finding_id": "F5-onclear-focus"
+      },
+      "previous_event_hash": "65ca14d520ac8f1661b7383f022d99b2bffa87c55d84a01e3f5ea1ec706c37e9",
+      "event_hash": "10efc48f6c36daeb38b55b72e2e5247f44d87e9c80f3d5a5d52b96ef4386e52d"
+    },
+    {
+      "event_id": "EV-000022",
+      "action": "finding-verified",
+      "timestamp": "2026-10-08T07:37:34.034100Z",
+      "actor": {
+        "role": "reviewer",
+        "actor_id": "reviewer:antigravity:session-1"
+      },
+      "payload": {
+        "finding_id": "F5-onclear-focus"
+      },
+      "previous_event_hash": "10efc48f6c36daeb38b55b72e2e5247f44d87e9c80f3d5a5d52b96ef4386e52d",
+      "event_hash": "61b4e4f4f60123cbad919dcb3c2eb3b3cb3a48842fd4f55a3d41479c38596e17"
+    },
+    {
+      "event_id": "EV-000023",
+      "action": "lease-released",
+      "timestamp": "2026-10-08T07:37:36.379649Z",
+      "actor": {
+        "role": "reviewer",
+        "actor_id": "reviewer:antigravity:session-1"
+      },
+      "payload": {
+        "lease_id": "bac4212991904949935f86969a7bad26",
+        "released_at": "2026-10-08T07:37:36.347053Z"
+      },
+      "previous_event_hash": "61b4e4f4f60123cbad919dcb3c2eb3b3cb3a48842fd4f55a3d41479c38596e17",
+      "event_hash": "eceb3668a34261bf9ff83ec801b0cd1d047194b03ab4e0285698249632c0719b"
+    },
+    {
+      "event_id": "EV-000024",
+      "action": "source-checkpoint-created",
+      "timestamp": "2026-10-08T07:38:14.468805Z",
+      "actor": {
+        "role": "worker",
+        "actor_id": "implementer:antigravity"
+      },
+      "payload": {
+        "repositories": [
+          {
+            "repository_id": "scotty",
+            "role": "primary",
+            "repository_path": ".",
+            "review_ref": "refs/gin/review/scotty-ek0.2",
+            "checkpoint_ref": "refs/gin/review/scotty-ek0.2",
+            "review_base_sha": "46f2f6e0b3721b7d78049c7216a94a587aff8eb4",
+            "reviewed_source_sha": "8756947edd12aa79e540843749cfbf2b0dec055a",
+            "checkpoint_sha": "8756947edd12aa79e540843749cfbf2b0dec055a",
+            "source_scope_hash": "01cab63eed4ead1acc5e1fb4224a503ed696056403b2e46a842e69d3d3910aac",
+            "source_tree_hash": "97cffce469a6c58025a3b029afd048e9d8ee78c1761496422d26679f2763ce22",
+            "reviewed_source_tree_hash": "97cffce469a6c58025a3b029afd048e9d8ee78c1761496422d26679f2763ce22",
+            "source_identity_status": "complete"
+          }
+        ]
+      },
+      "previous_event_hash": "eceb3668a34261bf9ff83ec801b0cd1d047194b03ab4e0285698249632c0719b",
+      "event_hash": "454fc17ae918191429cc38c680933c6568a8a72e3c6e1d105842e3a8ba52eb68"
+    },
+    {
+      "event_id": "EV-000025",
+      "action": "lease-acquired",
+      "timestamp": "2026-10-08T07:38:15.694169Z",
+      "actor": {
+        "role": "reviewer",
+        "actor_id": "reviewer:antigravity:session-1"
+      },
+      "payload": {
+        "lease_id": "34c79794ecb149eab7f7e47eafbe2c51",
+        "actor_role": "reviewer",
+        "actor_id": "reviewer:antigravity:session-1",
+        "acquired_at": "2026-10-08T07:38:15.687547Z",
+        "expires_at": "2026-10-08T09:38:15.687547Z"
+      },
+      "previous_event_hash": "454fc17ae918191429cc38c680933c6568a8a72e3c6e1d105842e3a8ba52eb68",
+      "event_hash": "1328056bb8bc8581531f5507b7e5a2c74dd217849fddfb899de448cf1d062320"
+    },
+    {
+      "event_id": "EV-000026",
+      "action": "review-approved",
+      "timestamp": "2026-10-08T07:38:18.239557Z",
+      "actor": {
+        "role": "reviewer",
+        "actor_id": "reviewer:antigravity:session-1"
+      },
+      "payload": {
+        "approved_repositories": [
+          {
+            "repository_id": "scotty",
+            "role": "primary",
+            "repository_path": ".",
+            "review_ref": "refs/gin/review/scotty-ek0.2",
+            "checkpoint_ref": "refs/gin/review/scotty-ek0.2",
+            "review_base_sha": "46f2f6e0b3721b7d78049c7216a94a587aff8eb4",
+            "reviewed_source_sha": "8756947edd12aa79e540843749cfbf2b0dec055a",
+            "checkpoint_sha": "8756947edd12aa79e540843749cfbf2b0dec055a",
+            "source_scope_hash": "01cab63eed4ead1acc5e1fb4224a503ed696056403b2e46a842e69d3d3910aac",
+            "source_tree_hash": "97cffce469a6c58025a3b029afd048e9d8ee78c1761496422d26679f2763ce22",
+            "reviewed_source_tree_hash": "97cffce469a6c58025a3b029afd048e9d8ee78c1761496422d26679f2763ce22",
+            "source_identity_status": "complete"
+          }
+        ],
+        "source_scope_hash": "01cab63eed4ead1acc5e1fb4224a503ed696056403b2e46a842e69d3d3910aac",
+        "terminal_findings": [
+          "F1-hidden-count",
+          "F2-search-label",
+          "F3-search-coverage",
+          "F4-empty-state-coverage",
+          "F5-onclear-focus"
+        ]
+      },
+      "previous_event_hash": "1328056bb8bc8581531f5507b7e5a2c74dd217849fddfb899de448cf1d062320",
+      "event_hash": "3cf41f59722b9b5075c6d9feaab9a095677c9649731b5a5f1db15113ee212d91"
+    },
+    {
+      "event_id": "EV-000027",
+      "action": "lease-released",
+      "timestamp": "2026-10-08T07:38:21.722185Z",
+      "actor": {
+        "role": "reviewer",
+        "actor_id": "reviewer:antigravity:session-1"
+      },
+      "payload": {
+        "lease_id": "34c79794ecb149eab7f7e47eafbe2c51",
+        "released_at": "2026-10-08T07:38:21.701563Z"
+      },
+      "previous_event_hash": "3cf41f59722b9b5075c6d9feaab9a095677c9649731b5a5f1db15113ee212d91",
+      "event_hash": "9ad77d1a715ad45a1852155831281aba1efb48bb69e1775735ac1d54e30fe17e"
+    }
+  ]
+}
