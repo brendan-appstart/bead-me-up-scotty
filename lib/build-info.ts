@@ -5,7 +5,7 @@
  */
 
 /** owner/repo slug for this project's GitHub. */
-export const GITHUB_REPO = "brendan-appstart/bead-me-up-scotty";
+export const GITHUB_REPO = "giangdhwhtbr/scotty";
 
 /** Sequential build number = `git rev-list --count HEAD` at build time. */
 export const BUILD_NUMBER = process.env.NEXT_PUBLIC_BUILD_NUMBER || "";
