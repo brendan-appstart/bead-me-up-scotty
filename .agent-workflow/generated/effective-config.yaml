@@ -6,7 +6,7 @@ artifacts:
   runtime: .agent-workflow/runtime
   worktrees: .planning/worktrees
 capabilities: {}
-harness: codex
+harness: antigravity
 model_tiers:
   brainstorm: high_reasoning
   design: high_reasoning
@@ -21,12 +21,12 @@ policy:
     ttl_seconds: 86400
 project:
   monorepo: false
-  review: self_check
+  review: independent
   review_ledger: false
-  rigor: easy
+  rigor: standard
   shape: frontend
   stage: brownfield
-  worktree: never
+  worktree: parallel
 provider_mode: single
 quick:
   max_files: 5
@@ -36,7 +36,7 @@ routing:
   queue:
     max_wait_seconds: 600
   review:
-    allow_self_review_fallback: true
+    allow_self_review_fallback: false
     independence: session
     max_cycles: 2
     require_independent: false

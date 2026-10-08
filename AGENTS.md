@@ -1,7 +1,11 @@
 <!-- BEGIN:nextjs-agent-rules -->
+
 # This is NOT the Next.js you know
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
 <!-- END:nextjs-agent-rules -->
 
 <!-- This section is project-owned and deliberately sits OUTSIDE the generated
@@ -47,7 +51,7 @@ bd export --all -o ~/bd-backups/<project>-$(date +%F).jsonl
 
 Git commits still work normally — this section is only about bead/Dolt data.
 
-<!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:6cd5cc61 -->
+<!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:1105d646 -->
 ## Beads Issue Tracker
 
 This project uses **bd (beads)** for issue tracking. Run `bd prime` to see full workflow context and commands.
@@ -67,7 +71,7 @@ bd close <id>         # Complete work
 - Run `bd prime` for detailed command reference and session close protocol
 - Use `bd remember` for persistent knowledge — do NOT use MEMORY.md files
 
-**Architecture in one line:** issues live in a local Dolt DB and **stay there** — this repo runs local-only, with no Dolt remote and no `refs/dolt/data` sync (see "Beads data is local-only" above, which overrides this block); `.beads/issues.jsonl` is a passive local export and is gitignored.
+**Architecture in one line:** issues live in a local Dolt DB; sync uses `refs/dolt/data` on your git remote; `.beads/issues.jsonl` is a passive export. See https://github.com/gastownhall/beads/blob/main/docs/core-concepts/sync-concepts.md for details and anti-patterns.
 
 ## Agent Context Profiles
 
@@ -123,5 +127,5 @@ bd prime                # Refresh Beads context
 - Run `bd prime` when Beads context is missing or stale. Codex 0.129.0+ can load Beads context automatically through native hooks; use `/hooks` to inspect or toggle them.
 - Keep persistent project memory in Beads via `bd remember`; do not create ad hoc memory files.
 
-**Architecture in one line:** issues live in a local Dolt DB and **stay there** — this repo runs local-only, with no Dolt remote and no `refs/dolt/data` sync (see "Beads data is local-only" above, which overrides this block); `.beads/issues.jsonl` is a passive local export and is gitignored.
+**Architecture in one line:** issues live in a local Dolt DB; sync uses `refs/dolt/data` on your git remote; `.beads/issues.jsonl` is a passive export. See https://github.com/gastownhall/beads/blob/main/docs/core-concepts/sync-concepts.md for details and anti-patterns.
 <!-- END BEADS CODEX SETUP -->

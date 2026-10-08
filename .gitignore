@@ -62,3 +62,7 @@ next-env.d.ts
 # Claude Code git worktrees — transient working copies of the repo, never source.
 # (Other .claude/ files like commands/ and settings.json stay tracked.)
 .claude/worktrees/
+
+# Beads / Dolt files (added by bd init)
+.beads/proxieddb/
+*.gate.lock*
