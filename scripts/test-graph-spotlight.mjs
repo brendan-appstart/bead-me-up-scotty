@@ -55,7 +55,8 @@ try {
   await page.goto(`${base}/p/demo`);
   await page.getByRole("button", { name: "Graph", exact: true }).click();
   const node = (id) => page.locator(`.react-flow__node[data-id="${id}"]`);
-  await node("a").waitFor();
+  await node("child").waitFor();
+  await page.getByRole("checkbox", { name: "Live dependencies only", exact: true }).uncheck();
 
   const spotlight = page.getByRole("checkbox", { name: "Spotlight dependencies", exact: true });
   assert.equal(await spotlight.isChecked(), false, "Spotlight is off by default");

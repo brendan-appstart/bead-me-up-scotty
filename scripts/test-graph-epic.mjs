@@ -59,7 +59,7 @@ try {
  const ids=()=>page.locator('.react-flow__node').evaluateAll(ns=>ns.map(n=>n.dataset.id).sort());
  const scope=()=>page.getByLabel('Graph scope',{exact:true});
  const close=async()=>{await page.getByTitle('Close',{exact:true}).click();await page.getByRole('dialog').waitFor({state:'detached'});};
- const graph=async()=>{await page.goto(`${base}/p/demo`);await page.getByRole('button',{name:'Graph',exact:true}).click();await node('solo').waitFor();};
+ const graph=async()=>{await page.goto(`${base}/p/demo`);await page.getByRole('button',{name:'Graph',exact:true}).click();await node('child').waitFor();await page.getByRole('checkbox',{name:'Live dependencies only',exact:true}).uncheck();};
  await graph();
  assert.equal(await scope().inputValue(),'','whole graph is the default');
  assert.deepEqual(await ids(),beads.filter(b=>b.id!=='archived').map(b=>b.id).sort());

@@ -233,7 +233,7 @@ function epicLayout(
 export function GraphView() {
   const { beads, openDetail, readOnly } = useApp();
   const [epicId, setEpicId] = React.useState("");
-  const [liveOnly, setLiveOnly] = React.useState(false);
+  const [liveOnly, setLiveOnly] = React.useState(true);
   const [spotlight, setSpotlight] = React.useState(false);
   const [focusId, setFocusId] = React.useState<string | null>(null);
   const activateNode = React.useCallback((id: string) => {
@@ -257,8 +257,9 @@ export function GraphView() {
   );
   const effectiveEpicId = epics.some((epic) => epic.id === epicId) ? epicId : "";
 
-  // Preserve the original archive exclusion; closed and unlinked work remains
-  // visible by default. Epic scope adds only direct outside neighbors.
+  // Preserve the original archive exclusion. Closed and unlinked work is hidden
+  // by default ("Live dependencies only" starts checked); epic scope additionally
+  // adds only direct outside neighbors.
   const { nodes, edges, considered } = React.useMemo(() => {
     const nonArchived = beads.filter((bead) => !(bead.labels ?? []).includes("archived"));
     if (effectiveEpicId) {

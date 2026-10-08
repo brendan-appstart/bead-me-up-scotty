@@ -1,0 +1,424 @@
+{
+  "schema_version": "1.0",
+  "review_state": "review-approved",
+  "repositories": [
+    {
+      "repository_id": "scotty",
+      "role": "primary",
+      "repository_path": ".",
+      "review_ref": "refs/gin/review/scotty-ek0.1",
+      "checkpoint_ref": "refs/gin/review/scotty-ek0.1",
+      "review_base_sha": "088eb6f03d04e0ad9126e6c931639b09892de016",
+      "reviewed_source_sha": "3daabea896cc4139f8cf8fee51dacf103a5bb6a3",
+      "checkpoint_sha": "3daabea896cc4139f8cf8fee51dacf103a5bb6a3",
+      "source_scope_hash": "8d2d194d648194994fc0031a741ace4025a13c47360aa27856eedcdd367926d7",
+      "source_tree_hash": "a72624e8de4263b2859c4c022102a9933c9a863616194683b8f81cd7ba19caa3",
+      "reviewed_source_tree_hash": "a72624e8de4263b2859c4c022102a9933c9a863616194683b8f81cd7ba19caa3",
+      "source_identity_status": "complete"
+    }
+  ],
+  "source_scope": {
+    "included_paths": [
+      "components/graph-view.tsx",
+      "scripts/test-graph-epic.mjs",
+      "scripts/test-graph-spotlight.mjs",
+      "scripts/test-graph.mjs"
+    ],
+    "excluded_artifact_paths": [
+      ".agent-workflow/.gitignore",
+      ".agent-workflow/config.yaml",
+      ".agent-workflow/generated/effective-config.yaml",
+      ".cursor",
+      ".gitignore",
+      "AGENTS.md"
+    ],
+    "allowed_generated_paths": [],
+    "nested_repository_paths": []
+  },
+  "active_lease": null,
+  "ledger_revision": 18,
+  "next_finding_number": 1,
+  "findings": {
+    "F1-stale-comment": {
+      "finding_id": "F1-stale-comment",
+      "severity": "MINOR",
+      "status": "verified",
+      "clarification_count": 0,
+      "deferral_reason": null,
+      "follow_up_bead_id": null,
+      "follow_up_bead_title": null,
+      "decision": null,
+      "waived_reason": null,
+      "location": "",
+      "expected_behavior": "",
+      "evidence": ""
+    },
+    "F2-duplicate-uncheck": {
+      "finding_id": "F2-duplicate-uncheck",
+      "severity": "SUGGESTION",
+      "status": "verified",
+      "clarification_count": 0,
+      "deferral_reason": null,
+      "follow_up_bead_id": null,
+      "follow_up_bead_title": null,
+      "decision": null,
+      "waived_reason": null,
+      "location": "",
+      "expected_behavior": "",
+      "evidence": ""
+    }
+  },
+  "events": [
+    {
+      "event_id": "EV-000001",
+      "action": "ledger-created",
+      "timestamp": "2026-10-08T06:34:08.259554Z",
+      "actor": {
+        "role": "worker",
+        "actor_id": "implementer:antigravity"
+      },
+      "payload": {
+        "repositories": [
+          {
+            "repository_id": "scotty",
+            "role": "primary",
+            "repository_path": ".",
+            "review_ref": "refs/gin/review/scotty-ek0.1",
+            "checkpoint_ref": "refs/gin/review/scotty-ek0.1",
+            "review_base_sha": "088eb6f03d04e0ad9126e6c931639b09892de016",
+            "reviewed_source_sha": "f9ba9dd5f45bb570edfbd61df703bbe0b6f63f9b",
+            "checkpoint_sha": "f9ba9dd5f45bb570edfbd61df703bbe0b6f63f9b",
+            "source_scope_hash": "8d2d194d648194994fc0031a741ace4025a13c47360aa27856eedcdd367926d7",
+            "source_tree_hash": "8b413b05ea394297c1018a8b04e85e1d00a17d8ce345017fff97a0e3bb66a7a4",
+            "reviewed_source_tree_hash": "8b413b05ea394297c1018a8b04e85e1d00a17d8ce345017fff97a0e3bb66a7a4",
+            "source_identity_status": "complete"
+          }
+        ],
+        "source_scope": {
+          "included_paths": [
+            "components/graph-view.tsx",
+            "scripts/test-graph-epic.mjs",
+            "scripts/test-graph-spotlight.mjs",
+            "scripts/test-graph.mjs"
+          ],
+          "excluded_artifact_paths": [
+            ".agent-workflow/.gitignore",
+            ".agent-workflow/config.yaml",
+            ".agent-workflow/generated/effective-config.yaml",
+            ".cursor",
+            ".gitignore",
+            "AGENTS.md"
+          ],
+          "allowed_generated_paths": [],
+          "nested_repository_paths": []
+        }
+      },
+      "previous_event_hash": null,
+      "event_hash": "9eba63bb1fa7aa0e9807773a183ccef9634756b0de9fcbd1ff0632ca0f4a67c5"
+    },
+    {
+      "event_id": "EV-000002",
+      "action": "source-checkpoint-created",
+      "timestamp": "2026-10-08T06:34:45.029073Z",
+      "actor": {
+        "role": "worker",
+        "actor_id": "implementer:antigravity"
+      },
+      "payload": {
+        "repositories": [
+          {
+            "repository_id": "scotty",
+            "role": "primary",
+            "repository_path": ".",
+            "review_ref": "refs/gin/review/scotty-ek0.1",
+            "checkpoint_ref": "refs/gin/review/scotty-ek0.1",
+            "review_base_sha": "088eb6f03d04e0ad9126e6c931639b09892de016",
+            "reviewed_source_sha": "5fab6139169c22b07c0b7d36115dc3a5d87489a7",
+            "checkpoint_sha": "5fab6139169c22b07c0b7d36115dc3a5d87489a7",
+            "source_scope_hash": "8d2d194d648194994fc0031a741ace4025a13c47360aa27856eedcdd367926d7",
+            "source_tree_hash": "8b413b05ea394297c1018a8b04e85e1d00a17d8ce345017fff97a0e3bb66a7a4",
+            "reviewed_source_tree_hash": "8b413b05ea394297c1018a8b04e85e1d00a17d8ce345017fff97a0e3bb66a7a4",
+            "source_identity_status": "complete"
+          }
+        ]
+      },
+      "previous_event_hash": "9eba63bb1fa7aa0e9807773a183ccef9634756b0de9fcbd1ff0632ca0f4a67c5",
+      "event_hash": "f6cb03272f3a9971d07dbba5cfa527cbeb0cd1acb77b0ce53dd8706f5eb6e341"
+    },
+    {
+      "event_id": "EV-000003",
+      "action": "review-requested",
+      "timestamp": "2026-10-08T06:34:47.400887Z",
+      "actor": {
+        "role": "worker",
+        "actor_id": "implementer:antigravity"
+      },
+      "payload": {
+        "to": "review-requested"
+      },
+      "previous_event_hash": "f6cb03272f3a9971d07dbba5cfa527cbeb0cd1acb77b0ce53dd8706f5eb6e341",
+      "event_hash": "4d9a083b879c005730b541d325c9996f9ac7695eb3cb3c5c01459eea95694747"
+    },
+    {
+      "event_id": "EV-000004",
+      "action": "lease-acquired",
+      "timestamp": "2026-10-08T06:35:09.486775Z",
+      "actor": {
+        "role": "reviewer",
+        "actor_id": "reviewer:antigravity:session-1"
+      },
+      "payload": {
+        "lease_id": "a99fd4fabaa441eeb04a1408c2e0073f",
+        "actor_role": "reviewer",
+        "actor_id": "reviewer:antigravity:session-1",
+        "acquired_at": "2026-10-08T06:35:09.472565Z",
+        "expires_at": "2026-10-08T06:45:09.472565Z"
+      },
+      "previous_event_hash": "4d9a083b879c005730b541d325c9996f9ac7695eb3cb3c5c01459eea95694747",
+      "event_hash": "1734134b592c16035a1a278045fdda08e11f258e0d9a4ee6c42ebc4e712b1f61"
+    },
+    {
+      "event_id": "EV-000005",
+      "action": "review-started",
+      "timestamp": "2026-10-08T06:35:09.501767Z",
+      "actor": {
+        "role": "reviewer",
+        "actor_id": "reviewer:antigravity:session-1"
+      },
+      "payload": {},
+      "previous_event_hash": "1734134b592c16035a1a278045fdda08e11f258e0d9a4ee6c42ebc4e712b1f61",
+      "event_hash": "d466d7a23e549f764319cb6b498c7aaa0994c352c7b4007655eba16eabc3f5ee"
+    },
+    {
+      "event_id": "EV-000006",
+      "action": "lease-broken",
+      "timestamp": "2026-10-08T06:50:55.808762Z",
+      "actor": {
+        "role": "reviewer",
+        "actor_id": "reviewer:antigravity:session-1"
+      },
+      "payload": {
+        "lease_id": "a99fd4fabaa441eeb04a1408c2e0073f",
+        "reason": "expired",
+        "replaced_by": "26f133e6adb5465b92814c59ca516cd3"
+      },
+      "previous_event_hash": "d466d7a23e549f764319cb6b498c7aaa0994c352c7b4007655eba16eabc3f5ee",
+      "event_hash": "194167e49127348ad6012e671871edccc3c936f9d8da09447c28b563429813b8"
+    },
+    {
+      "event_id": "EV-000007",
+      "action": "lease-acquired",
+      "timestamp": "2026-10-08T06:50:55.833194Z",
+      "actor": {
+        "role": "reviewer",
+        "actor_id": "reviewer:antigravity:session-1"
+      },
+      "payload": {
+        "lease_id": "26f133e6adb5465b92814c59ca516cd3",
+        "actor_role": "reviewer",
+        "actor_id": "reviewer:antigravity:session-1",
+        "acquired_at": "2026-10-08T06:50:55.800247Z",
+        "expires_at": "2026-10-08T08:50:55.800247Z"
+      },
+      "previous_event_hash": "194167e49127348ad6012e671871edccc3c936f9d8da09447c28b563429813b8",
+      "event_hash": "d8c0e04954300b17cde4ebcfa1b8127b023423ac2c3de0a47a453b6c007cb891"
+    },
+    {
+      "event_id": "EV-000008",
+      "action": "finding-created",
+      "timestamp": "2026-10-08T06:50:59.886301Z",
+      "actor": {
+        "role": "reviewer",
+        "actor_id": "reviewer:antigravity:session-1"
+      },
+      "payload": {
+        "finding_id": "F1-stale-comment",
+        "severity": "MINOR"
+      },
+      "previous_event_hash": "d8c0e04954300b17cde4ebcfa1b8127b023423ac2c3de0a47a453b6c007cb891",
+      "event_hash": "e52751576b93ef3be155ec9aa94e5f158bdff725bdb8ff634a6bd30eb2609528"
+    },
+    {
+      "event_id": "EV-000009",
+      "action": "finding-created",
+      "timestamp": "2026-10-08T06:51:01.634983Z",
+      "actor": {
+        "role": "reviewer",
+        "actor_id": "reviewer:antigravity:session-1"
+      },
+      "payload": {
+        "finding_id": "F2-duplicate-uncheck",
+        "severity": "SUGGESTION"
+      },
+      "previous_event_hash": "e52751576b93ef3be155ec9aa94e5f158bdff725bdb8ff634a6bd30eb2609528",
+      "event_hash": "d2bf37de49b90e7de9735f6f36f3d70bad5b66acea3d59dfcd0c246269119774"
+    },
+    {
+      "event_id": "EV-000010",
+      "action": "finding-fixed",
+      "timestamp": "2026-10-08T06:51:27.591324Z",
+      "actor": {
+        "role": "worker",
+        "actor_id": "implementer:antigravity"
+      },
+      "payload": {
+        "finding_id": "F1-stale-comment"
+      },
+      "previous_event_hash": "d2bf37de49b90e7de9735f6f36f3d70bad5b66acea3d59dfcd0c246269119774",
+      "event_hash": "0bdbcd8b161b04d95790a610ac39cb25724561e799848a0cc72019fdc1150371"
+    },
+    {
+      "event_id": "EV-000011",
+      "action": "finding-fixed",
+      "timestamp": "2026-10-08T06:51:29.465609Z",
+      "actor": {
+        "role": "worker",
+        "actor_id": "implementer:antigravity"
+      },
+      "payload": {
+        "finding_id": "F2-duplicate-uncheck"
+      },
+      "previous_event_hash": "0bdbcd8b161b04d95790a610ac39cb25724561e799848a0cc72019fdc1150371",
+      "event_hash": "b6d4ffec08ba7d82ef1c49b45d99c6a5d2d531de22e73111e964dab90fcd83d1"
+    },
+    {
+      "event_id": "EV-000012",
+      "action": "finding-verified",
+      "timestamp": "2026-10-08T06:51:33.270797Z",
+      "actor": {
+        "role": "reviewer",
+        "actor_id": "reviewer:antigravity:session-1"
+      },
+      "payload": {
+        "finding_id": "F1-stale-comment"
+      },
+      "previous_event_hash": "b6d4ffec08ba7d82ef1c49b45d99c6a5d2d531de22e73111e964dab90fcd83d1",
+      "event_hash": "b5f0aa45d190ca276851c295f1c02bf3f9fe0060a02fcae9a75fac005557d824"
+    },
+    {
+      "event_id": "EV-000013",
+      "action": "finding-verified",
+      "timestamp": "2026-10-08T06:51:34.844705Z",
+      "actor": {
+        "role": "reviewer",
+        "actor_id": "reviewer:antigravity:session-1"
+      },
+      "payload": {
+        "finding_id": "F2-duplicate-uncheck"
+      },
+      "previous_event_hash": "b5f0aa45d190ca276851c295f1c02bf3f9fe0060a02fcae9a75fac005557d824",
+      "event_hash": "9749370cb5493710c79d2d8b1056d0ec251fdbfdfbcd3466fdb3c527c415ae23"
+    },
+    {
+      "event_id": "EV-000014",
+      "action": "lease-released",
+      "timestamp": "2026-10-08T06:51:41.567226Z",
+      "actor": {
+        "role": "reviewer",
+        "actor_id": "reviewer:antigravity:session-1"
+      },
+      "payload": {
+        "lease_id": "26f133e6adb5465b92814c59ca516cd3",
+        "released_at": "2026-10-08T06:51:41.541958Z"
+      },
+      "previous_event_hash": "9749370cb5493710c79d2d8b1056d0ec251fdbfdfbcd3466fdb3c527c415ae23",
+      "event_hash": "1e9a65dfc115e626f5823bc115ef8fcf264930f0d5458ccb1b979993f7f4c651"
+    },
+    {
+      "event_id": "EV-000015",
+      "action": "source-checkpoint-created",
+      "timestamp": "2026-10-08T06:52:18.659974Z",
+      "actor": {
+        "role": "worker",
+        "actor_id": "implementer:antigravity"
+      },
+      "payload": {
+        "repositories": [
+          {
+            "repository_id": "scotty",
+            "role": "primary",
+            "repository_path": ".",
+            "review_ref": "refs/gin/review/scotty-ek0.1",
+            "checkpoint_ref": "refs/gin/review/scotty-ek0.1",
+            "review_base_sha": "088eb6f03d04e0ad9126e6c931639b09892de016",
+            "reviewed_source_sha": "3daabea896cc4139f8cf8fee51dacf103a5bb6a3",
+            "checkpoint_sha": "3daabea896cc4139f8cf8fee51dacf103a5bb6a3",
+            "source_scope_hash": "8d2d194d648194994fc0031a741ace4025a13c47360aa27856eedcdd367926d7",
+            "source_tree_hash": "a72624e8de4263b2859c4c022102a9933c9a863616194683b8f81cd7ba19caa3",
+            "reviewed_source_tree_hash": "a72624e8de4263b2859c4c022102a9933c9a863616194683b8f81cd7ba19caa3",
+            "source_identity_status": "complete"
+          }
+        ]
+      },
+      "previous_event_hash": "1e9a65dfc115e626f5823bc115ef8fcf264930f0d5458ccb1b979993f7f4c651",
+      "event_hash": "b0b5a5d2f16531d6531c62b43b9d83a84fdb8d387987058a69e314625f5d06ec"
+    },
+    {
+      "event_id": "EV-000016",
+      "action": "lease-acquired",
+      "timestamp": "2026-10-08T06:52:20.144848Z",
+      "actor": {
+        "role": "reviewer",
+        "actor_id": "reviewer:antigravity:session-1"
+      },
+      "payload": {
+        "lease_id": "83de2edad57d4f1b943e2d327fe50dba",
+        "actor_role": "reviewer",
+        "actor_id": "reviewer:antigravity:session-1",
+        "acquired_at": "2026-10-08T06:52:20.132179Z",
+        "expires_at": "2026-10-08T08:52:20.132179Z"
+      },
+      "previous_event_hash": "b0b5a5d2f16531d6531c62b43b9d83a84fdb8d387987058a69e314625f5d06ec",
+      "event_hash": "bc2c3d6224f809dbe3724866f1f635f8aa2bf5b0994a12354de52e31388fe2b9"
+    },
+    {
+      "event_id": "EV-000017",
+      "action": "review-approved",
+      "timestamp": "2026-10-08T06:52:22.644342Z",
+      "actor": {
+        "role": "reviewer",
+        "actor_id": "reviewer:antigravity:session-1"
+      },
+      "payload": {
+        "approved_repositories": [
+          {
+            "repository_id": "scotty",
+            "role": "primary",
+            "repository_path": ".",
+            "review_ref": "refs/gin/review/scotty-ek0.1",
+            "checkpoint_ref": "refs/gin/review/scotty-ek0.1",
+            "review_base_sha": "088eb6f03d04e0ad9126e6c931639b09892de016",
+            "reviewed_source_sha": "3daabea896cc4139f8cf8fee51dacf103a5bb6a3",
+            "checkpoint_sha": "3daabea896cc4139f8cf8fee51dacf103a5bb6a3",
+            "source_scope_hash": "8d2d194d648194994fc0031a741ace4025a13c47360aa27856eedcdd367926d7",
+            "source_tree_hash": "a72624e8de4263b2859c4c022102a9933c9a863616194683b8f81cd7ba19caa3",
+            "reviewed_source_tree_hash": "a72624e8de4263b2859c4c022102a9933c9a863616194683b8f81cd7ba19caa3",
+            "source_identity_status": "complete"
+          }
+        ],
+        "source_scope_hash": "8d2d194d648194994fc0031a741ace4025a13c47360aa27856eedcdd367926d7",
+        "terminal_findings": [
+          "F1-stale-comment",
+          "F2-duplicate-uncheck"
+        ]
+      },
+      "previous_event_hash": "bc2c3d6224f809dbe3724866f1f635f8aa2bf5b0994a12354de52e31388fe2b9",
+      "event_hash": "94e1f0777e5c0ce4675e852e1c2a14d68976c3d27239206cdf9ac3eb4dfa7a20"
+    },
+    {
+      "event_id": "EV-000018",
+      "action": "lease-released",
+      "timestamp": "2026-10-08T06:52:25.045612Z",
+      "actor": {
+        "role": "reviewer",
+        "actor_id": "reviewer:antigravity:session-1"
+      },
+      "payload": {
+        "lease_id": "83de2edad57d4f1b943e2d327fe50dba",
+        "released_at": "2026-10-08T06:52:25.033897Z"
+      },
+      "previous_event_hash": "94e1f0777e5c0ce4675e852e1c2a14d68976c3d27239206cdf9ac3eb4dfa7a20",
+      "event_hash": "d442b7c13a536a33fdb7e08a57282db0b12fe08d65b1026d9723f6e5188edcd3"
+    }
+  ]
+}

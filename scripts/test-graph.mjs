@@ -50,13 +50,16 @@ try {
   await page.locator(".react-flow__node").first().waitFor();
   const ids = () => page.locator(".react-flow__node").evaluateAll((nodes) =>
     nodes.map((n) => n.getAttribute("data-id")).sort());
-  assert.deepEqual(await ids(), beads.filter((b) => b.id !== "archived").map((b) => b.id).sort(),
-    "Default graph must include closed and unlinked beads exactly once");
-  const filter = page.getByRole("checkbox", { name: "Live dependencies only" });
-  await filter.check();
+  // "Live dependencies only" is checked by default, so closed and unlinked beads
+  // are pruned on first render.
   await page.locator('.react-flow__node[data-id="finished"]').waitFor({ state: "detached" });
-  assert.deepEqual(await ids(), ["child", "epic", "linked-a", "linked-b", "nested"]);
+  assert.deepEqual(await ids(), ["child", "epic", "linked-a", "linked-b", "nested"],
+    "Default graph must hide closed and unlinked beads");
+  const filter = page.getByRole("checkbox", { name: "Live dependencies only" });
   await filter.uncheck();
+  await page.locator('.react-flow__node[data-id="finished"]').waitFor();
+  assert.deepEqual(await ids(), beads.filter((b) => b.id !== "archived").map((b) => b.id).sort(),
+    "Unchecking must restore closed and unlinked beads exactly once");
   const source = page.locator('.react-flow__node[data-id="new-a"] .react-flow__handle.source');
   const target = page.locator('.react-flow__node[data-id="new-b"] .react-flow__handle.target');
   await source.waitFor();
@@ -77,8 +80,8 @@ try {
   beads.splice(0, beads.length, bead("unlinked"), bead("completed", { status: "closed" }));
   await page.reload();
   await page.getByRole("button", { name: "Graph", exact: true }).click();
-  await page.locator('.react-flow__node[data-id="unlinked"]').waitFor();
-  await page.getByRole("checkbox", { name: "Live dependencies only" }).check();
+  // Default live-only hides both beads, so the empty state must offer recovery.
+  await page.getByRole("button", { name: "Show all beads", exact: true }).waitFor();
   await page.getByRole("button", { name: "Show all beads", exact: true }).click();
   await page.locator('.react-flow__node[data-id="completed"]').waitFor();
   assert.deepEqual(await ids(), ["completed", "unlinked"], "Empty filter must offer recovery");
@@ -86,6 +89,8 @@ try {
   beads.splice(0, beads.length, ...Array.from({ length: 40 }, (_, i) => bead(`loose-${i}`)));
   await page.reload();
   await page.getByRole("button", { name: "Graph", exact: true }).click();
+  // Loose beads are unlinked, so reveal them before the wrapping assertions.
+  await page.getByRole("checkbox", { name: "Live dependencies only" }).uncheck();
   await page.locator('.react-flow__node[data-id="loose-39"]').waitFor();
   assert.equal((await ids()).length, 40, "Larger graphs must retain every task");
   const positions = await page.locator(".react-flow__node").evaluateAll((nodes) => nodes.map((n) => {
@@ -124,7 +129,7 @@ try {
   await page.waitForTimeout(300);
   assert.ok(await fits(), "Built-in fit control must fit large graphs too");
   assert.deepEqual(errors, []);
-  console.log("PASS: full graph, optional pruning, unique nested epics, drag-to-link, closed-task details, empty-filter recovery, and wrapped layout");
+  console.log("PASS: default pruning, opt-in full graph, unique nested epics, drag-to-link, closed-task details, empty-filter recovery, and wrapped layout");
 } finally {
   await browser.close();
 }
