@@ -4,8 +4,10 @@
  *
  * Installed as `scotty` / `bead-me-up-scotty`. Starts the Next.js production
  * server (from this package's own prebuilt .next) on a free port, waits until
- * it's ready, then opens the browser. If you run it from a directory that
- * contains a `.beads` repo, it opens straight to that project's board.
+ * it's ready, then opens the browser. If Scotty is already running on the
+ * default port, it opens that instance instead of starting another. If you
+ * run it from a directory that contains a `.beads` repo, it opens straight to
+ * that project's board.
  *
  * Zero dependencies — Node stdlib only. Works regardless of the directory it's
  * launched from (resolves the package root from this file's location, not cwd).
@@ -39,9 +41,12 @@ Starts the server and opens your browser. Run it from a folder that has a
 .beads repo to jump straight to that project; otherwise you get the picker.
 
 Options:
-  -p, --port <n>   Port to use (default 3000, or $PORT). Auto-picks a free
-                   port if the default is busy; with an explicit --port it
-                   fails instead of moving.
+  -p, --port <n>   Port to use (default 3000, or $PORT). If Scotty is
+                   already running there, opens it instead of starting
+                   another. If another program holds it, picks the next
+                   free port and warns, since an installed Scotty app only
+                   finds the default port. With an explicit --port it fails
+                   instead of moving.
       --host <h>   Host to bind (default from Next; or $HOST).
       --no-open    Don't open a browser, just print the URL.
   -h, --help       Show this help.
@@ -104,15 +109,47 @@ async function portFree(port, host) {
   return (await canBind(port, "0.0.0.0")) && (await canBind(port, host));
 }
 
-/** Find a free port at/after `start`. If `explicit`, only check `start`. */
+/** Resolve true if Scotty itself answers on host:port (matched by its web app manifest). */
+function scottyRunning(host, port) {
+  return new Promise((resolve) => {
+    const req = http.get({ host, port, path: "/manifest.webmanifest", timeout: 2000 }, (res) => {
+      let data = "";
+      res.on("data", (c) => (data += c));
+      res.on("end", () => {
+        try {
+          resolve(JSON.parse(data).name === "Bead Me Up, Scotty");
+        } catch {
+          resolve(false);
+        }
+      });
+    });
+    req.on("error", () => resolve(false));
+    req.on("timeout", () => {
+      req.destroy();
+      resolve(false);
+    });
+  });
+}
+
+/**
+ * Find a port at/after `start`. If `explicit`, only check `start`. Returns
+ * `{ port, running: true }` when Scotty already serves the default port.
+ */
 async function pickPort(start, explicit, host) {
-  if (await portFree(start, host)) return start;
+  if (await portFree(start, host)) return { port: start };
   if (explicit) {
     console.error(`Port ${start} is already in use. Pick another with --port.`);
     process.exit(1);
   }
+  if (await scottyRunning(host, start)) return { port: start, running: true };
   for (let p = start + 1; p <= start + 50; p++) {
-    if (await portFree(p, host)) return p;
+    if (await portFree(p, host)) {
+      console.warn(
+        `Port ${start} is used by another program, so using ${p}. ` +
+          `An installed Scotty app won't find this instance.`,
+      );
+      return { port: p };
+    }
   }
   console.error(`Could not find a free port near ${start}.`);
   process.exit(1);
@@ -237,7 +274,11 @@ async function main() {
   }
 
   const host = opts.host;
-  const port = await pickPort(opts.port, opts.portExplicit, host);
+  const { port, running } = await pickPort(opts.port, opts.portExplicit, host);
+  if (running) {
+    await announce(host, port, opts.open, "already running");
+    return;
+  }
   const nextBin = resolveNextBin();
 
   const child = spawn(process.execPath, [nextBin, "start", ROOT, "-p", String(port), "-H", host], {
@@ -300,12 +341,17 @@ async function main() {
     return; // child's exit handler will set the exit code
   }
 
-  const target = opts.open ? await targetPath(host, port) : "/";
+  await announce(host, port, opts.open, "Ctrl+C to stop");
+}
+
+/** Print the URL (with the cwd project's board when opening) and open the browser. */
+async function announce(host, port, open, note) {
+  const target = open ? await targetPath(host, port) : "/";
   // Canonicalize through the URL parser — throws on anything that isn't a
   // well-formed http origin, so no raw user input reaches openBrowser().
   const fullUrl = new URL(target, `http://${host}:${port}`).href;
-  console.log(`\n  Bead Me Up, Scotty → ${fullUrl}\n  (Ctrl+C to stop)\n`);
-  if (opts.open) openBrowser(fullUrl);
+  console.log(`\n  Bead Me Up, Scotty → ${fullUrl}\n  (${note})\n`);
+  if (open) openBrowser(fullUrl);
 }
 
 main().catch((err) => {
