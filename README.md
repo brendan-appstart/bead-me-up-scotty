@@ -289,6 +289,20 @@ To update, rebuild and re-run `npm install -g .`. If `npm install -g .` hits a
 permissions error, use a user-owned npm prefix:
 `npm config set prefix ~/.npm-global` and add `~/.npm-global/bin` to your `PATH`.
 
+### Install as an app
+
+Scotty can run in its own window with a dock or taskbar icon, outside your
+normal browser tabs. Start `scotty`, then:
+
+- **Chrome or Edge:** open the browser menu and choose *Cast, save and share →
+  Install page as app* (Chrome) or *Apps → Install this site as an app* (Edge),
+  or click the install icon in the address bar.
+- **Safari on macOS 14+:** choose *File → Add to Dock*.
+- **Firefox:** desktop Firefox can't install web apps.
+
+The app window is a view onto the local server, so `scotty` must be running for
+it to load.
+
 ## Stack
 
 Next.js 16 (App Router) · React 19 · TypeScript · Tailwind v4 · shadcn/ui ·
