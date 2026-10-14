@@ -29,6 +29,10 @@ const ROOT = path.resolve(here, "..");
 
 const require = createRequire(import.meta.url);
 
+// Unassigned by IANA and below every OS's ephemeral range, unlike 3000,
+// which most JS dev servers also want.
+const DEFAULT_PORT = 19847;
+
 function printHelp() {
   console.log(`
 Bead Me Up, Scotty — local web UI for the beads (bd) tracker.
@@ -41,7 +45,7 @@ Starts the server and opens your browser. Run it from a folder that has a
 .beads repo to jump straight to that project; otherwise you get the picker.
 
 Options:
-  -p, --port <n>   Port to use (default 3000, or $PORT). If Scotty is
+  -p, --port <n>   Port to use (default 19847, or $PORT). If Scotty is
                    already running there, opens it instead of starting
                    another. If another program holds it, picks the next
                    free port and warns, since an installed Scotty app only
@@ -75,7 +79,7 @@ function parseArgs(argv) {
   opts.portExplicit = portExplicit;
   if (opts.port === undefined) {
     const env = Number(process.env.PORT);
-    opts.port = Number.isInteger(env) && env > 0 ? env : 3000;
+    opts.port = Number.isInteger(env) && env > 0 ? env : DEFAULT_PORT;
   }
   opts.host = opts.host || process.env.HOST || "localhost";
   // The host ends up in a spawn() command line (browser open) and a URL;

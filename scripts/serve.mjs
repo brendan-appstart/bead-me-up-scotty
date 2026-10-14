@@ -28,7 +28,7 @@ function nextBin() {
   }
 }
 
-const port = process.env.PORT || "3000";
+const port = process.env.PORT || "19847"; // same default as bin/bead-me-up-scotty.mjs
 const host = process.env.HOST || "localhost";
 // Test hook: override the spawned command with a JSON array (BMUS_SERVE_CMD).
 const override = process.env.BMUS_SERVE_CMD ? JSON.parse(process.env.BMUS_SERVE_CMD) : null;
