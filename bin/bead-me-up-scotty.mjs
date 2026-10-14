@@ -86,25 +86,33 @@ function parseArgs(argv) {
   return opts;
 }
 
-/** Resolve true if `port` can be bound on 0.0.0.0, else false. */
-function portFree(port) {
+/** Resolve true if `port` can be bound on `host`, else false. */
+function canBind(port, host) {
   return new Promise((resolve) => {
     const srv = net.createServer();
     srv.once("error", () => resolve(false));
     srv.once("listening", () => srv.close(() => resolve(true)));
-    srv.listen({ port, host: "0.0.0.0" });
+    srv.listen({ port, host });
   });
 }
 
+/**
+ * Resolve true if `port` is free on 0.0.0.0 and on the host Next will bind.
+ * `localhost` usually resolves to ::1, which a 0.0.0.0 probe can't see.
+ */
+async function portFree(port, host) {
+  return (await canBind(port, "0.0.0.0")) && (await canBind(port, host));
+}
+
 /** Find a free port at/after `start`. If `explicit`, only check `start`. */
-async function pickPort(start, explicit) {
-  if (await portFree(start)) return start;
+async function pickPort(start, explicit, host) {
+  if (await portFree(start, host)) return start;
   if (explicit) {
     console.error(`Port ${start} is already in use. Pick another with --port.`);
     process.exit(1);
   }
   for (let p = start + 1; p <= start + 50; p++) {
-    if (await portFree(p)) return p;
+    if (await portFree(p, host)) return p;
   }
   console.error(`Could not find a free port near ${start}.`);
   process.exit(1);
@@ -228,8 +236,8 @@ async function main() {
     process.exit(1);
   }
 
-  const port = await pickPort(opts.port, opts.portExplicit);
   const host = opts.host;
+  const port = await pickPort(opts.port, opts.portExplicit, host);
   const nextBin = resolveNextBin();
 
   const child = spawn(process.execPath, [nextBin, "start", ROOT, "-p", String(port), "-H", host], {
