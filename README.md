@@ -258,9 +258,10 @@ Run it from a folder that has a `.beads` repo to jump straight to that project;
 otherwise you get the project picker. Requires Node 20+.
 
 If Scotty is already running on port 19847, `scotty` opens that instance instead
-of starting a second one. If another program holds port 19847, it uses the next
-free port and prints a warning, because an installed app (below) only looks on
-port 19847. An explicit `--port` fails instead of moving.
+of starting a second one. If another program holds port 19847, it moves to the
+next port that is free or already running Scotty, and prints a warning, because
+an installed app (below) only looks on port 19847. An explicit `--port` also
+opens a Scotty already running there, but otherwise fails instead of moving.
 
 Flags: `-p, --port <n>` · `--no-open` · `--help`.
 

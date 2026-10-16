@@ -49,7 +49,8 @@ Options:
                    already running there, opens it instead of starting
                    another. If another program holds it, picks the next
                    free port and warns, since an installed Scotty app only
-                   finds the default port. With an explicit --port it fails
+                   finds the default port. An explicit --port also opens
+                   a Scotty already running there, but otherwise fails
                    instead of moving.
       --host <h>   Host to bind (default from Next; or $HOST).
       --no-open    Don't open a browser, just print the URL.
@@ -136,23 +137,25 @@ function scottyRunning(host, port) {
 }
 
 /**
- * Find a port at/after `start`. If `explicit`, only check `start`. Returns
- * `{ port, running: true }` when Scotty already serves the default port.
+ * Find a port at/after `start` that is free or already serving Scotty. If
+ * `explicit`, only check `start`. Returns `{ port, running: true }` to reuse
+ * a running Scotty.
  */
 async function pickPort(start, explicit, host) {
   if (await portFree(start, host)) return { port: start };
+  if (await scottyRunning(host, start)) return { port: start, running: true };
   if (explicit) {
     console.error(`Port ${start} is already in use. Pick another with --port.`);
     process.exit(1);
   }
-  if (await scottyRunning(host, start)) return { port: start, running: true };
   for (let p = start + 1; p <= start + 50; p++) {
-    if (await portFree(p, host)) {
+    const free = await portFree(p, host);
+    if (free || (await scottyRunning(host, p))) {
       console.warn(
         `Port ${start} is used by another program, so using ${p}. ` +
           `An installed Scotty app won't find this instance.`,
       );
-      return { port: p };
+      return { port: p, running: !free };
     }
   }
   console.error(`Could not find a free port near ${start}.`);

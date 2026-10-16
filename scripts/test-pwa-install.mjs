@@ -13,8 +13,8 @@ const port=Number(process.env.SCOTTY_TEST_PORT||3198);
 const base=`http://localhost:${port}`;
 const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'scotty-pwa-'));
 const env={...process.env,PORT:String(port),BEADS_DEMO:'1',POSTHOG_KEY:'',XDG_CONFIG_HOME:tmp};
-const launch=(extraEnv={})=>{
- const child=spawn(process.execPath,['bin/bead-me-up-scotty.mjs','--no-open'],{env:{...env,...extraEnv},cwd:process.cwd()});
+const launch=(extraEnv={},args=[])=>{
+ const child=spawn(process.execPath,['bin/bead-me-up-scotty.mjs','--no-open',...args],{env:{...env,...extraEnv},cwd:process.cwd()});
  child.output='';
  child.stdout.on('data',d=>child.output+=d);
  child.stderr.on('data',d=>child.output+=d);
@@ -26,6 +26,14 @@ const waitFor=(child,re)=>new Promise((resolve,reject)=>{
   else if(child.exitCode!==null){clearInterval(t);reject(new Error(`launcher exited: ${child.output}`));}
  },100);
 });
+// Launch once more and expect it to open the Scotty already on `p`, not start one.
+const reuses=async(p,extraEnv,args,why)=>{
+ const child=launch(extraEnv,args);
+ await new Promise(r=>child.once('exit',r));
+ assert.equal(child.exitCode,0,child.output);
+ assert.match(child.output,new RegExp(`localhost:${p}/[\\s\\S]*already running`),why);
+ return child.output;
+};
 const stop=child=>child.exitCode===null&&new Promise(r=>{child.once('exit',r);child.kill('SIGTERM');});
 const server=launch();
 let browser;
@@ -50,10 +58,8 @@ try {
  assert.deepEqual(await installErrors(base),[],'Chromium must report the app as installable');
  assert.equal(await page.locator('link[rel="manifest"]').getAttribute('href'),'/manifest.webmanifest');
 
- const second=launch();
- await new Promise(r=>second.once('exit',r));
- assert.equal(second.exitCode,0,second.output);
- assert.match(second.output,new RegExp(`localhost:${port}/[\\s\\S]*already running`),'second launch must reuse the first');
+ await reuses(port,{},[],'second launch must reuse the first');
+ await reuses(port,{},['--port',String(port)],'an explicit --port must reuse a Scotty already there');
 
  const blocker=net.createServer().listen(port+1,'0.0.0.0');
  await new Promise(r=>blocker.once('listening',r));
@@ -61,9 +67,11 @@ try {
  try {
   await waitFor(moved,/Ctrl\+C to stop/);
   assert.match(moved.output,new RegExp(`Port ${port+1} is used by another program, so using ${port+2}`));
+  const again=await reuses(port+2,{PORT:String(port+1)},[],'a later launch must reuse the moved instance');
+  assert.match(again,/won't find this instance/);
  } finally { await stop(moved); blocker.close(); }
 
- console.log('PASS: manifest and icons served, Chromium reports no installability errors, launcher reuses a running Scotty and warns when another program holds the port');
+ console.log('PASS: manifest and icons served, Chromium reports no installability errors, launcher reuses a running Scotty (default, explicit and moved ports) and warns when another program holds the port');
 } finally {
  await browser?.close();
  await stop(server);
