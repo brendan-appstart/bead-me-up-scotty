@@ -9,7 +9,7 @@ import { Icon } from "@/components/icons";
 import { useApp, type View } from "@/components/app-context";
 import { useProjects } from "@/hooks/use-projects";
 import { useSetStatus, useUpdateBead } from "@/hooks/use-beads";
-import { BEAD_STATUSES, type Bead } from "@/lib/schema";
+import { type Bead } from "@/lib/schema";
 import { statusLabel, catColor, typeLabel } from "@/lib/beads-view";
 
 const VIEWS: { key: View; label: string; icon: string }[] = [
@@ -87,7 +87,7 @@ function PaletteBody({
   initialPage: PalettePage;
   initialBeadId: string | null;
 }) {
-  const { beads, index, openDetail, openCreate, projectId, readOnly } = useApp();
+  const { beads, index, meta, openDetail, openCreate, projectId, readOnly } = useApp();
   const router = useRouter();
   const { mode, setTheme, toggle } = useTheme();
   const setStatus = useSetStatus();
@@ -262,14 +262,14 @@ function PaletteBody({
 
         {!readOnly && page === "status" && activeBead && (
           <Command.Group heading="Set status">
-            {BEAD_STATUSES.map((s) => (
+            {(meta?.statuses ?? []).map((s) => (
               <Item
-                key={s}
-                dotColor={catColor(s)}
-                value={`status ${statusLabel(s)}`}
-                onSelect={() => runMutation(() => setStatus.mutate({ id: activeBead.id, status: s }))}
+                key={s.name}
+                dotColor={catColor(s.name, meta?.statuses)}
+                value={`status ${statusLabel(s.name)}`}
+                onSelect={() => runMutation(() => setStatus.mutate({ id: activeBead.id, status: s.name }))}
               >
-                {statusLabel(s)}
+                {statusLabel(s.name)}
               </Item>
             ))}
           </Command.Group>
@@ -369,6 +369,7 @@ function BeadItem({
   onSelect: () => void;
   valuePrefix?: string;
 }) {
+  const { meta } = useApp();
   return (
     <Command.Item
       value={`${valuePrefix}${bead.id} ${bead.title}`}
@@ -377,7 +378,7 @@ function BeadItem({
     >
       <span
         className="h-[8px] w-[8px] flex-shrink-0 rounded-full"
-        style={{ background: catColor(bead.status) }}
+        style={{ background: catColor(bead.status, meta?.statuses) }}
         title={statusLabel(bead.status)}
       />
       <span className="flex-shrink-0 font-mono text-[11px] text-[var(--text-3)]">{bead.id}</span>

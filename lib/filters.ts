@@ -1,4 +1,4 @@
-import { BEAD_STATUSES, BEAD_TYPES, type Bead } from "./schema";
+import { BEAD_TYPES, type Bead } from "./schema";
 import { beadOrigin } from "./attribution";
 
 /**
@@ -53,7 +53,7 @@ function boundedValues(
 /** Parse the shared Board/List filters from bookmarkable query parameters. */
 export function filtersFromSearchParams(params: SearchParamsReader): Filters {
   return {
-    status: boundedValues(params, "status", BEAD_STATUSES),
+    status: distinctValues(params, "status"),
     type: boundedValues(params, "type", BEAD_TYPES),
     priority: [...new Set(
       distinctValues(params, "priority")

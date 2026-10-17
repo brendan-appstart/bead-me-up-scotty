@@ -1,5 +1,5 @@
-import type { Bead } from "./schema";
-import { isBlocked } from "./beads-view";
+import { BUILT_IN_STATUS_INFO, type Bead, type StatusInfo } from "./schema";
+import { isBlocked, statusLabel } from "./beads-view";
 
 /**
  * The board's column model — shared by the Board (Kanban) and List views so they
@@ -17,7 +17,7 @@ export interface BoardColumn {
   test: (b: Bead, blocked: boolean) => boolean;
 }
 
-export const BOARD_COLUMNS: BoardColumn[] = [
+const BUILT_IN_COLUMNS: BoardColumn[] = [
   { id: "backlog", name: "Backlog", color: "#64748b", cmd: "deferred", droppable: true, status: "deferred", test: (b) => b.status === "deferred" },
   { id: "ready", name: "Ready", color: "#3b82f6", cmd: "bd ready", droppable: true, status: "open", test: (b, blocked) => b.status === "open" && !blocked },
   { id: "in_progress", name: "In Progress", color: "#d97706", cmd: "in_progress", droppable: true, status: "in_progress", test: (b) => b.status === "in_progress" || b.status === "hooked" },
@@ -25,12 +25,50 @@ export const BOARD_COLUMNS: BoardColumn[] = [
   { id: "done", name: "Done", color: "#16a34a", cmd: "closed", droppable: true, status: "closed", test: (b) => b.status === "closed" },
 ];
 
+const CATEGORY_COLORS: Record<StatusInfo["category"], string> = {
+  active: "#3b82f6",
+  wip: "#d97706",
+  done: "#16a34a",
+  frozen: "#64748b",
+};
+
+function customColumns(statuses: readonly StatusInfo[]): BoardColumn[] {
+  return statuses
+    .filter((status) => status.custom)
+    .map((status) => ({
+      id: `status:${status.name}`,
+      name: statusLabel(status.name),
+      color: CATEGORY_COLORS[status.category],
+      cmd: status.name,
+      droppable: true,
+      status: status.name,
+      test: (b) => b.status === status.name,
+    }));
+}
+
+export function buildBoardColumns(statuses: readonly StatusInfo[] = BUILT_IN_STATUS_INFO): BoardColumn[] {
+  const extras = customColumns(statuses);
+  return [
+    BUILT_IN_COLUMNS[0],
+    BUILT_IN_COLUMNS[1],
+    BUILT_IN_COLUMNS[2],
+    ...extras,
+    BUILT_IN_COLUMNS[3],
+    BUILT_IN_COLUMNS[4],
+  ];
+}
+
+export const BOARD_COLUMNS: BoardColumn[] = buildBoardColumns();
 export const COLUMN_ORDER: string[] = BOARD_COLUMNS.map((c) => c.id);
 
 /** Which board column a bead belongs to (first matching test), or null. */
-export function colOf(bead: Bead, index: Map<string, Bead>): string | null {
+export function colOf(
+  bead: Bead,
+  index: Map<string, Bead>,
+  statuses: readonly StatusInfo[] = BUILT_IN_STATUS_INFO,
+): string | null {
   const blocked = isBlocked(bead, index);
-  for (const c of BOARD_COLUMNS) if (c.test(bead, blocked)) return c.id;
+  for (const c of buildBoardColumns(statuses)) if (c.test(bead, blocked)) return c.id;
   return null;
 }
 

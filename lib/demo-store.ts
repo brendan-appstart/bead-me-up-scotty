@@ -1,5 +1,5 @@
 import "server-only";
-import { beadSchema, type Bead, type CreateInput, type UpdateInput, type DepType, type Dependency } from "./schema";
+import { beadSchema, BUILT_IN_STATUS_INFO, type Bead, type CreateInput, type UpdateInput, type DepType, type Dependency, type StatusInfo } from "./schema";
 import type { BeadsStore, DoctorInfo } from "./store";
 import { demoBeads } from "./demo-data";
 
@@ -20,6 +20,9 @@ function find(id: string): Bead {
 
 export const demoStore: BeadsStore = {
   kind: "demo",
+  async statuses(): Promise<StatusInfo[]> {
+    return BUILT_IN_STATUS_INFO.map((status) => ({ ...status, custom: false }));
+  },
   async list() {
     return beads.map((b) => ({ ...b }));
   },

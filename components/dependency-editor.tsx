@@ -10,7 +10,7 @@ import type { Bead, DepType } from "@/lib/schema";
 
 /** Search and selection stay local until the explicit Add action succeeds. */
 export function DependencyEditor({ bead, onDone }: { bead: Bead; onDone: () => void }) {
-  const { beads, readOnly } = useApp();
+  const { beads, meta, readOnly } = useApp();
   const addDep = useAddDep();
   const [query, setQuery] = React.useState("");
   const [targetId, setTargetId] = React.useState("");
@@ -87,7 +87,7 @@ export function DependencyEditor({ bead, onDone }: { bead: Bead; onDone: () => v
                   <div className="break-words text-[var(--text)]">{candidate.title}</div>
                 </div>
                 <span className="mt-0.5 shrink-0 text-[10px] uppercase text-[var(--text-3)]">{typeLabel(candidate.issue_type)}</span>
-                <span className="mt-1.5 h-[7px] w-[7px] shrink-0 rounded-full" style={{ background: catColor(candidate.status) }} title={statusLabel(candidate.status)} />
+                <span className="mt-1.5 h-[7px] w-[7px] shrink-0 rounded-full" style={{ background: catColor(candidate.status, meta?.statuses) }} title={statusLabel(candidate.status)} />
               </Command.Item>
             ))}
           </Command.List>

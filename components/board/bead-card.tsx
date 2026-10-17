@@ -78,7 +78,7 @@ export function BeadCardOverlay({ bead, childCount = 0 }: { bead: Bead; childCou
 }
 
 function BeadCardFace({ bead, childCount, preview = false }: { bead: Bead; childCount: number; preview?: boolean }) {
-  const { index, humanAllowlist } = useApp();
+  const { index, humanAllowlist, meta } = useApp();
   const o = beadOrigin(bead, humanAllowlist);
   const parent = parentOf(bead, index);
   const blocked = isBlocked(bead, index);
@@ -92,7 +92,7 @@ function BeadCardFace({ bead, childCount, preview = false }: { bead: Bead; child
       <div className="flex items-center gap-2">
         <span
           className="h-2 w-2 flex-shrink-0 rounded-full"
-          style={{ background: catColor(bead.status) }}
+          style={{ background: catColor(bead.status, meta?.statuses) }}
           title={statusLabel(bead.status)}
         />
         {preview ? (

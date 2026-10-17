@@ -32,7 +32,7 @@ const SpotlightContext = React.createContext<{ selected: string | null; active: 
 
 function BeadNode({ data }: NodeProps) {
   const { bead, onOpen, horizontal, outsideEpic } = data as unknown as BeadNodeData;
-  const { selectedBeadId, selectBead } = useApp();
+  const { selectedBeadId, selectBead, meta } = useApp();
   const spotlight = React.useContext(SpotlightContext);
   return (
     <div
@@ -63,7 +63,7 @@ function BeadNode({ data }: NodeProps) {
         style={{ background: "var(--text-3)" }}
       />
       <div className="mb-[5px] flex items-center gap-[6px]">
-        <span className="h-2 w-2 rounded-full" style={{ background: catColor(bead.status) }} />
+        <span className="h-2 w-2 rounded-full" style={{ background: catColor(bead.status, meta?.statuses) }} />
         <span className="font-mono text-[10.5px] text-[var(--text-3)]">{bead.id}</span>
         <span className="flex-1" />
         <Icon name={typeIconName(bead.issue_type)} size={12} style={{ color: typeColor(bead.issue_type) }} />

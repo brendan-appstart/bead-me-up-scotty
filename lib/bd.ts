@@ -2,6 +2,7 @@ import "server-only";
 import { execFile } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { z } from "zod";
 import { promisify } from "node:util";
 import {
   beadSchema,
@@ -10,6 +11,8 @@ import {
   type CreateInput,
   type UpdateInput,
   type DepType,
+  type StatusInfo,
+  statusInfoSchema,
 } from "./schema";
 import type { BeadsStore, DoctorInfo } from "./store";
 
@@ -24,6 +27,11 @@ export class BdError extends Error {
     this.code = code;
   }
 }
+
+const statusesResponseSchema = z.object({
+  built_in_statuses: z.array(statusInfoSchema),
+  custom_statuses: z.array(statusInfoSchema),
+});
 
 /**
  * Run a bd command. Args are passed as an array (no shell) so titles and
@@ -127,6 +135,9 @@ export async function isBdAvailable(repoPath: string): Promise<boolean> {
 }
 
 export function createBdStore(repoPath: string): BeadsStore {
+  let cachedStatuses: StatusInfo[] | null = null;
+  let statusesCachedAt = 0;
+  let inflightStatuses: Promise<StatusInfo[]> | null = null;
   const ro = { repoPath };
   const rw = (actor: string) => ({ repoPath, actor });
   // Collapse concurrent list() callers (the polling views) onto one in-flight export.
@@ -150,6 +161,32 @@ export function createBdStore(repoPath: string): BeadsStore {
 
   return {
     kind: "bd",
+
+    async statuses() {
+      const now = Date.now();
+      if (cachedStatuses && now - statusesCachedAt < 30_000) return cachedStatuses;
+      if (inflightStatuses) return inflightStatuses;
+      inflightStatuses = serializeWrite(repoPath, async () => {
+        const raw = await runBdJson(["statuses"], ro);
+        const parsed = statusesResponseSchema.parse(raw);
+        const builtIns = parsed.built_in_statuses.map((status) => ({ ...status, custom: false }));
+        const custom = parsed.custom_statuses.map((status) => ({ ...status, custom: true }));
+        const seen = new Set<string>();
+        const merged = [...builtIns, ...custom].filter((status) => {
+          if (seen.has(status.name)) return false;
+          seen.add(status.name);
+          return true;
+        });
+        cachedStatuses = merged;
+        statusesCachedAt = Date.now();
+        return merged;
+      });
+      try {
+        return await inflightStatuses;
+      } finally {
+        inflightStatuses = null;
+      }
+    },
 
     async list() {
       // Dedupe concurrent callers onto one in-flight export, and serialize that
