@@ -37,6 +37,8 @@ try{
  assert.equal(await page.getByRole('button',{name:'Approve',exact:true}).isDisabled(),true,'read-only approval guard remains');
  await context.request.put(`${base}/api/viewer-mode`,{data:{readOnly:false}});await open();
  assert.equal(await page.getByRole('button',{name:'Approve',exact:true}).isEnabled(),true,'absence of links does not become an approval gate');
+ await page.goto(`${base}/p/demo?bead=decision`);await page.getByText('Links & attachments',{exact:true}).waitFor();
+ assert.equal(await page.locator('[data-review-links] a').count(),5,'the detail drawer shows the same links');
  assert.deepEqual(errors,[]);
- console.log('PASS: supporting link discovery, Markdown delimiters, local attachments, safe schemes, read-only access and non-gating empty state');
+ console.log('PASS: supporting link discovery, drawer links, Markdown delimiters, local attachments, safe schemes, read-only access and non-gating empty state');
 }finally{await browser.close();}
