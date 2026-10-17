@@ -280,9 +280,15 @@ Container limitations:
 ## Install globally
 
 Install once from a clone, then run `scotty` (or `bead-me-up-scotty`) from **any**
-directory. It starts the production server on a free port (default 3000) and opens
-your browser. Run it from a folder that has a `.beads` repo to jump straight to
-that project; otherwise you get the project picker. Requires Node 20+.
+directory. It starts the production server on port 19847 and opens your browser.
+Run it from a folder that has a `.beads` repo to jump straight to that project;
+otherwise you get the project picker. Requires Node 20+.
+
+If Scotty is already running on port 19847, `scotty` opens that instance instead
+of starting a second one. If another program holds port 19847, it moves to the
+next port that is free or already running Scotty, and prints a warning, because
+an installed app (below) only looks on port 19847. An explicit `--port` also
+opens a Scotty already running there, but otherwise fails instead of moving.
 
 Flags: `-p, --port <n>` · `--no-open` · `--help`.
 
@@ -315,6 +321,21 @@ scotty                 # from anywhere; the clone can now be deleted
 To update, rebuild and re-run `npm install -g .`. If `npm install -g .` hits a
 permissions error, use a user-owned npm prefix:
 `npm config set prefix ~/.npm-global` and add `~/.npm-global/bin` to your `PATH`.
+
+### Install as an app
+
+Scotty can run in its own window with a dock or taskbar icon, outside your
+normal browser tabs. Start `scotty`, then:
+
+- **Chrome or Edge:** open the browser menu and choose *Cast, save and share →
+  Install page as app* (Chrome) or *Apps → Install this site as an app* (Edge),
+  or click the install icon in the address bar.
+- **Safari on macOS 14+:** choose *File → Add to Dock*.
+- **Firefox:** desktop Firefox can't install web apps.
+
+The app window is a view onto the local server, so `scotty` must be running for
+it to load. Install it from the default port 19847, since the installed app is
+tied to that port.
 
 ## Stack
 
