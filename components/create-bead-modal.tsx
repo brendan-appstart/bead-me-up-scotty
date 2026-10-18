@@ -441,7 +441,7 @@ function CreateForm({
             style={{ accentColor: "var(--brand)" }}
           />
           <span className="text-[13px] text-[var(--text-2)]">
-            Start in Backlog (<span className="font-mono">deferred</span>) instead of Ready
+            Start in Waiting (<span className="font-mono">deferred</span>) instead of Ready
           </span>
         </label>
       </div>

@@ -69,7 +69,7 @@ function statusAction(v?: string): string {
     case "blocked":
       return "marked Blocked";
     case "deferred":
-      return "moved to Backlog";
+      return "moved to Waiting";
     case "open":
       return "moved to Ready";
     default:

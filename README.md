@@ -69,12 +69,12 @@ npm, Docker) are below.
 
 ## Features
 
-- **Board** — a five-column view (Backlog · Ready · In Progress · Blocked · Done)
+- **Board** — a five-column view (Waiting · Ready · Blocked · In Progress · Done)
   with dense cards showing id, type, priority, assignee, dep/comment counts, and an
   origin badge. Filter by type / priority / origin, full-text search, and a
   show/hide-archived toggle. Keyboard: `n` new, `/` search, `Esc` close.
-- **Backlog ↔ Ready drag-and-drop** — drag cards between columns to change status
-  (Backlog = `deferred`, Done = `bd close`); updates are optimistic.
+- **Waiting ↔ Ready drag-and-drop** — drag cards between columns to change status
+  (Waiting = `deferred`, Done = `bd close`); updates are optimistic.
 - **Create / edit** — add tasks and epics (type, priority, description, assignee,
   labels, parent epic, start-in-backlog) and edit status/priority inline.
 - **Epics & progress** — epics with live `closed ÷ children` progress bars and
@@ -122,9 +122,14 @@ detail links, and read-only protections also work in the grouped layout.
   Next.js + shadcn/Tailwind. The original export and a screen/token map live in
   [`design/ui-export/`](design/ui-export/).
 
-### Backlog & attribution (design decisions)
-- **Backlog** maps to beads' built-in `deferred` status; **Ready** = open &
-  unblocked. Dragging between columns runs `bd update --status` / `bd close`.
+### Columns & attribution (design decisions)
+- Work that has not started sits on the left. **Waiting** holds beads with
+  beads' built-in `deferred` status, and open beads that wait on other open
+  work (an agent's later plan steps). **Ready** = open & unblocked.
+  **Blocked** holds status `blocked`, and open beads that wait on a person: a
+  blocking dependency labelled `human`, `question`, `assumption` or `blocker`,
+  or a human gate. **In Progress** keeps started work, even when it gains a
+  blocker. Dragging between columns runs `bd update --status` / `bd close`.
 - beads has no human-vs-agent flag, so the UI stamps its own writes with a
   configured **human actor** (`BEADS_ACTOR`); anyone in the human allowlist renders
   as 👤, everyone else as 🤖. **Archive** = `bd close` + an `archived` label

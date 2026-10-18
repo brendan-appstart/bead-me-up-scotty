@@ -11,6 +11,7 @@ export interface ColumnDef {
   name: string;
   color: string;
   cmd: string;
+  hint?: string;
   droppable: boolean;
 }
 
@@ -37,7 +38,7 @@ export function Column({
   const { setNodeRef } = useDroppable({ id: col.id, disabled: !col.droppable });
 
   return (
-    <section className="flex w-[296px] min-h-0 flex-shrink-0 flex-col">
+    <section data-board-column={col.id} className="flex w-[296px] min-h-0 flex-shrink-0 flex-col">
       <div className="flex flex-shrink-0 items-center gap-2 px-1 pb-3">
         <span className="h-[9px] w-[9px] rounded-[3px]" style={{ background: col.color }} />
         <span className="text-[13px] font-semibold tracking-[-.005em]">{col.name}</span>
@@ -45,7 +46,7 @@ export function Column({
           {cards.length}
         </span>
         <span className="flex-1" />
-        {control ?? <span className="font-mono text-[10.5px] text-[var(--text-3)]">{col.cmd}</span>}
+        {control ?? <span title={col.hint} className="font-mono text-[10.5px] text-[var(--text-3)]">{col.cmd}</span>}
       </div>
 
       <div

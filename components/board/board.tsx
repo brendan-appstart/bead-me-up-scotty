@@ -21,7 +21,7 @@ import { useOrder, useSetOrder } from "@/hooks/use-order";
 import { useBoardPrefs } from "@/hooks/use-board-prefs";
 import { useUrlFilters } from "@/hooks/use-url-filters";
 import { useUrlState } from "@/hooks/use-url-state";
-import { isBlocked, childrenCountMap } from "@/lib/beads-view";
+import { blockKind, childrenCountMap } from "@/lib/beads-view";
 import { FilterBar } from "@/components/filter-bar";
 import { matchesFilters, labelOptionsFrom, assigneeOptionsFrom } from "@/lib/filters";
 import {
@@ -99,7 +99,7 @@ export function Board() {
   const columns = React.useMemo(
     () =>
       COLUMNS.map((c) => {
-        let cards = visible.filter((b) => c.test(b, isBlocked(b, index)));
+        let cards = visible.filter((b) => c.test(b, blockKind(b, index)));
         // Done column: optionally keep only beads closed within the chosen window.
         if (c.id === "done" && doneWindow !== null) {
           const cutoff = now - doneWindow * 86_400_000;

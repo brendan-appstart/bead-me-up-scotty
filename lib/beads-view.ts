@@ -26,6 +26,16 @@ export function isHumanGate(b: Bead): boolean {
 }
 
 /**
+ * A bead that waits on a person, by the same rules as Needs You: the `human`
+ * label that `needsHuman()` reads (`bd human` sets it), or a human-approval
+ * gate (`readyHumanGate()`). Work that depends on one waits on a person, not on
+ * other work (see blockKind).
+ */
+export function waitsOnPerson(b: Bead): boolean {
+  return isHumanGate(b) || (b.labels ?? []).includes("human");
+}
+
+/**
  * A human-approval gate that is unresolved and not itself blocked — its own
  * blockers (if any) are all closed, so a person can approve/resolve it now.
  * These belong on the "Needs You" inbox alongside `needsHuman()` beads
@@ -189,6 +199,25 @@ export function blockingDeps(b: Bead, index: Map<string, Bead>): string[] {
         (index.get(d.depends_on_id)?.status ?? "open") !== "closed",
     )
     .map((d) => d.depends_on_id);
+}
+
+export type BlockKind = "none" | "work" | "gate";
+
+/**
+ * What holds a bead up, from its blockingDeps(): "gate" when at least one of
+ * them waits on a person, "work" when all of them are other work, "none" when
+ * nothing does. The board uses it to split not-started beads between Waiting
+ * (work) and Blocked (gate); isBlocked() still decides whether a bead is
+ * blocked at all.
+ */
+export function blockKind(b: Bead, index: Map<string, Bead>): BlockKind {
+  const deps = blockingDeps(b, index);
+  if (deps.length === 0) return "none";
+  const onPerson = deps.some((id) => {
+    const dep = index.get(id);
+    return dep !== undefined && waitsOnPerson(dep);
+  });
+  return onPerson ? "gate" : "work";
 }
 
 /**
