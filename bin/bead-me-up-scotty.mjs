@@ -21,6 +21,7 @@ import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
+import { noticePortMove } from "./port-move-notice.mjs";
 
 // The directory the user ran the command from (used for cwd auto-open).
 const invocationCwd = process.cwd();
@@ -320,6 +321,7 @@ async function main() {
   }
 
   const host = opts.host;
+  noticePortMove();
   const { port, running } = await pickPort(opts.port, opts.portExplicit, host);
   if (running) {
     checkReuse(running, port);

@@ -296,6 +296,14 @@ different environment settings, such as `SCOTTY_READ_ONLY` or `BEADS_ACTOR`,
 running Scotty is an older build than the one installed, for example after an
 upgrade, `scotty` still opens it but tells you to restart it.
 
+**Upgrading from a version that used port 3000:** `scotty` and `npm run serve`
+now default to port 19847. Your browser keeps bookmarks, settings saved in
+`localStorage` (theme, board preferences, WIP limits, notification preferences
+and command palette recents) and notification permission separately for each
+origin, so they stay behind on `http://localhost:3000`. Run
+`scotty --port 3000` or `PORT=3000 npm run serve` to keep using them. Both
+launchers print this reminder once.
+
 Flags: `-p, --port <n>` · `--no-open` · `--help`.
 
 **Recommended — `npm link` (keep the clone):**

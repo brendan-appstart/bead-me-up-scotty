@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import http from 'node:http';
 import net from 'node:net';
@@ -82,6 +82,17 @@ try {
  assert.equal(refused.exitCode,1,refused.output);
  assert.match(refused.output,/already running on port \d+, but with a different SCOTTY_READ_ONLY/,'a launch with other settings must not reuse the server');
 
+ // Existing users (with a config.json) see the port-move notice once; new users never do.
+ const oldConfig=path.join(tmp,'old-user');
+ fs.mkdirSync(path.join(oldConfig,'bead-me-up-scotty'),{recursive:true});
+ fs.writeFileSync(path.join(oldConfig,'bead-me-up-scotty','config.json'),'{}');
+ assert.match((await exited(launch({XDG_CONFIG_HOME:oldConfig}))).output,/default port moved from 3000/);
+ assert.doesNotMatch((await exited(launch({XDG_CONFIG_HOME:oldConfig}))).output,/default port moved/,'the notice must appear once');
+ assert.doesNotMatch(server.output,/default port moved/,'a new user must not see the notice');
+ fs.rmSync(path.join(oldConfig,'bead-me-up-scotty','port-19847-notice'));
+ const serve=spawnSync(process.execPath,['scripts/serve.mjs'],{env:{...env,XDG_CONFIG_HOME:oldConfig,BMUS_SERVE_CMD:JSON.stringify([process.execPath,'-e',''])},encoding:'utf8'});
+ assert.match(serve.stdout,/default port moved from 3000/,'npm run serve must show the notice too');
+
  const stale=await fake(port+3,(req,res)=>res.end(JSON.stringify({name:'bead-me-up-scotty',version:'0.0.1',buildId:'old',launch:{}})));
  try {
   const out=await reuses(port+3,{},['--port',String(port+3)],'an older Scotty is still reused');
@@ -102,7 +113,7 @@ try {
   }
  } finally { timers.forEach(clearInterval); trickle.closeAllConnections(); trickle.close(); flood.closeAllConnections(); flood.close(); }
 
- console.log('PASS: manifest and icons served, Chromium reports no installability errors, launcher reuses a running Scotty (default, explicit and moved ports), refuses one with other settings, warns about an older build and when another program holds the port, and bounds its probe');
+ console.log('PASS: manifest and icons served, Chromium reports no installability errors, launcher reuses a running Scotty (default, explicit and moved ports), refuses one with other settings, warns about an older build and when another program holds the port, bounds its probe, and shows the port-move notice once from either launcher');
 } finally {
  await browser?.close();
  await stop(server);

@@ -12,6 +12,7 @@
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import path from "node:path";
+import { noticePortMove } from "../bin/port-move-notice.mjs";
 
 const RESTART_CODE = 75;
 const require = createRequire(import.meta.url);
@@ -73,4 +74,5 @@ for (const sig of ["SIGINT", "SIGTERM"]) {
   });
 }
 
+noticePortMove();
 start();
