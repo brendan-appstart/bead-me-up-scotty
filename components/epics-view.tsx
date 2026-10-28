@@ -10,8 +10,11 @@ import {
   typeColor,
   avatarColor,
   initials,
-  childrenOf,
   epicProgress,
+  buildEpicTree,
+  filterEpicTreeClosed,
+  epicAncestorIds,
+  type EpicTreeNode,
 } from "@/lib/beads-view";
 
 /** Chip styling shared with the list rows and drawer so labels read alike. */
@@ -41,6 +44,11 @@ function LabelChips({ labels, max }: { labels: string[]; max: number }) {
       )}
     </>
   );
+}
+
+/** Count every epic in a nested tree, at any depth, for the header total. */
+function countEpicNodes(nodes: EpicTreeNode[]): number {
+  return nodes.reduce((total, node) => total + 1 + countEpicNodes(node.children), 0);
 }
 
 export function EpicsView({
@@ -75,13 +83,20 @@ export function EpicsView({
         a.priority - b.priority ||
         a.id.localeCompare(b.id),
     );
-  // "Filter out closed" (bead 8vm): hide closed epics (and closed children below).
-  // Progress % still counts all children, so it stays accurate. A newly focused
-  // closed epic is included for the first render; the focus effect then turns
-  // this filter off so the control accurately reflects what is visible.
-  const epics = allEpics.filter(
-    (e) => !hideClosed || e.status !== "closed" || e.id === focusEpic?.id,
-  );
+  // Nested epic tree (GH #40): an epic whose parent is an epic hangs off that
+  // parent instead of also rendering as its own top-level card, so a deep
+  // hierarchy reads as one tree rather than a pile of duplicate cards. "Filter
+  // out closed" (bead 8vm) prunes closed nodes and promotes their open epic
+  // descendants, so hiding a closed epic never hides open work beneath it.
+  // Progress % still counts all children, so it stays accurate. A newly
+  // focused closed epic is kept for the first render; the focus effect then
+  // turns this filter off so the control accurately reflects what is visible.
+  const tree = filterEpicTreeClosed(buildEpicTree(beads), focusEpic?.id);
+  const visibleEpics = countEpicNodes(tree);
+  // A nested epic is only in the DOM once every epic above it is open, so a
+  // focus request must auto-expand the whole ancestor chain, not just the
+  // target epic.
+  const focusAncestorIds = new Set(focusEpic ? epicAncestorIds(beads, focusEpic.id) : []);
 
   // Consume each focus request after scrolling. Keeping a handled request in
   // AppShell made its closed-epic exception permanent, so "Hide closed" could
@@ -121,14 +136,210 @@ export function EpicsView({
     [],
   );
 
+  // Recursive so a nested epic renders as a card inside its parent's expanded
+  // area — one tree — instead of every epic also being a top-level card.
+  const renderEpicNode = (node: EpicTreeNode, depth: number) => {
+    const e = node.bead;
+    const { closed, total, pct } = epicProgress(e.id, beads);
+    const subEpics = node.children.filter((c) => c.bead.issue_type === "epic");
+    const kids = node.children.filter((c) => c.bead.issue_type !== "epic");
+    // Auto-expand the epic we jumped to (until the user toggles it), plus the
+    // ancestor chain that keeps a nested target in the DOM at all.
+    const isOpen =
+      expanded[e.id] ?? (e.id === focusEpic?.id || focusAncestorIds.has(e.id));
+    return (
+      <section
+        key={e.id}
+        data-epic-id={e.id}
+        className="overflow-hidden rounded-[14px] border border-border bg-[var(--surface)] shadow-[var(--shadow)]"
+        style={depth > 0 ? { marginLeft: 16 } : undefined}
+      >
+        {/* Expanding to see children is the PRIMARY action on this
+            screen, so the whole row owns it and the small "Details"
+            button below owns the secondary one. An earlier pass had
+            this inverted — row-click opened details and expand was
+            left to the ~28px chevron alone — which @Nopik reported as
+            a regression on GH #17. Note `!isOpen`, not `!st[e.id]`:
+            isOpen resolves the auto-expand default, and reading the raw
+            map reintroduces the "focused epic won't collapse" bug. */}
+        <div
+          role="button"
+          tabIndex={0}
+          data-keyboard-bead-id={e.id}
+          aria-current={selectedBeadId === e.id ? "true" : undefined}
+          aria-expanded={isOpen}
+          onFocus={() => selectBead(e.id)}
+          onClick={() => {
+            selectBead(e.id);
+            setExpanded((st) => ({ ...st, [e.id]: !isOpen }));
+          }}
+          onKeyDown={(ev) => {
+            if (ev.target !== ev.currentTarget) return;
+            if (ev.key === "Enter" || ev.key === " ") {
+              ev.preventDefault();
+              setExpanded((st) => ({ ...st, [e.id]: !isOpen }));
+            }
+          }}
+          title={isOpen ? "Hide children" : "Show children"}
+          className={`flex cursor-pointer items-center gap-[14px] p-[16px_18px] focus-visible:outline-none ${
+            selectedBeadId === e.id ? "ring-2 ring-inset ring-[var(--brand)]" : ""
+          }`}
+        >
+          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[10px] bg-[var(--brand-weak)] text-[var(--brand)]">
+            <Icon name="target" size={19} />
+          </div>
+          <div className="min-w-0 flex-1">
+            {/* overflow-hidden: every chip on this row is flex-shrink-0,
+                so without it a heavily-labelled epic would spill past
+                the progress block instead of clipping. */}
+            <div className="flex min-w-0 items-center gap-[9px] overflow-hidden">
+              <span className="flex-shrink-0 font-mono text-[11.5px] text-[var(--text-3)]">
+                {e.id}
+              </span>
+              <StatusChip status={e.status} />
+              <PriorityChip p={e.priority} />
+              <LabelChips labels={e.labels ?? []} max={3} />
+            </div>
+            <div className="mt-[3px] text-[15px] font-semibold tracking-[-.01em]">
+              {e.title}
+            </div>
+          </div>
+          <div className="flex w-[200px] flex-shrink-0 flex-col items-end gap-[7px]">
+            <div className="flex items-baseline gap-[6px]">
+              <span className="font-mono text-[17px] font-[650] tracking-[-.02em]">
+                {pct}%
+              </span>
+              <span className="text-[11.5px] text-[var(--text-3)]">
+                {closed}/{total} done
+              </span>
+            </div>
+            <div className="h-[7px] w-full overflow-hidden rounded-full bg-[var(--surface-3)]">
+              <div
+                className="h-full rounded-full transition-[width]"
+                style={{
+                  width: `${pct}%`,
+                  background: pct === 100 ? "#16a34a" : "var(--brand)",
+                }}
+              />
+            </div>
+          </div>
+          {/* Secondary action, so it gets a small explicit target with a
+              VISIBLE word — an icon alone wasn't discoverable, which is
+              half of what GH #17 was about. stopPropagation is
+              load-bearing: without it this also toggles the row. */}
+          <button
+            type="button"
+            onClick={(ev) => {
+              ev.stopPropagation();
+              openDetail(e.id);
+            }}
+            aria-label={`Open details for ${e.id}`}
+            title={`Open details for ${e.id}`}
+            className="flex h-7 flex-shrink-0 items-center gap-[5px] rounded-[8px] border border-border bg-[var(--surface-2)] px-[9px] text-[11.5px] font-[550] text-[var(--text-2)] hover:border-[var(--brand)] hover:text-[var(--brand)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]"
+          >
+            <Icon name="list" size={12} className="flex-shrink-0" />
+            <span>Details</span>
+          </button>
+          {/* Redundant mouse convenience for the row's own toggle. The
+              row carries aria-expanded, so this is aria-hidden and out
+              of the tab order — two elements announcing the same
+              expanded state is a screen-reader annoyance. Stays a
+              <button> inside a role="button" div, never a real
+              <button>, per a3c1328 / GH #10. */}
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-hidden="true"
+            onClick={(ev) => {
+              ev.stopPropagation();
+              setExpanded((st) => ({ ...st, [e.id]: !isOpen }));
+            }}
+            className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-[8px] text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--text-2)]"
+          >
+            <Icon
+              name="chevron"
+              size={18}
+              className="transition-transform"
+              style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }}
+            />
+          </button>
+        </div>
+
+        {isOpen && (
+          <div className="border-t border-border bg-[var(--surface-2)] p-[6px]">
+            {subEpics.length > 0 && (
+              <div className="flex flex-col gap-[10px] pb-[6px]">
+                {subEpics.map((child) => renderEpicNode(child, depth + 1))}
+              </div>
+            )}
+            {kids.map((k) => {
+              const o = beadOrigin(k, humanAllowlist);
+              return (
+                <div
+                  key={k.id}
+                  role="button"
+                  tabIndex={0}
+                  data-keyboard-bead-id={k.id}
+                  aria-current={selectedBeadId === k.id ? "true" : undefined}
+                  onFocus={() => selectBead(k.id)}
+                  onClick={() => {
+                    selectBead(k.id);
+                    openDetail(k.id);
+                  }}
+                  className={`flex cursor-pointer items-center gap-[11px] rounded-[9px] p-[9px_12px] hover:bg-[var(--surface)] focus-visible:outline-none ${
+                    selectedBeadId === k.id ? "ring-2 ring-inset ring-[var(--brand)]" : ""
+                  }`}
+                >
+                  <span
+                    className="h-2 w-2 flex-shrink-0 rounded-full"
+                    style={{ background: catColor(k.status) }}
+                  />
+                  <span className="w-[74px] flex-shrink-0 font-mono text-[11px] text-[var(--text-3)]">
+                    {k.id}
+                  </span>
+                  <Icon
+                    name={typeIconName(k.issue_type)}
+                    size={14}
+                    className="flex-shrink-0"
+                    style={{ color: typeColor(k.issue_type) }}
+                  />
+                  <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-medium">
+                    {k.title}
+                  </span>
+                  <LabelChips labels={k.labels ?? []} max={2} />
+                  <PriorityChip p={k.priority} />
+                  <OriginBadge origin={o} title={originTitle(k.created_by, o)} />
+                  <span
+                    className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full text-[9.5px] font-semibold text-white"
+                    style={{ background: avatarColor(k.assignee ?? "") }}
+                  >
+                    {initials(k.assignee ?? "")}
+                  </span>
+                </div>
+              );
+            })}
+            <button
+              disabled={readOnly}
+              onClick={() => openCreate({ parent: e.id })}
+              className="m-[2px] flex w-[calc(100%-4px)] items-center gap-[7px] rounded-[9px] p-[9px_12px] text-[12.5px] font-[550] text-[var(--brand)] hover:bg-[var(--surface)]"
+            >
+              <Icon name="plus" size={14} />
+              <span>Add child to this epic</span>
+            </button>
+          </div>
+        )}
+      </section>
+    );
+  };
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <header className="flex flex-shrink-0 items-center gap-3 border-b border-border bg-[var(--surface)] p-[14px_22px]">
         <div className="flex-1">
           <h1 className="m-0 text-base font-[650] tracking-[-.01em]">Epics</h1>
           <span className="text-[11.5px] text-[var(--text-3)]">
-            {epics.length}
-            {hideClosed && allEpics.length !== epics.length ? ` of ${allEpics.length}` : ""} epics ·
+            {visibleEpics}
+            {hideClosed && allEpics.length !== visibleEpics ? ` of ${allEpics.length}` : ""} epics ·
             progress = closed ÷ children
           </span>
         </div>
@@ -153,196 +364,8 @@ export function EpicsView({
 
       <div className="bd-scroll min-h-0 flex-1 overflow-y-auto p-[20px_22px]">
         <div className="mx-auto flex max-w-[880px] flex-col gap-[14px]">
-          {epics.map((e) => {
-            const { closed, total, pct } = epicProgress(e.id, beads);
-            const kids = childrenOf(e.id, beads)
-              .filter((k) => !hideClosed || k.status !== "closed")
-              .sort(
-                (a, b) =>
-                  Number(a.status === "closed") - Number(b.status === "closed") ||
-                  a.priority - b.priority,
-              );
-            // Auto-expand the epic we jumped to (until the user toggles it).
-            const isOpen = expanded[e.id] ?? e.id === focusEpic?.id;
-            return (
-              <section
-                key={e.id}
-                data-epic-id={e.id}
-                className="overflow-hidden rounded-[14px] border border-border bg-[var(--surface)] shadow-[var(--shadow)]"
-              >
-                {/* Expanding to see children is the PRIMARY action on this
-                    screen, so the whole row owns it and the small "Details"
-                    button below owns the secondary one. An earlier pass had
-                    this inverted — row-click opened details and expand was
-                    left to the ~28px chevron alone — which @Nopik reported as
-                    a regression on GH #17. Note `!isOpen`, not `!st[e.id]`:
-                    isOpen resolves the auto-expand default, and reading the raw
-                    map reintroduces the "focused epic won't collapse" bug. */}
-                <div
-                  role="button"
-                  tabIndex={0}
-                  data-keyboard-bead-id={e.id}
-                  aria-current={selectedBeadId === e.id ? "true" : undefined}
-                  aria-expanded={isOpen}
-                  onFocus={() => selectBead(e.id)}
-                  onClick={() => {
-                    selectBead(e.id);
-                    setExpanded((st) => ({ ...st, [e.id]: !isOpen }));
-                  }}
-                  onKeyDown={(ev) => {
-                    if (ev.target !== ev.currentTarget) return;
-                    if (ev.key === "Enter" || ev.key === " ") {
-                      ev.preventDefault();
-                      setExpanded((st) => ({ ...st, [e.id]: !isOpen }));
-                    }
-                  }}
-                  title={isOpen ? "Hide children" : "Show children"}
-                  className={`flex cursor-pointer items-center gap-[14px] p-[16px_18px] focus-visible:outline-none ${
-                    selectedBeadId === e.id ? "ring-2 ring-inset ring-[var(--brand)]" : ""
-                  }`}
-                >
-                  <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[10px] bg-[var(--brand-weak)] text-[var(--brand)]">
-                    <Icon name="target" size={19} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    {/* overflow-hidden: every chip on this row is flex-shrink-0,
-                        so without it a heavily-labelled epic would spill past
-                        the progress block instead of clipping. */}
-                    <div className="flex min-w-0 items-center gap-[9px] overflow-hidden">
-                      <span className="flex-shrink-0 font-mono text-[11.5px] text-[var(--text-3)]">
-                        {e.id}
-                      </span>
-                      <StatusChip status={e.status} />
-                      <PriorityChip p={e.priority} />
-                      <LabelChips labels={e.labels ?? []} max={3} />
-                    </div>
-                    <div className="mt-[3px] text-[15px] font-semibold tracking-[-.01em]">
-                      {e.title}
-                    </div>
-                  </div>
-                  <div className="flex w-[200px] flex-shrink-0 flex-col items-end gap-[7px]">
-                    <div className="flex items-baseline gap-[6px]">
-                      <span className="font-mono text-[17px] font-[650] tracking-[-.02em]">
-                        {pct}%
-                      </span>
-                      <span className="text-[11.5px] text-[var(--text-3)]">
-                        {closed}/{total} done
-                      </span>
-                    </div>
-                    <div className="h-[7px] w-full overflow-hidden rounded-full bg-[var(--surface-3)]">
-                      <div
-                        className="h-full rounded-full transition-[width]"
-                        style={{
-                          width: `${pct}%`,
-                          background: pct === 100 ? "#16a34a" : "var(--brand)",
-                        }}
-                      />
-                    </div>
-                  </div>
-                  {/* Secondary action, so it gets a small explicit target with a
-                      VISIBLE word — an icon alone wasn't discoverable, which is
-                      half of what GH #17 was about. stopPropagation is
-                      load-bearing: without it this also toggles the row. */}
-                  <button
-                    type="button"
-                    onClick={(ev) => {
-                      ev.stopPropagation();
-                      openDetail(e.id);
-                    }}
-                    aria-label={`Open details for ${e.id}`}
-                    title={`Open details for ${e.id}`}
-                    className="flex h-7 flex-shrink-0 items-center gap-[5px] rounded-[8px] border border-border bg-[var(--surface-2)] px-[9px] text-[11.5px] font-[550] text-[var(--text-2)] hover:border-[var(--brand)] hover:text-[var(--brand)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]"
-                  >
-                    <Icon name="list" size={12} className="flex-shrink-0" />
-                    <span>Details</span>
-                  </button>
-                  {/* Redundant mouse convenience for the row's own toggle. The
-                      row carries aria-expanded, so this is aria-hidden and out
-                      of the tab order — two elements announcing the same
-                      expanded state is a screen-reader annoyance. Stays a
-                      <button> inside a role="button" div, never a real
-                      <button>, per a3c1328 / GH #10. */}
-                  <button
-                    type="button"
-                    tabIndex={-1}
-                    aria-hidden="true"
-                    onClick={(ev) => {
-                      ev.stopPropagation();
-                      setExpanded((st) => ({ ...st, [e.id]: !isOpen }));
-                    }}
-                    className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-[8px] text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--text-2)]"
-                  >
-                    <Icon
-                      name="chevron"
-                      size={18}
-                      className="transition-transform"
-                      style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }}
-                    />
-                  </button>
-                </div>
-
-                {isOpen && (
-                  <div className="border-t border-border bg-[var(--surface-2)] p-[6px]">
-                    {kids.map((k) => {
-                      const o = beadOrigin(k, humanAllowlist);
-                      return (
-                        <div
-                          key={k.id}
-                          role="button"
-                          tabIndex={0}
-                          data-keyboard-bead-id={k.id}
-                          aria-current={selectedBeadId === k.id ? "true" : undefined}
-                          onFocus={() => selectBead(k.id)}
-                          onClick={() => {
-                            selectBead(k.id);
-                            openDetail(k.id);
-                          }}
-                          className={`flex cursor-pointer items-center gap-[11px] rounded-[9px] p-[9px_12px] hover:bg-[var(--surface)] focus-visible:outline-none ${
-                            selectedBeadId === k.id ? "ring-2 ring-inset ring-[var(--brand)]" : ""
-                          }`}
-                        >
-                          <span
-                            className="h-2 w-2 flex-shrink-0 rounded-full"
-                            style={{ background: catColor(k.status) }}
-                          />
-                          <span className="w-[74px] flex-shrink-0 font-mono text-[11px] text-[var(--text-3)]">
-                            {k.id}
-                          </span>
-                          <Icon
-                            name={typeIconName(k.issue_type)}
-                            size={14}
-                            className="flex-shrink-0"
-                            style={{ color: typeColor(k.issue_type) }}
-                          />
-                          <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-medium">
-                            {k.title}
-                          </span>
-                          <LabelChips labels={k.labels ?? []} max={2} />
-                          <PriorityChip p={k.priority} />
-                          <OriginBadge origin={o} title={originTitle(k.created_by, o)} />
-                          <span
-                            className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full text-[9.5px] font-semibold text-white"
-                            style={{ background: avatarColor(k.assignee ?? "") }}
-                          >
-                            {initials(k.assignee ?? "")}
-                          </span>
-                        </div>
-                      );
-                    })}
-                    <button
-                      disabled={readOnly}
-          onClick={() => openCreate({ parent: e.id })}
-                      className="m-[2px] flex w-[calc(100%-4px)] items-center gap-[7px] rounded-[9px] p-[9px_12px] text-[12.5px] font-[550] text-[var(--brand)] hover:bg-[var(--surface)]"
-                    >
-                      <Icon name="plus" size={14} />
-                      <span>Add child to this epic</span>
-                    </button>
-                  </div>
-                )}
-              </section>
-            );
-          })}
-          {epics.length === 0 && (
+          {tree.map((node) => renderEpicNode(node, 0))}
+          {tree.length === 0 && (
             <div className="rounded-[14px] border border-dashed border-border p-10 text-center text-[13px] text-[var(--text-3)]">
               No epics yet. Create one with type “epic”.
             </div>
