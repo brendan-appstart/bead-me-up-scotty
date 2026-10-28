@@ -270,6 +270,8 @@ function SettingsForm({ data }: { data: DoctorResponse }) {
 
       <NotificationsCard />
 
+      <ManualOrderCard />
+
       <GamificationCard />
 
       <KeyboardShortcutsCard />
@@ -442,6 +444,43 @@ function GamificationCard() {
         >
           <Icon name={enabled ? "check" : "x"} size={14} />
           <span>{enabled ? "Enabled" : "Disabled"}</span>
+        </button>
+      </div>
+    </Card>
+  );
+}
+
+function ManualOrderCard() {
+  const { meta } = useApp();
+  const qc = useQueryClient();
+  const inBeads = meta?.orderStore === "beads";
+  const save = useMutation({
+    mutationFn: (v: boolean) => api.saveConfig({ orderStore: v ? "beads" : "local" }),
+    onSuccess: () => {
+      toast.success("Settings saved");
+      qc.invalidateQueries({ queryKey: ["beads"] });
+      qc.invalidateQueries({ queryKey: ["order"] });
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
+  return (
+    <Card title="Manual order">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-[13px]">Store the manual order in beads</div>
+          <div className="text-[11.5px] text-[var(--text-3)]">
+            Writes a card&apos;s position to its scotty.rank metadata when you drag it, so agents
+            and other bd clients see the order you set. Off keeps it in this app only. Turning
+            it on copies your saved order into each column that has no rank in beads yet.
+          </div>
+        </div>
+        <button
+          onClick={() => save.mutate(!inBeads)}
+          disabled={save.isPending}
+          className="flex h-[34px] items-center gap-[7px] rounded-[9px] border border-border bg-[var(--surface-2)] px-[13px] text-[12.5px] hover:bg-[var(--surface-3)] disabled:opacity-50"
+        >
+          <Icon name={inBeads ? "check" : "x"} size={14} />
+          <span>{inBeads ? "Enabled" : "Disabled"}</span>
         </button>
       </div>
     </Card>

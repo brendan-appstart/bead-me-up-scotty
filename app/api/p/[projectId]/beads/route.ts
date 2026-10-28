@@ -1,5 +1,5 @@
 import { getStore } from "@/lib/store";
-import { getConfig, isReadOnly, lanePrefix } from "@/lib/config";
+import { getConfig, isReadOnly, lanePrefix, orderStoreOf } from "@/lib/config";
 import { createInputSchema } from "@/lib/schema";
 import { ok, fail } from "@/lib/api";
 
@@ -21,6 +21,7 @@ export async function GET(_req: Request, { params }: Ctx) {
         humanAllowlist: cfg.humanAllowlist,
         pollIntervalMs: cfg.pollIntervalMs,
         gamification: cfg.gamification,
+        orderStore: orderStoreOf(cfg),
         readOnly: isReadOnly(_req),
         lanePrefix: lanePrefix(),
       },

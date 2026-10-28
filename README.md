@@ -204,6 +204,32 @@ from the banner. This is a local viewing preference, not a permissions system.
 Project write requests are rejected by the server while the requesting browser
 is read-only; application settings remain available.
 
+### Storing the manual order in beads
+
+By default the Manual sort order stays in Scotty's own `config.json`, so only
+Scotty sees it. Turn on **Manual order** in Settings, or launch with
+`SCOTTY_ORDER_STORE=beads` to make that the default until Settings says
+otherwise, and a drag writes the card's position to its `scotty.rank` metadata
+instead. Agents and other bd clients then see the order in `bd list --json` and
+`bd ready --json`. bd's own sort ignores it, so sort by it yourself:
+
+```bash
+bd ready --json | jq 'sort_by(.metadata["scotty.rank"] | tonumber? // infinite)'
+```
+
+Ranks are sparse. New ranks are 1024 apart, and a card dropped between two
+others takes a rank from the gap between theirs, so a drag usually writes only
+the bead that moved. A column is renumbered only when a gap runs out. Lower
+ranks come first, and unranked beads follow by priority, as on the Board. An
+agent can place a bead itself with `bd update <id> --set-metadata scotty.rank=<n>`.
+
+Turning the setting on copies the saved order of each column that has no rank in
+beads yet; a column that has one keeps it. `config.json` is left as it is, so
+turning the setting off returns to that order. Read-only mode and the request
+guard block these writes like any other project change, and a failed write puts
+the card back where it was. `scripts/test-order-store.mjs` documents how to
+test it.
+
 ### Opening Scotty by a hostname
 
 Scotty only answers browsers that address it as `localhost` (or `*.localhost`)

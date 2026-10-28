@@ -135,6 +135,17 @@ export const demoStore: BeadsStore = {
     target.updated_at = nowIso();
     return { ...gate };
   },
+  async setMetadata(id, values) {
+    const b = find(id);
+    const next = { ...(b.metadata ?? {}) };
+    for (const [key, value] of Object.entries(values)) {
+      if (value === null) delete next[key];
+      else next[key] = value;
+    }
+    b.metadata = next;
+    b.updated_at = nowIso();
+    return { ...b };
+  },
   async removeLabel(id, label) {
     const b = find(id);
     b.labels = (b.labels ?? []).filter((l) => l !== label);
