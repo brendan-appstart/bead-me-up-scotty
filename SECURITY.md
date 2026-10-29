@@ -13,7 +13,7 @@ before reporting, if you can.
 
 | Version | Supported |
 | ------- | --------- |
-| Latest release (0.3.x) | Yes |
+| Latest release (0.4.x) | Yes |
 | Older releases | No |
 
 ## Reporting a vulnerability
