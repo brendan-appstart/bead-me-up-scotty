@@ -12,6 +12,7 @@
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import path from "node:path";
+import { noticePortMove } from "../bin/port-move-notice.mjs";
 
 const RESTART_CODE = 75;
 const require = createRequire(import.meta.url);
@@ -28,7 +29,7 @@ function nextBin() {
   }
 }
 
-const port = process.env.PORT || "3000";
+const port = process.env.PORT || "19847"; // same default as bin/bead-me-up-scotty.mjs
 const host = process.env.HOST || "localhost";
 // Test hook: override the spawned command with a JSON array (BMUS_SERVE_CMD).
 const override = process.env.BMUS_SERVE_CMD ? JSON.parse(process.env.BMUS_SERVE_CMD) : null;
@@ -73,4 +74,5 @@ for (const sig of ["SIGINT", "SIGTERM"]) {
   });
 }
 
+noticePortMove();
 start();

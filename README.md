@@ -280,9 +280,29 @@ Container limitations:
 ## Install globally
 
 Install once from a clone, then run `scotty` (or `bead-me-up-scotty`) from **any**
-directory. It starts the production server on a free port (default 3000) and opens
-your browser. Run it from a folder that has a `.beads` repo to jump straight to
-that project; otherwise you get the project picker. Requires Node 20+.
+directory. It starts the production server on port 19847 and opens your browser.
+Run it from a folder that has a `.beads` repo to jump straight to that project;
+otherwise you get the project picker. Requires Node 20+.
+
+If Scotty is already running on port 19847, `scotty` opens that instance instead
+of starting a second one. If another program holds port 19847, it moves to the
+next port that is free or already running Scotty, and prints a warning, because
+an installed app (below) only looks on port 19847. An explicit `--port` also
+opens a Scotty already running there, but otherwise fails instead of moving.
+
+A running Scotty keeps the settings it started with, so if you launch with
+different environment settings, such as `SCOTTY_READ_ONLY` or `BEADS_ACTOR`,
+`scotty` exits instead of reusing it and asks you to stop it first. If the
+running Scotty is an older build than the one installed, for example after an
+upgrade, `scotty` still opens it but tells you to restart it.
+
+**Upgrading from a version that used port 3000:** `scotty` and `npm run serve`
+now default to port 19847. Your browser keeps bookmarks, settings saved in
+`localStorage` (theme, board preferences, WIP limits, notification preferences
+and command palette recents) and notification permission separately for each
+origin, so they stay behind on `http://localhost:3000`. Run
+`scotty --port 3000` or `PORT=3000 npm run serve` to keep using them. Both
+launchers print this reminder once.
 
 Flags: `-p, --port <n>` · `--no-open` · `--help`.
 
@@ -315,6 +335,21 @@ scotty                 # from anywhere; the clone can now be deleted
 To update, rebuild and re-run `npm install -g .`. If `npm install -g .` hits a
 permissions error, use a user-owned npm prefix:
 `npm config set prefix ~/.npm-global` and add `~/.npm-global/bin` to your `PATH`.
+
+### Install as an app
+
+Scotty can run in its own window with a dock or taskbar icon, outside your
+normal browser tabs. Start `scotty`, then:
+
+- **Chrome or Edge:** open the browser menu and choose *Cast, save and share →
+  Install page as app* (Chrome) or *Apps → Install this site as an app* (Edge),
+  or click the install icon in the address bar.
+- **Safari on macOS 14+:** choose *File → Add to Dock*.
+- **Firefox:** desktop Firefox can't install web apps.
+
+The app window is a view onto the local server, so `scotty` must be running for
+it to load. Install it from the default port 19847, since the installed app is
+tied to that port.
 
 ## Stack
 

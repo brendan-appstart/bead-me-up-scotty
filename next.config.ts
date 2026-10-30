@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import packageInfo from "./package.json";
 import { execSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 
 // Build metadata baked in at build time (bead wxu). BUILD_NUMBER = git commit
 // count; BUILD_SHA = 7-char short hash. CI can override via env vars of the same
@@ -14,6 +15,10 @@ function git(cmd: string): string {
 }
 const BUILD_NUMBER = process.env.BUILD_NUMBER || git("git rev-list --count HEAD");
 const BUILD_SHA = process.env.BUILD_SHA || git("git rev-parse --short=7 HEAD");
+// Written to .next/BUILD_ID and inlined into the server, so the launcher can
+// spot a running server left over from an older build. Build workers load
+// this file again, so they inherit the ID through the environment.
+const BUILD_ID = (process.env.SCOTTY_BUILD_ID ||= randomUUID());
 
 const nextConfig: NextConfig = {
   // Standalone output is opt-in (set in the Dockerfile builder stage): the
@@ -22,8 +27,10 @@ const nextConfig: NextConfig = {
   // package.json `files` ships `.next` — an unconditional standalone build
   // would pack .next/standalone/node_modules into every global install.
   ...(process.env.NEXT_STANDALONE ? { output: "standalone" as const } : {}),
+  generateBuildId: () => BUILD_ID,
   // Inlined into the bundle (client + server) so the build badge can read them.
   env: {
+    SCOTTY_BUILD_ID: BUILD_ID,
     NEXT_PUBLIC_APP_VERSION: packageInfo.version,
     NEXT_PUBLIC_BUILD_NUMBER: BUILD_NUMBER,
     NEXT_PUBLIC_BUILD_SHA: BUILD_SHA,

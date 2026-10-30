@@ -1,0 +1,121 @@
+import assert from 'node:assert/strict';
+import { spawn, spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import http from 'node:http';
+import net from 'node:net';
+import os from 'node:os';
+import path from 'node:path';
+import { chromium } from 'playwright';
+// Needs `npm run build`. Starts the built app through the scotty launcher with
+// PORT set (a default, not an explicit --port), so the reuse path is exercised.
+// The headless shell skips install checks and always reports none, so this uses
+// full Chromium (`npx playwright install chromium`) or SCOTTY_TEST_CHANNEL=chrome.
+const port=Number(process.env.SCOTTY_TEST_PORT||3198);
+const base=`http://localhost:${port}`;
+const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'scotty-pwa-'));
+const env={...process.env,PORT:String(port),BEADS_DEMO:'1',POSTHOG_KEY:'',XDG_CONFIG_HOME:tmp};
+const launch=(extraEnv={},args=[])=>{
+ const child=spawn(process.execPath,['bin/bead-me-up-scotty.mjs','--no-open',...args],{env:{...env,...extraEnv},cwd:process.cwd()});
+ child.output='';
+ child.stdout.on('data',d=>child.output+=d);
+ child.stderr.on('data',d=>child.output+=d);
+ return child;
+};
+const waitFor=(child,re)=>new Promise((resolve,reject)=>{
+ const t=setInterval(()=>{
+  if(re.test(child.output)){clearInterval(t);resolve();}
+  else if(child.exitCode!==null){clearInterval(t);reject(new Error(`launcher exited: ${child.output}`));}
+ },100);
+});
+const exited=async child=>{await new Promise(r=>child.once('exit',r));return child;};
+// Launch once more and expect it to open the Scotty already on `p`, not start one.
+const reuses=async(p,extraEnv,args,why)=>{
+ const child=await exited(launch(extraEnv,args));
+ assert.equal(child.exitCode,0,child.output);
+ assert.match(child.output,new RegExp(`localhost:${p}/[\\s\\S]*already running`),why);
+ return child.output;
+};
+// A stand-in for whatever else might hold a port.
+const fake=(p,handler)=>new Promise(r=>{const s=http.createServer(handler).listen(p,'localhost',()=>r(s));});
+const stop=child=>child.exitCode===null&&new Promise(r=>{child.once('exit',r);child.kill('SIGTERM');});
+const server=launch();
+let browser;
+try {
+ await waitFor(server,/Ctrl\+C to stop/);
+
+ const manifest=await (await fetch(`${base}/manifest.webmanifest`)).json();
+ assert.equal(manifest.name,'Bead Me Up, Scotty');
+ assert.equal(manifest.display,'standalone');
+ for (const icon of manifest.icons) {
+  const res=await fetch(new URL(icon.src,base));
+  assert.equal(res.status,200,`${icon.src} must be served`);
+  assert.equal(res.headers.get('content-type'),'image/png');
+ }
+
+ // A persistent profile: Chrome refuses to install from incognito-like contexts.
+ browser=await chromium.launchPersistentContext(path.join(tmp,'profile'),{channel:process.env.SCOTTY_TEST_CHANNEL||'chromium'});
+ const page=await browser.newPage();
+ const cdp=await browser.newCDPSession(page);
+ const installErrors=async url=>{await page.goto(url);return (await cdp.send('Page.getInstallabilityErrors')).installabilityErrors.map(e=>e.errorId);};
+ assert.notDeepEqual(await installErrors(`${base}/icon-192.png`),[],'a page without a manifest must not be installable');
+ assert.deepEqual(await installErrors(base),[],'Chromium must report the app as installable');
+ assert.equal(await page.locator('link[rel="manifest"]').getAttribute('href'),'/manifest.webmanifest');
+
+ await reuses(port,{},[],'second launch must reuse the first');
+ await reuses(port,{},['--port',String(port)],'an explicit --port must reuse a Scotty already there');
+
+ const blocker=net.createServer().listen(port+1,'0.0.0.0');
+ await new Promise(r=>blocker.once('listening',r));
+ const moved=launch({PORT:String(port+1)});
+ try {
+  await waitFor(moved,/Ctrl\+C to stop/);
+  assert.match(moved.output,new RegExp(`Port ${port+1} is used by another program, so using ${port+2}`));
+  const again=await reuses(port+2,{PORT:String(port+1)},[],'a later launch must reuse the moved instance');
+  assert.match(again,/won't find this instance/);
+ } finally { await stop(moved); blocker.close(); }
+
+ const instance=await (await fetch(`${base}/api/instance`)).json();
+ assert.equal(instance.name,'bead-me-up-scotty');
+ assert.equal(instance.buildId,fs.readFileSync('.next/BUILD_ID','utf8').trim(),'the server must report the build it runs');
+
+ const refused=await exited(launch({SCOTTY_READ_ONLY:'1'}));
+ assert.equal(refused.exitCode,1,refused.output);
+ assert.match(refused.output,/already running on port \d+, but with a different SCOTTY_READ_ONLY/,'a launch with other settings must not reuse the server');
+
+ // Existing users (with a config.json) see the port-move notice once; new users never do.
+ const oldConfig=path.join(tmp,'old-user');
+ fs.mkdirSync(path.join(oldConfig,'bead-me-up-scotty'),{recursive:true});
+ fs.writeFileSync(path.join(oldConfig,'bead-me-up-scotty','config.json'),'{}');
+ assert.match((await exited(launch({XDG_CONFIG_HOME:oldConfig}))).output,/default port moved from 3000/);
+ assert.doesNotMatch((await exited(launch({XDG_CONFIG_HOME:oldConfig}))).output,/default port moved/,'the notice must appear once');
+ assert.doesNotMatch(server.output,/default port moved/,'a new user must not see the notice');
+ fs.rmSync(path.join(oldConfig,'bead-me-up-scotty','port-19847-notice'));
+ const serve=spawnSync(process.execPath,['scripts/serve.mjs'],{env:{...env,XDG_CONFIG_HOME:oldConfig,BMUS_SERVE_CMD:JSON.stringify([process.execPath,'-e',''])},encoding:'utf8'});
+ assert.match(serve.stdout,/default port moved from 3000/,'npm run serve must show the notice too');
+
+ const stale=await fake(port+3,(req,res)=>res.end(JSON.stringify({name:'bead-me-up-scotty',version:'0.0.1',buildId:'old',launch:{}})));
+ try {
+  const out=await reuses(port+3,{},['--port',String(port+3)],'an older Scotty is still reused');
+  assert.match(out,/Scotty v0\.0\.1 is running, but v[\d.]+ is installed\. Restart Scotty/);
+ } finally { stale.close(); }
+
+ // The probe must give up on a port holder that never finishes its response.
+ const timers=new Set();
+ const trickle=await fake(port+4,(req,res)=>{res.writeHead(200);const t=setInterval(()=>res.write(' '),100);timers.add(t);res.on('close',()=>clearInterval(t));});
+ const flood=await fake(port+5,(req,res)=>{res.writeHead(200);res.write(Buffer.alloc(1024*1024,32));});
+ try {
+  for (const [p,limit,why] of [[port+4,6000,'total deadline'],[port+5,2500,'size cap']]) {
+   const started=Date.now();
+   const child=await exited(launch({},['--port',String(p)]));
+   assert.equal(child.exitCode,1,child.output);
+   assert.match(child.output,/already in use/);
+   assert.ok(Date.now()-started<limit,`the probe's ${why} must stop it within ${limit} ms`);
+  }
+ } finally { timers.forEach(clearInterval); trickle.closeAllConnections(); trickle.close(); flood.closeAllConnections(); flood.close(); }
+
+ console.log('PASS: manifest and icons served, Chromium reports no installability errors, launcher reuses a running Scotty (default, explicit and moved ports), refuses one with other settings, warns about an older build and when another program holds the port, bounds its probe, and shows the port-move notice once from either launcher');
+} finally {
+ await browser?.close();
+ await stop(server);
+ fs.rmSync(tmp,{recursive:true,force:true});
+}
