@@ -33,6 +33,10 @@ const require = createRequire(import.meta.url);
 const PKG = require(path.join(ROOT, "package.json"));
 const BUILD_ID_FILE = path.join(ROOT, ".next", "BUILD_ID");
 
+// Unassigned by IANA and below every OS's ephemeral range, unlike 3000,
+// which most JS dev servers also want.
+const DEFAULT_PORT = 19847;
+
 function printHelp() {
   console.log(`
 Bead Me Up, Scotty — local web UI for the beads (bd) tracker.
@@ -45,7 +49,7 @@ Starts the server and opens your browser. Run it from a folder that has a
 .beads repo to jump straight to that project; otherwise you get the picker.
 
 Options:
-  -p, --port <n>   Port to use (default 3000, or $PORT). If Scotty is
+  -p, --port <n>   Port to use (default 19847, or $PORT). If Scotty is
                    already running there, opens it instead of starting
                    another, or exits if it was started with different
                    settings. If another program holds the port, picks the
@@ -81,7 +85,7 @@ function parseArgs(argv) {
   opts.portExplicit = portExplicit;
   if (opts.port === undefined) {
     const env = Number(process.env.PORT);
-    opts.port = Number.isInteger(env) && env > 0 ? env : 3000;
+    opts.port = Number.isInteger(env) && env > 0 ? env : DEFAULT_PORT;
   }
   opts.host = opts.host || process.env.HOST || "localhost";
   // The host ends up in a spawn() command line (browser open) and a URL;

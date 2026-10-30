@@ -280,14 +280,14 @@ Container limitations:
 ## Install globally
 
 Install once from a clone, then run `scotty` (or `bead-me-up-scotty`) from **any**
-directory. It starts the production server on port 3000 and opens your browser.
+directory. It starts the production server on port 19847 and opens your browser.
 Run it from a folder that has a `.beads` repo to jump straight to that project;
 otherwise you get the project picker. Requires Node 20+.
 
-If Scotty is already running on port 3000, `scotty` opens that instance instead
-of starting a second one. If another program holds port 3000, it moves to the
+If Scotty is already running on port 19847, `scotty` opens that instance instead
+of starting a second one. If another program holds port 19847, it moves to the
 next port that is free or already running Scotty, and prints a warning, because
-an installed app (below) only looks on port 3000. An explicit `--port` also
+an installed app (below) only looks on port 19847. An explicit `--port` also
 opens a Scotty already running there, but otherwise fails instead of moving.
 
 A running Scotty keeps the settings it started with, so if you launch with
@@ -340,7 +340,7 @@ normal browser tabs. Start `scotty`, then:
 - **Firefox:** desktop Firefox can't install web apps.
 
 The app window is a view onto the local server, so `scotty` must be running for
-it to load. Install it from the default port 3000, since the installed app is
+it to load. Install it from the default port 19847, since the installed app is
 tied to that port.
 
 ## Stack
