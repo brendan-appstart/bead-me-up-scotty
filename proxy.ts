@@ -65,6 +65,8 @@ export function proxy(req: NextRequest) {
 
 export const config = {
   // Everything except build assets; public/ files (icons, screenshots) are
-  // static and carry no project data.
-  matcher: "/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-icon.png).*)",
+  // static and carry no project data. Under SCOTTY_BASE_PATH, Next puts the
+  // base path in front of each matcher, and the second one then needs a "/"
+  // after it: "/" keeps the bare base path (the launcher) guarded too.
+  matcher: ["/", "/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-icon.png).*)"],
 };

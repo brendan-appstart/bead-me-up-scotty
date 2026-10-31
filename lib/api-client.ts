@@ -152,11 +152,29 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 const enc = encodeURIComponent;
-const base = (projectId: string) => `/api/p/${enc(projectId)}`;
+// The URL prefix every API call is made under. "" (the default) is the origin
+// root, as before. Scotty's own UI sets it to the app's base path at startup
+// (components/providers.tsx). A client that reaches the API through another
+// prefix, such as its own server at "/api/tracker", calls setApiRoot() once.
+// This file has no runtime imports and reads no process.env, so it still works
+// when copied verbatim into another front end.
+let apiRoot = "";
+
+/** Set the URL prefix every API call is made under, e.g. "/api/tracker". */
+export function setApiRoot(root: string): void {
+  apiRoot = root.replace(/\/+$/, "");
+}
+
+/** A root-absolute API path ("/api/...") under the current API root. */
+export function apiUrl(path: string): string {
+  return `${apiRoot}${path}`;
+}
+
+const base = (projectId: string) => apiUrl(`/api/p/${enc(projectId)}`);
 
 export const api = {
-  viewerMode: () => request<{ readOnly: boolean }>("/api/viewer-mode", { cache: "no-store" }),
-  setViewerMode: (readOnly: boolean) => request<{ readOnly: boolean }>("/api/viewer-mode", {
+  viewerMode: () => request<{ readOnly: boolean }>(apiUrl("/api/viewer-mode"), { cache: "no-store" }),
+  setViewerMode: (readOnly: boolean) => request<{ readOnly: boolean }>(apiUrl("/api/viewer-mode"), {
     method: "PUT", body: JSON.stringify({ readOnly }),
   }),
   list: (projectId: string) => request<BeadsResponse>(`${base(projectId)}/beads`),
@@ -300,24 +318,24 @@ export const api = {
   // Self-update (bead bgb) — app-level, not project-scoped. Named `selfUpdate`
   // to avoid colliding with `update` (the per-bead PATCH method above).
   selfUpdate: {
-    check: (channel: UpdateChannel = "stable") => request<UpdateStatus>(`/api/update/check?channel=${channel}`),
-    run: (target: UpdateTarget) => request<UpdateResult>("/api/update/run", { method: "POST", body: JSON.stringify(target) }),
+    check: (channel: UpdateChannel = "stable") => request<UpdateStatus>(apiUrl(`/api/update/check?channel=${channel}`)),
+    run: (target: UpdateTarget) => request<UpdateResult>(apiUrl("/api/update/run"), { method: "POST", body: JSON.stringify(target) }),
   },
 
   saveConfig: (patch: Record<string, unknown>) =>
-    request<DoctorResponse["config"]>("/api/config", {
+    request<DoctorResponse["config"]>(apiUrl("/api/config"), {
       method: "PUT",
       body: JSON.stringify(patch),
     }),
 
   projects: {
-    list: () => request<ProjectsResponse>("/api/projects"),
+    list: () => request<ProjectsResponse>(apiUrl("/api/projects")),
     add: (path: string) =>
-      request<ProjectInfo>("/api/projects", { method: "POST", body: JSON.stringify({ path }) }),
+      request<ProjectInfo>(apiUrl("/api/projects"), { method: "POST", body: JSON.stringify({ path }) }),
     remove: (id: string) =>
-      request<{ removed: string }>(`/api/projects/${enc(id)}`, { method: "DELETE" }),
+      request<{ removed: string }>(apiUrl(`/api/projects/${enc(id)}`), { method: "DELETE" }),
     rename: (id: string, name: string) =>
-      request<ProjectInfo>(`/api/projects/${enc(id)}`, {
+      request<ProjectInfo>(apiUrl(`/api/projects/${enc(id)}`), {
         method: "PATCH",
         body: JSON.stringify({ name }),
       }),
@@ -325,6 +343,6 @@ export const api = {
 
   fs: {
     browse: (path?: string) =>
-      request<FsResponse>(`/api/fs${path ? `?path=${enc(path)}` : ""}`),
+      request<FsResponse>(apiUrl(`/api/fs${path ? `?path=${enc(path)}` : ""}`)),
   },
 };

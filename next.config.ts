@@ -15,7 +15,15 @@ function git(cmd: string): string {
 const BUILD_NUMBER = process.env.BUILD_NUMBER || git("git rev-list --count HEAD");
 const BUILD_SHA = process.env.BUILD_SHA || git("git rev-parse --short=7 HEAD");
 
+// Serve the whole app under a sub-path (e.g. "/board") behind a reverse proxy.
+// Read at build time (Next inlines it into the client bundle) and again by
+// `next start`, so it must be set for both. Normalised to a leading slash and
+// no trailing slash ("board/" -> "/board", "/" -> ""); empty (the default)
+// serves at the root.
+const BASE_PATH = (process.env.SCOTTY_BASE_PATH || "").replace(/^\/*/, "/").replace(/\/+$/, "");
+
 const nextConfig: NextConfig = {
+  basePath: BASE_PATH || undefined,
   // Standalone output is opt-in (set in the Dockerfile builder stage): the
   // local launchers (npm start, scripts/serve.mjs, bin/bead-me-up-scotty.mjs)
   // all run `next start`, which does not support standalone output, and
@@ -27,6 +35,7 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_APP_VERSION: packageInfo.version,
     NEXT_PUBLIC_BUILD_NUMBER: BUILD_NUMBER,
     NEXT_PUBLIC_BUILD_SHA: BUILD_SHA,
+    NEXT_PUBLIC_SCOTTY_BASE_PATH: BASE_PATH,
   },
   // Eleventy is a CLI/Node tool we shell out to at runtime — never bundle it.
   serverExternalPackages: ["@11ty/eleventy"],

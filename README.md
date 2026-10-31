@@ -228,6 +228,57 @@ Scripts and tools that call the API at `localhost` or an IP address are
 unaffected; only browser requests carry the `Origin` header that the
 cross-site check looks at.
 
+### Serving Scotty under a sub-path
+
+To put Scotty at `https://example.com/board` instead of the root of a host, set
+`SCOTTY_BASE_PATH` to the sub-path. It becomes Next's `basePath`, and the pages,
+assets, API, live-update stream, notification links and copied permalinks all
+move under it. Unset (the default) changes nothing.
+
+Next reads the setting when it builds and again when it starts, and the client
+bundle has it inlined, so set it for both. The `scotty` command reads it too: it
+waits for the server, adds the current folder's project and opens the browser
+under the sub-path, and it refuses to start when the setting differs from the
+one the build was made with. A Homebrew install is built without the setting, so
+it serves at the root; for a sub-path, build Scotty yourself as below.
+
+```bash
+SCOTTY_BASE_PATH=/board npm run build
+SCOTTY_BASE_PATH=/board npm run start   # or, after `npm link`: SCOTTY_BASE_PATH=/board scotty
+# Scotty is now at http://localhost:3000/board ; /api/... is no longer served at the root
+```
+
+Your proxy must pass the prefix through unchanged (do not strip it) and must
+also forward the bare `/board`, because Next redirects `/board/` to `/board`. It
+should not buffer the server-sent-events stream. Remember `SCOTTY_ALLOWED_HOSTS`
+for the public hostname (see above).
+
+```caddy
+example.com {
+  reverse_proxy /board* 127.0.0.1:3000
+}
+```
+
+```nginx
+location /board {
+  proxy_pass http://127.0.0.1:3000;      # no URI part: /board stays in the path
+  proxy_set_header Host $host;
+  proxy_http_version 1.1;
+  proxy_buffering off;                   # /api/p/<id>/beads/stream is SSE
+}
+```
+
+Code that reuses `lib/api-client.ts` outside Scotty's own UI, such as a second
+front end that reaches Scotty's API through its own server, can point every call
+at another prefix without editing the file. Call `setApiRoot("/api/tracker")`
+once at startup, and requests go to `/api/tracker/api/...`; `apiUrl()` builds
+any other API URL, such as the live-update stream, under the same root. The file
+has only type imports and reads no environment variables, so it works outside
+Next as it ships.
+
+`scripts/test-base-path.mjs` checks a build under `/sub`; its header shows how
+to run it.
+
 ### Docker
 
 ```bash
