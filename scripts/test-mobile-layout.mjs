@@ -31,10 +31,18 @@ const ALL_VIEWS = [
   "board", "list", "epics", "focus", "graph", "insights",
   "activity", "needsyou", "achievements", "publish", "settings",
   "drawer", // the bead detail drawer, opened over the board
+  "focus-grouped", // Focus with "Group by assignee", which has its own layout
 ];
-const viewQuery = (v) => (v === "drawer" ? "view=board&bead=bd-7e40.2" : `view=${v}`);
+const viewQuery = (v) => {
+  if (v === "drawer") return "view=board&bead=bd-7e40.2";
+  if (v === "focus-grouped") return "view=focus";
+  return `view=${v}`;
+};
 const views = (process.env.SCOTTY_LAYOUT_VIEWS || ALL_VIEWS.join(",")).split(",").filter(Boolean);
 const widths = [360, 390, 768];
+// 1000 px sits between the sidebar breakpoint (768) and the desktop layout (1024). Tap target
+// and font rules apply below 48rem only, so at 1000 px only the layout checks run.
+const layoutOnlyWidths = [1000];
 const MIN_TARGET = 44;
 const MIN_INPUT_FONT = 16;
 const MIN_TEXT_FONT = 12;
@@ -118,7 +126,8 @@ function measure({ minTarget, minInputFont, minTextFont }) {
     const r = box.getBoundingClientRect();
     const w = Math.round(r.width);
     const h = Math.round(r.height);
-    out.controls.push({ name: describe(el), w, h });
+    // The compare key leaves out class names, so a class rename alone is not a change.
+    out.controls.push({ name: describe(el), key: `${el.tagName.toLowerCase()}[${describe(el).replace(/^[^\[]*\[/, "").replace(/\]$/, "")}]`, w, h });
     const clip = clippedBy(el, r);
     if (out.offscreen.length < 12) {
       if (clip && !clip.scroller) {
@@ -153,7 +162,8 @@ function measure({ minTarget, minInputFont, minTextFont }) {
     if (getComputedStyle(el).textOverflow !== "ellipsis") continue;
     const text = (el.textContent || "").trim();
     const w = Math.round(el.getBoundingClientRect().width);
-    if (text.length > 8 && w < 60 && out.slivers.length < 8) out.slivers.push(`${describe(el)} ${w}px wide`);
+    // Only text that is really cut off counts; a short chip that fits is fine.
+    if (text.length > 8 && w < 60 && el.scrollWidth > el.clientWidth + 1 && out.slivers.length < 8) out.slivers.push(`${describe(el)} ${w}px wide`);
   }
 
   const seen = new Set();
@@ -183,20 +193,24 @@ function fail(width, view, kind, items) {
   failures.push({ width, view, kind, items });
 }
 
-function report(width, label, m) {
+function report(width, label, m, layoutOnly = false) {
   if (m.scroll > m.client) {
     fail(width, label, "page scrolls sideways", [
       `scrollWidth ${m.scroll} > clientWidth ${m.client}`, ...m.overflowing,
     ]);
   }
   fail(width, label, "an element scrolls sideways", m.sideScrollers);
-  if (m.bodyFont < MIN_INPUT_FONT) fail(width, label, "page base font", [`${m.bodyFont}px`]);
-  fail(width, label, `controls under ${MIN_TARGET}x${MIN_TARGET}`, m.smallTargets);
+  if (!layoutOnly) {
+    if (m.bodyFont < MIN_INPUT_FONT) fail(width, label, "page base font", [`${m.bodyFont}px`]);
+    fail(width, label, `controls under ${MIN_TARGET}x${MIN_TARGET}`, m.smallTargets);
+  }
   fail(width, label, "control content spills out of its box", m.squashed);
   fail(width, label, "text cut to a sliver by an ellipsis (under 60px)", m.slivers);
   fail(width, label, "control outside the screen or clipped", m.offscreen);
-  fail(width, label, `inputs under ${MIN_INPUT_FONT}px`, m.smallInputs);
-  fail(width, label, `text under ${MIN_TEXT_FONT}px`, m.smallText);
+  if (!layoutOnly) {
+    fail(width, label, `inputs under ${MIN_INPUT_FONT}px`, m.smallInputs);
+    fail(width, label, `text under ${MIN_TEXT_FONT}px`, m.smallText);
+  }
 }
 
 // Menus, dialogs and sheets are portals that exist only when open. Each state opens one over
@@ -247,6 +261,37 @@ async function openView(page, view) {
   await page.locator("main, [role='main'], h1, h2").first().waitFor({ timeout: 15000 });
   // The beads stream keeps the network busy, so wait a fixed time for the first render.
   await page.waitForTimeout(1500);
+  if (view === "focus-grouped") {
+    await page.locator('label:has-text("Group by") select').selectOption("assignee");
+    await page.locator('section[aria-label^="Assignee:"]').first().waitFor({ timeout: 5000 });
+    await page.waitForTimeout(300);
+  }
+}
+
+// A swipe that starts on a draggable card or row must scroll the page. A card with
+// touch-action none swallows the swipe. Needs a touch context and Chromium (CDP).
+async function swipeScrolls(page) {
+  const target = page.locator('[aria-roledescription="sortable"]').first();
+  await target.waitFor({ timeout: 5000 });
+  const box = await target.boundingBox();
+  if (!box) throw new Error("no draggable card or row to swipe on");
+  const scrollOf = () => page.evaluate(() => {
+    const el = document.querySelector('[aria-roledescription="sortable"]');
+    let total = window.scrollY;
+    for (let n = el; n; n = n.parentElement) total += n.scrollTop || 0;
+    return total;
+  });
+  const before = await scrollOf();
+  const cdp = await page.context().newCDPSession(page);
+  const x = Math.round(box.x + box.width / 2);
+  const y0 = Math.round(Math.min(box.y + box.height / 2, 700));
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y: y0 }] });
+  for (let i = 1; i <= 12; i++) {
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y: y0 - i * 20 }] });
+  }
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await page.waitForTimeout(400);
+  return (await scrollOf()) > before;
 }
 
 const browser = await chromium.launch({
@@ -254,7 +299,7 @@ const browser = await chromium.launch({
 });
 
 try {
-  for (const width of [...widths, 1280]) {
+  for (const width of [...widths, ...layoutOnlyWidths, 1280]) {
     const context = await browser.newContext({ viewport: { width, height: 844 }, hasTouch: width < 1280 });
     for (const view of views) {
       const page = await context.newPage();
@@ -272,14 +317,21 @@ try {
           desktop[view] = m.controls;
           continue;
         }
-        report(width, view, m);
+        report(width, view, m, layoutOnlyWidths.includes(width));
+        if (width <= 768 && (view === "board" || view === "list")) {
+          if (!(await swipeScrolls(page))) {
+            fail(width, view, "a swipe on a draggable card or row does not scroll the page", [
+              "touch-action none on the card blocks scrolling; use a touch sensor with a press delay",
+            ]);
+          }
+        }
       } catch (e) {
         fail(width, view, "audit error", [String(e.message || e).split("\n")[0]]);
       } finally {
         await page.close();
       }
     }
-    if (width < 1280) {
+    if (width <= 768) {
       for (const st of STATES) {
         if (st.maxWidth && width > st.maxWidth) continue;
         const label = `board+${st.name}`;
@@ -322,8 +374,12 @@ if (snapshotFile) {
         fail(1280, view, "no controls measured at 1280px", ["the page did not render"]);
         continue;
       }
-      const a = before[view].map((c) => `${c.name} ${c.w}x${c.h}`);
-      const b = desktop[view].map((c) => `${c.name} ${c.w}x${c.h}`);
+      if (!before[view][0].key) {
+        fail(1280, view, "baseline has no compare keys", ["record it again with this script"]);
+        continue;
+      }
+      const a = before[view].map((c) => `${c.key} ${c.w}x${c.h}`);
+      const b = desktop[view].map((c) => `${c.key} ${c.w}x${c.h}`);
       const changed = [
         ...b.filter((x) => !a.includes(x)).map((x) => `now ${x}`),
         ...a.filter((x) => !b.includes(x)).map((x) => `was ${x}`),

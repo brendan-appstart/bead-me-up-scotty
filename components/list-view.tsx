@@ -2,7 +2,8 @@
 import * as React from "react";
 import {
   DndContext,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   closestCenter,
@@ -70,7 +71,11 @@ export function ListView() {
   // One pass, not childrenOf() per row (that would be O(n^2)).
   const childCounts = React.useMemo(() => childrenCountMap(beads), [beads]);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    // A swipe scrolls the page. A press of 250 ms starts a drag.
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
+  );
 
   // Which board column each bead belongs to (shared with the Board view).
   const colById = React.useMemo(() => {
@@ -288,7 +293,7 @@ function Row({
         opacity: isDragging ? 0.4 : 1,
         zIndex: isDragging ? 10 : undefined,
       }}
-      className={`flex w-full cursor-pointer touch-none items-center gap-3 rounded-[10px] border bg-[var(--surface)] px-[13px] py-[9px] text-left transition-[border-color,box-shadow] hover:border-[var(--border-strong)] hover:shadow-[var(--shadow)] focus-visible:outline-none ${
+      className={`flex w-full cursor-pointer touch-manipulation items-center gap-3 rounded-[10px] border bg-[var(--surface)] px-[13px] py-[9px] text-left transition-[border-color,box-shadow] hover:border-[var(--border-strong)] hover:shadow-[var(--shadow)] focus-visible:outline-none ${
         selectedBeadId === bead.id
           ? "border-[var(--brand)] ring-2 ring-[var(--brand)]/30"
           : "border-border"

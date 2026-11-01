@@ -50,7 +50,7 @@ export function BeadCard({ bead, childCount = 0 }: { bead: Bead; childCount?: nu
         opacity: isDragging ? 0.4 : 1,
         zIndex: isDragging ? 10 : undefined,
       }}
-      className={`flex cursor-pointer touch-none flex-col gap-[9px] rounded-[11px] border bg-[var(--surface)] p-[12px_13px] shadow-[var(--shadow)] transition-[border-color] hover:border-2 hover:p-[11px_12px] focus-visible:outline-none ${
+      className={`flex cursor-pointer touch-manipulation flex-col gap-[9px] rounded-[11px] border bg-[var(--surface)] p-[12px_13px] shadow-[var(--shadow)] transition-[border-color] hover:border-2 hover:p-[11px_12px] focus-visible:outline-none ${
         selectedBeadId === bead.id
           ? "border-[var(--brand)] hover:border-[var(--text-3)] ring-2 ring-[var(--brand)]/30"
           : "border-border hover:border-[var(--text-3)]"

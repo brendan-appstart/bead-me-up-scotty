@@ -2,7 +2,8 @@
 import * as React from "react";
 import {
   DndContext,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   closestCorners,
@@ -77,7 +78,9 @@ export function Board() {
   const [now] = React.useState(() => Date.now());
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    // A swipe scrolls the page. A press of 250 ms starts a drag.
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
   );
 
   // The card being dragged and the column under the pointer. The card renders in a
