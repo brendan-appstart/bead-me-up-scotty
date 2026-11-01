@@ -150,7 +150,7 @@ export function ListView() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="flex flex-shrink-0 items-center gap-3 border-b border-border bg-[var(--surface)] p-[14px_22px]">
+      <header className="flex flex-shrink-0 items-center gap-3 border-b border-border bg-[var(--surface)] p-[14px_22px] max-lg:flex-wrap">
         <div className="mr-1 flex flex-col gap-px">
           <h1 className="m-0 text-base font-[650] tracking-[-.01em]">List</h1>
           <span className="text-[11.5px] text-[var(--text-3)]">
@@ -307,7 +307,7 @@ function Row({
       />
       <CopyableId
         id={bead.id}
-        className="w-[150px] flex-shrink-0 truncate font-mono text-[11.5px] text-[var(--text-3)]"
+        className="w-[88px] flex-shrink-0 truncate font-mono text-[11.5px] text-[var(--text-3)] lg:w-[150px]"
       />
       <span className="min-w-0 flex-1 truncate text-[13.5px] font-[550] text-[var(--text)]">
         {bead.title}

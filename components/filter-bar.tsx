@@ -71,7 +71,7 @@ export function FilterBar({
         </label>
       </div>
 
-      <div className="flex items-center gap-[7px]">
+      <div className="flex items-center gap-[7px] max-lg:flex-wrap">
         <MultiSelectFilter
           label="Status"
           options={BEAD_STATUSES.map((s) => ({ value: s, label: statusLabel(s) }))}

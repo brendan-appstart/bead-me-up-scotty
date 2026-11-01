@@ -238,12 +238,11 @@ export function OriginBadge({
   return (
     <span
       title={title}
-      className="inline-flex flex-shrink-0 items-center justify-center gap-[5px] rounded-md"
+      className={`inline-flex flex-shrink-0 items-center justify-center gap-[5px] rounded-md${withLabel ? " text-[11.5px]" : ""}`}
       style={
         withLabel
           ? {
               padding: "3px 9px",
-              fontSize: "11.5px",
               fontWeight: 550,
               color: human ? "var(--text-2)" : "var(--brand)",
               background: human ? "var(--surface-2)" : "var(--brand-weak)",

@@ -441,3 +441,57 @@ html[data-theme="rose-pine"] {
 .react-flow .react-flow__controls-button svg {
   fill: currentColor;
 }
+
+/* Phones and small tablets (self-oof). 48rem is the width at which the shell
+   switches to the desktop sidebar, so this range includes 768px. Rules here are
+   not in a cascade layer, so they beat the Tailwind utilities without !important. */
+@media (max-width: 48rem) {
+  /* Tap targets of at least 44x44 px. An article card is excluded: it is a flex
+     item that holds other content, and a fixed min-height would let a flex column
+     squash it below its content height. */
+  button,
+  a[href],
+  select,
+  [role="button"]:not(article),
+  [role="tab"],
+  [role="menuitem"],
+  [role="switch"],
+  [role="option"],
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  /* A checkbox or radio keeps its drawn size. Its label is the tap target. */
+  input[type="checkbox"],
+  input[type="radio"] {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+  label:has(> input[type="checkbox"]),
+  label:has(> input[type="radio"]) {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 44px;
+    min-width: 44px;
+  }
+  /* 16px stops iOS from zooming into a focused field. */
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select {
+    font-size: 16px;
+  }
+  /* Captions and badges: nothing below 12px. Form fields keep the 16px rule above. */
+  [class*="text-[9px]"]:not(input):not(textarea):not(select),
+  [class*="text-[9.5px]"]:not(input):not(textarea):not(select),
+  [class*="text-[10px]"]:not(input):not(textarea):not(select),
+  [class*="text-[10.5px]"]:not(input):not(textarea):not(select),
+  [class*="text-[11px]"]:not(input):not(textarea):not(select),
+  [class*="text-[11.5px]"]:not(input):not(textarea):not(select) {
+    font-size: 12px;
+  }
+  /* Chart axis labels are SVG text with a font-size attribute. */
+  .recharts-cartesian-axis-tick-value {
+    font-size: 12px;
+  }
+}
