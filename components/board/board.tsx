@@ -253,7 +253,7 @@ export function Board() {
         )}
       </header>
 
-      <div className="bd-scroll min-h-0 flex-1 overflow-x-auto overflow-y-hidden p-[18px_22px]">
+      <div className="bd-scroll min-h-0 flex-1 overflow-x-auto overflow-y-hidden p-[18px_22px] max-lg:overflow-x-hidden max-lg:overflow-y-auto">
         {loading && beads.length === 0 ? (
           <div className="text-[13px] text-[var(--text-3)]">Loading beads…</div>
         ) : (
@@ -265,7 +265,7 @@ export function Board() {
             onDragEnd={onDragEnd}
             onDragCancel={endDrag}
           >
-            <div className="flex h-full min-h-0 gap-4">
+            <div className="flex h-full min-h-0 gap-4 max-lg:h-auto max-lg:flex-col">
               {shownColumns.map(({ col, cards }) => (
                 <Column
                   key={col.id}

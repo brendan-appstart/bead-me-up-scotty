@@ -452,9 +452,12 @@ html[data-theme="rose-pine"] {
   button,
   a[href],
   select,
+  textarea,
   [role="button"]:not(article),
   [role="tab"],
   [role="menuitem"],
+  [role="menuitemcheckbox"],
+  [role="menuitemradio"],
   [role="switch"],
   [role="option"],
   input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) {

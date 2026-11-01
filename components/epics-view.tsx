@@ -197,14 +197,14 @@ export function EpicsView({
                     }
                   }}
                   title={isOpen ? "Hide children" : "Show children"}
-                  className={`flex cursor-pointer items-center gap-[14px] p-[16px_18px] focus-visible:outline-none ${
+                  className={`flex cursor-pointer items-center gap-[14px] p-[16px_18px] focus-visible:outline-none max-md:flex-wrap ${
                     selectedBeadId === e.id ? "ring-2 ring-inset ring-[var(--brand)]" : ""
                   }`}
                 >
                   <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[10px] bg-[var(--brand-weak)] text-[var(--brand)]">
                     <Icon name="target" size={19} />
                   </div>
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-0 flex-1 max-md:min-w-[9rem]">
                     {/* overflow-hidden: every chip on this row is flex-shrink-0,
                         so without it a heavily-labelled epic would spill past
                         the progress block instead of clipping. */}
@@ -220,7 +220,7 @@ export function EpicsView({
                       {e.title}
                     </div>
                   </div>
-                  <div className="flex w-[200px] flex-shrink-0 flex-col items-end gap-[7px]">
+                  <div className="flex w-[200px] flex-shrink-0 flex-col items-end gap-[7px] max-md:order-last max-md:w-full">
                     <div className="flex items-baseline gap-[6px]">
                       <span className="font-mono text-[17px] font-[650] tracking-[-.02em]">
                         {pct}%

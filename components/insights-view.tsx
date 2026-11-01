@@ -247,7 +247,7 @@ function Kpi({ label, value }: { label: string; value: string }) {
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="flex flex-col gap-3 rounded-[13px] border border-border bg-[var(--surface)] p-[16px_18px]">
+    <section className="flex min-w-0 flex-col gap-3 rounded-[13px] border border-border bg-[var(--surface)] p-[16px_18px]">
       <div className="text-[13px] font-semibold">{title}</div>
       {children}
     </section>

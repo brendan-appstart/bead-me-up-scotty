@@ -188,8 +188,8 @@ export function FocusView() {
         </div>
       )}
       {groupBy === "none" ? (
-        <div className="bd-scroll min-h-0 flex-1 overflow-x-auto overflow-y-hidden p-[18px_22px]">
-          <div className="flex h-full min-h-0 gap-4">
+        <div className="bd-scroll min-h-0 flex-1 overflow-x-auto overflow-y-hidden p-[18px_22px] max-lg:overflow-x-hidden max-lg:overflow-y-auto">
+          <div className="flex h-full min-h-0 gap-4 max-lg:h-auto max-lg:flex-col">
             {columns.map(c => <FocusColumnView key={c.id} column={c} />)}
           </div>
         </div>
@@ -221,7 +221,7 @@ export function FocusView() {
 function FocusColumnView({ column, grouped = false }: { column: FocusColumn; grouped?: boolean }) {
   return (
     <section data-focus-column={column.id} aria-label={grouped ? column.title : undefined}
-      className={grouped ? "w-[280px] shrink-0" : "flex h-full min-h-0 w-[320px] shrink-0 flex-col"}>
+      className={grouped ? "w-[280px] shrink-0" : "flex h-full min-h-0 w-[320px] shrink-0 flex-col max-lg:h-auto max-lg:w-full"}>
       {!grouped && <div className="mb-2 flex flex-wrap items-baseline gap-2 px-1">
         <h2 className="m-0 text-[13px] font-[650] text-[var(--text)]">{column.title}</h2>
         <span className="text-[11px] text-[var(--text-3)]">{column.items.length} · {column.hint}</span>

@@ -58,14 +58,19 @@ function measure({ minTarget, minInputFont, minTextFont }) {
     return s.visibility !== "hidden" && s.display !== "none" && s.opacity !== "0";
   };
   const inCanvas = (el) => Boolean(el.closest(".react-flow__pane, .react-flow__viewport"));
-  // A control inside a row that scrolls sideways on purpose (filter bar, board lanes) may sit
-  // past the edge. A control clipped by overflow hidden may not: nobody can reach it.
-  const inSideScroller = (el) => {
-    for (let n = el.parentElement; n && n !== document.body; n = n.parentElement) {
+  // The nearest ancestor that cuts the control off at the side. A scroller (auto or scroll)
+  // is reported by the sideways-scroller check below. A hidden or clip ancestor makes the
+  // control unreachable, so it is reported as off screen.
+  const clippedBy = (el, r) => {
+    for (let n = el.parentElement; n && n !== document.documentElement; n = n.parentElement) {
       const ox = getComputedStyle(n).overflowX;
-      if (ox === "auto" || ox === "scroll") return true;
+      if (ox === "visible") continue;
+      const nr = n.getBoundingClientRect();
+      if (r.right > nr.right + 1 || r.left < nr.left - 1) {
+        return { node: n, scroller: ox === "auto" || ox === "scroll" };
+      }
     }
-    return false;
+    return null;
   };
 
   const root = document.documentElement;
@@ -78,6 +83,7 @@ function measure({ minTarget, minInputFont, minTextFont }) {
     squashed: [],
     slivers: [],
     offscreen: [],
+    sideScrollers: [],
     smallInputs: [],
     smallText: [],
     controls: [],
@@ -91,8 +97,18 @@ function measure({ minTarget, minInputFont, minTextFont }) {
     }
   }
 
+  // AC 3: nothing may need sideways scrolling. A code block (pre) keeps its own scroll bar,
+  // because a long line cannot wrap. The graph canvas pans by design.
+  for (const el of document.body.querySelectorAll("*")) {
+    if (!visible(el) || inCanvas(el) || el.closest("pre")) continue;
+    const ox = getComputedStyle(el).overflowX;
+    if ((ox === "auto" || ox === "scroll") && el.scrollWidth > el.clientWidth + 1 && out.sideScrollers.length < 8) {
+      out.sideScrollers.push(`${describe(el)} scrollWidth ${el.scrollWidth} > clientWidth ${el.clientWidth}`);
+    }
+  }
+
   const controls = document.body.querySelectorAll(
-    'button, a[href], input:not([type="hidden"]), select, textarea, [role="button"], [role="tab"], [role="menuitem"], [role="checkbox"], [role="switch"], [role="option"]',
+    'button, a[href], input:not([type="hidden"]), select, textarea, [role="button"], [role="tab"], [role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"], [role="checkbox"], [role="switch"], [role="option"]',
   );
   for (const el of controls) {
     if (!visible(el) || inCanvas(el)) continue;
@@ -103,10 +119,17 @@ function measure({ minTarget, minInputFont, minTextFont }) {
     const w = Math.round(r.width);
     const h = Math.round(r.height);
     out.controls.push({ name: describe(el), w, h });
-    if ((r.right > root.clientWidth + 1 || r.left < -1) && !inSideScroller(el) && out.offscreen.length < 12) {
-      out.offscreen.push(`${describe(el)} left ${Math.round(r.left)} right ${Math.round(r.right)} of ${root.clientWidth}`);
+    const clip = clippedBy(el, r);
+    if (out.offscreen.length < 12) {
+      if (clip && !clip.scroller) {
+        out.offscreen.push(`${describe(el)} clipped by ${describe(clip.node)}`);
+      } else if (!clip && (r.right > root.clientWidth + 1 || r.left < -1)) {
+        out.offscreen.push(`${describe(el)} left ${Math.round(r.left)} right ${Math.round(r.right)} of ${root.clientWidth}`);
+      }
     }
-    if (w < minTarget || h < minTarget) {
+    // WCAG 2.5.8 exempts a link inside a line of text, so an inline anchor is not measured.
+    const inlineLink = el.tagName === "A" && getComputedStyle(el).display === "inline";
+    if (!inlineLink && (w < minTarget || h < minTarget)) {
       out.smallTargets.push(`${describe(el)} ${w}x${h}${box === el ? "" : " (label)"}`);
     }
     // Squashed control: its content spills out below the box (a flex item that shrank).
@@ -160,6 +183,65 @@ function fail(width, view, kind, items) {
   failures.push({ width, view, kind, items });
 }
 
+function report(width, label, m) {
+  if (m.scroll > m.client) {
+    fail(width, label, "page scrolls sideways", [
+      `scrollWidth ${m.scroll} > clientWidth ${m.client}`, ...m.overflowing,
+    ]);
+  }
+  fail(width, label, "an element scrolls sideways", m.sideScrollers);
+  if (m.bodyFont < MIN_INPUT_FONT) fail(width, label, "page base font", [`${m.bodyFont}px`]);
+  fail(width, label, `controls under ${MIN_TARGET}x${MIN_TARGET}`, m.smallTargets);
+  fail(width, label, "control content spills out of its box", m.squashed);
+  fail(width, label, "text cut to a sliver by an ellipsis (under 60px)", m.slivers);
+  fail(width, label, "control outside the screen or clipped", m.offscreen);
+  fail(width, label, `inputs under ${MIN_INPUT_FONT}px`, m.smallInputs);
+  fail(width, label, `text under ${MIN_TEXT_FONT}px`, m.smallText);
+}
+
+// Menus, dialogs and sheets are portals that exist only when open. Each state opens one over
+// the board and measures it with the same rules. A state that cannot be opened is a failure.
+const STATES = [
+  {
+    name: "filter-menu",
+    open: async (p) => {
+      await p.getByRole("button", { name: /^Status/ }).first().click();
+      await p.getByRole("menu").first().waitFor({ timeout: 5000 });
+    },
+  },
+  {
+    name: "create-modal",
+    open: async (p) => {
+      await p.getByRole("button", { name: /New/ }).first().click();
+      await p.getByRole("dialog").first().waitFor({ timeout: 5000 });
+    },
+  },
+  {
+    name: "command-palette",
+    open: async (p) => {
+      await p.keyboard.press("Control+k");
+      await p.locator("[cmdk-root]").first().waitFor({ timeout: 5000 });
+    },
+  },
+  {
+    name: "navigation-sheet",
+    maxWidth: 767, // from 768px the sidebar is always shown
+    open: async (p) => {
+      await p.locator('button[aria-label="Open navigation and project menu"]').click();
+      await p.locator('[data-slot="sheet-content"]').waitFor({ timeout: 5000 });
+    },
+  },
+  {
+    name: "project-switcher",
+    open: async (p) => {
+      const menu = p.locator('button[aria-label="Open navigation and project menu"]');
+      if (await menu.isVisible()) await menu.click();
+      await p.getByRole("button", { name: /^Select project/ }).first().click();
+      await p.getByRole("menuitem").first().waitFor({ timeout: 5000 });
+    },
+  },
+];
+
 async function openView(page, view) {
   await page.goto(`${base}/p/demo?${viewQuery(view)}`, { waitUntil: "domcontentloaded" });
   await page.locator("main, [role='main'], h1, h2").first().waitFor({ timeout: 15000 });
@@ -190,22 +272,33 @@ try {
           desktop[view] = m.controls;
           continue;
         }
-        if (m.scroll > m.client) {
-          fail(width, view, "page scrolls sideways", [
-            `scrollWidth ${m.scroll} > clientWidth ${m.client}`, ...m.overflowing,
-          ]);
-        }
-        if (m.bodyFont < MIN_INPUT_FONT) fail(width, view, "page base font", [`${m.bodyFont}px`]);
-        fail(width, view, `controls under ${MIN_TARGET}x${MIN_TARGET}`, m.smallTargets);
-        fail(width, view, "control content spills out of its box", m.squashed);
-        fail(width, view, "text cut to a sliver by an ellipsis (under 60px)", m.slivers);
-        fail(width, view, "control outside the screen and not reachable by scrolling", m.offscreen);
-        fail(width, view, `inputs under ${MIN_INPUT_FONT}px`, m.smallInputs);
-        fail(width, view, `text under ${MIN_TEXT_FONT}px`, m.smallText);
+        report(width, view, m);
       } catch (e) {
         fail(width, view, "audit error", [String(e.message || e).split("\n")[0]]);
       } finally {
         await page.close();
+      }
+    }
+    if (width < 1280) {
+      for (const st of STATES) {
+        if (st.maxWidth && width > st.maxWidth) continue;
+        const label = `board+${st.name}`;
+        const page = await context.newPage();
+        page.on("pageerror", (e) => errors.push(`${width}px ${label}: ${e.message}`));
+        try {
+          await openView(page, "board");
+          await st.open(page);
+          await page.waitForTimeout(500);
+          const m = await page.evaluate(measure, {
+            minTarget: MIN_TARGET, minInputFont: MIN_INPUT_FONT, minTextFont: MIN_TEXT_FONT,
+          });
+          if (shotsDir) await page.screenshot({ path: path.join(shotsDir, `${st.name}-${width}.png`) });
+          report(width, label, m);
+        } catch (e) {
+          fail(width, label, "audit error: could not open the state", [String(e.message || e).split("\n")[0]]);
+        } finally {
+          await page.close();
+        }
       }
     }
     await context.close();
@@ -221,8 +314,16 @@ if (snapshotFile) {
   } else {
     const before = JSON.parse(fs.readFileSync(snapshotFile, "utf8"));
     for (const view of views) {
-      const a = (before[view] || []).map((c) => `${c.name} ${c.w}x${c.h}`);
-      const b = (desktop[view] || []).map((c) => `${c.name} ${c.w}x${c.h}`);
+      if (!(before[view] || []).length) {
+        fail(1280, view, "no recorded baseline for this view", ["record it on the base commit with SCOTTY_LAYOUT_MODE=record"]);
+        continue;
+      }
+      if (!(desktop[view] || []).length) {
+        fail(1280, view, "no controls measured at 1280px", ["the page did not render"]);
+        continue;
+      }
+      const a = before[view].map((c) => `${c.name} ${c.w}x${c.h}`);
+      const b = desktop[view].map((c) => `${c.name} ${c.w}x${c.h}`);
       const changed = [
         ...b.filter((x) => !a.includes(x)).map((x) => `now ${x}`),
         ...a.filter((x) => !b.includes(x)).map((x) => `was ${x}`),
@@ -241,7 +342,7 @@ for (const e of errors) console.log(`PAGE ERROR ${e}`);
 
 const brokenViews = new Set(failures.map((f) => f.view));
 console.log(
-  `mobile-layout: ${failures.length} failing checks in ${brokenViews.size} of ${views.length} views ` +
+  `mobile-layout: ${failures.length} failing checks in ${brokenViews.size} views or states ` +
   `[${[...brokenViews].join(", ") || "none"}]`,
 );
 process.exit(failures.length || errors.length ? 1 : 0);
