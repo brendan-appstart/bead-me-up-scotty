@@ -286,6 +286,29 @@ let measuredPages = 0;
 let measuredStates = 0;
 let nativeDialogs = 0;
 
+// Write guard (self-49j.1). The audit only reads. Any request to /api/ that is not GET or HEAD is
+// aborted before it reaches the server and recorded, and the run fails. This protects a server
+// with real beads if the app ever drops window.confirm before a delete. Install it on a context
+// before any page route; a page route must call route.fallback() (not continue()) for writes,
+// or the request skips the guard.
+const blockedWrites = [];
+const ignoredPings = [];
+async function installWriteGuard(context) {
+  await context.route("**/api/**", async (route) => {
+    const method = route.request().method();
+    if (method === "GET" || method === "HEAD") return route.fallback();
+    const where = `${method} ${new URL(route.request().url()).pathname}`;
+    // Every page load sends one usage ping. It is aborted too (the audit must not count as app
+    // usage), but it is not a failure. The entry is exact: no other method or path is exempt.
+    if (where === "POST /api/telemetry") {
+      ignoredPings.push(where);
+      return route.abort("blockedbyclient");
+    }
+    blockedWrites.push(where);
+    return route.abort("blockedbyclient");
+  });
+}
+
 function fail(width, view, kind, items) {
   if (!items.length) return;
   failures.push({ width, view, kind, items });
@@ -423,7 +446,7 @@ const FIXTURE_DESCRIPTION = [
 
 async function routeFixture(page) {
   await page.route("**/api/p/demo/beads", async (route) => {
-    if (route.request().method() !== "GET") return route.continue();
+    if (route.request().method() !== "GET") return route.fallback();
     const res = await route.fetch();
     const json = await res.json();
     for (const b of json.beads || []) if (b.id === FIXTURE_BEAD) b.description = FIXTURE_DESCRIPTION;
@@ -438,7 +461,7 @@ const LONG_ID = "bd-abcdef12345";
 
 async function routeLongId(page) {
   await page.route("**/api/p/demo/beads", async (route) => {
-    if (route.request().method() !== "GET") return route.continue();
+    if (route.request().method() !== "GET") return route.fallback();
     const res = await route.fetch();
     const json = await res.json();
     for (const b of json.beads || []) if (b.id === LONG_ID_BEAD) b.id = LONG_ID;
@@ -751,6 +774,65 @@ async function runSelftest() {
       results.push({ name: c.name, ok, detail: c.kinds ? kinds.join(" | ") || "no failures" : JSON.stringify(m.controls.map((x) => x.key)) });
       await page.close();
     }
+    // Write guard (self-49j.1). A stub answers http://guard.test, so a request that gets through
+    // shows up in stubHits; a request that the guard aborts shows up in blockedWrites.
+    const guardCase = async (name, run) => {
+      const context = await browser.newContext();
+      const stubHits = [];
+      blockedWrites.length = 0;
+      ignoredPings.length = 0;
+      try {
+        await context.route("http://guard.test/**", async (route) => {
+          const u = new URL(route.request().url());
+          stubHits.push(`${route.request().method()} ${u.pathname}`);
+          await route.fulfill({ status: 200, contentType: u.pathname === "/" ? "text/html" : "application/json", body: u.pathname === "/" ? "<html><body></body></html>" : "{}" });
+        });
+        await installWriteGuard(context);
+        const page = await context.newPage();
+        await page.goto("http://guard.test/");
+        const r = await run(page, stubHits);
+        results.push({ name, ok: r.ok, detail: r.detail });
+      } catch (e) {
+        results.push({ name, ok: false, detail: `threw: ${String(e.message || e)}` });
+      } finally {
+        await context.close();
+      }
+    };
+    const send = (page, method, path) => page.evaluate(([m, u]) => fetch(u, { method: m }).then(() => "sent", () => "failed"), [method, path]);
+    await guardCase("49j.1: a POST to /api/ is aborted and recorded", async (page, hits) => {
+      const r = await send(page, "POST", "/api/p/demo/beads");
+      return { ok: r === "failed" && blockedWrites.length === 1 && blockedWrites[0].startsWith("POST /api/p/demo/beads") && !hits.some((h) => h.startsWith("POST")), detail: `${r}; blocked ${blockedWrites.join(",") || "none"}; reached ${hits.join(",")}` };
+    });
+    await guardCase("49j.1: a GET to /api/ passes through", async (page, hits) => {
+      const r = await send(page, "GET", "/api/p/demo/beads");
+      return { ok: r === "sent" && blockedWrites.length === 0 && hits.includes("GET /api/p/demo/beads"), detail: `${r}; blocked ${blockedWrites.join(",") || "none"}; reached ${hits.join(",")}` };
+    });
+    await guardCase("49j.1: a DELETE sent by a click with no confirm is aborted", async (page, hits) => {
+      await page.evaluate(() => {
+        document.body.innerHTML = '<button id="d">Delete</button>';
+        document.getElementById("d").onclick = () => fetch("/api/p/demo/beads/bd-1", { method: "DELETE" }).catch(() => {});
+      });
+      await page.click("#d");
+      await page.waitForTimeout(300);
+      return { ok: blockedWrites.length === 1 && blockedWrites[0].startsWith("DELETE /api/p/demo/beads/bd-1") && !hits.some((h) => h.startsWith("DELETE")), detail: `blocked ${blockedWrites.join(",") || "none"}; reached ${hits.join(",")}` };
+    });
+    await guardCase("49j.1: the telemetry ping is aborted but is not a failure", async (page, hits) => {
+      const r = await send(page, "POST", "/api/telemetry");
+      return { ok: r === "failed" && blockedWrites.length === 0 && ignoredPings.length === 1 && !hits.some((h) => h.startsWith("POST")), detail: `${r}; blocked ${blockedWrites.join(",") || "none"}; pings ${ignoredPings.length}; reached ${hits.join(",")}` };
+    });
+    await guardCase("49j.1: a PUT to /api/telemetry is still a failure", async (page, hits) => {
+      const r = await send(page, "PUT", "/api/telemetry");
+      return { ok: r === "failed" && blockedWrites.length === 1 && ignoredPings.length === 0 && !hits.some((h) => h.startsWith("PUT")), detail: `${r}; blocked ${blockedWrites.join(",") || "none"}; pings ${ignoredPings.length}; reached ${hits.join(",")}` };
+    });
+    await guardCase("49j.1: a POST to another path under /api/telemetry is still a failure", async (page, hits) => {
+      const r = await send(page, "POST", "/api/telemetry/reset");
+      return { ok: r === "failed" && blockedWrites.length === 1 && ignoredPings.length === 0 && !hits.some((h) => h.startsWith("POST")), detail: `${r}; blocked ${blockedWrites.join(",") || "none"}; pings ${ignoredPings.length}; reached ${hits.join(",")}` };
+    });
+    await guardCase("49j.1: a fixture route still lets the guard see a write", async (page, hits) => {
+      await routeFixture(page);
+      const r = await send(page, "POST", "/api/p/demo/beads");
+      return { ok: r === "failed" && blockedWrites.length === 1 && !hits.some((h) => h.startsWith("POST")), detail: `${r}; blocked ${blockedWrites.join(",") || "none"}; reached ${hits.join(",")}` };
+    });
   } finally {
     await browser.close();
   }
@@ -809,6 +891,7 @@ const currentBrowser = {
 // The first output line names the build that the server serves, so a log ties to a commit.
 try {
   const context = await browser.newContext({ viewport: { width: 1280, height: 844 } });
+  await installWriteGuard(context);
   const page = await context.newPage();
   let line = "";
   let probeError = "";
@@ -835,6 +918,7 @@ try {
 try {
   for (const width of [...widths, ...layoutOnlyWidths, 1280]) {
     const context = await browser.newContext({ viewport: { width, height: 844 }, hasTouch: width < 1280 });
+    await installWriteGuard(context);
     for (const view of views) {
       const page = await context.newPage();
       page.on("pageerror", (e) => errors.push(`${width}px ${view}: ${e.message}`));
@@ -915,6 +999,7 @@ try {
   // A resized sidebar (up to 400px) leaves less room for the page header. Layout-only checks.
   for (const width of [1024, 1100, 1280, 1440]) {
     const context = await browser.newContext({ viewport: { width, height: 844 } });
+    await installWriteGuard(context);
     await context.addInitScript(() => window.localStorage.setItem("bmus.width.sidebar", "400"));
     for (const view of ["board", "list", "epics", "focus"]) {
       if (!views.includes(view)) continue;
@@ -977,6 +1062,9 @@ if (snapshotFile) {
 } else {
   console.log("compare skipped: SCOTTY_LAYOUT_SNAPSHOT not set");
 }
+
+if (blockedWrites.length) fail(0, "audit", "a write request was sent (aborted before it reached the server)", [...new Set(blockedWrites)]);
+console.log(`write guard: ${blockedWrites.length} write request(s) aborted as failures, ${ignoredPings.length} usage ping(s) aborted (POST /api/telemetry, not a failure)`);
 
 for (const f of failures) {
   console.log(`FAIL ${f.width}px ${f.view}: ${f.kind} (${f.items.length})`);
