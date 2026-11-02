@@ -22,7 +22,8 @@ import path from "node:path";
 import { chromium } from "playwright";
 
 const base = process.env.SCOTTY_TEST_URL;
-if (!base) {
+const selftest = process.env.SCOTTY_LAYOUT_SELFTEST === "1";
+if (!base && !selftest) {
   console.error("SCOTTY_TEST_URL is required; use an isolated demo server");
   process.exit(2);
 }
@@ -45,17 +46,24 @@ const widths = [360, 390, 768];
 const layoutOnlyWidths = [1000];
 const MIN_TARGET = 44;
 const MIN_INPUT_FONT = 16;
+// The app shell is text-sm (14px). The floor guards against a regression of that size.
+const MIN_BASE_FONT = 14;
 const MIN_TEXT_FONT = 12;
 const snapshotFile = process.env.SCOTTY_LAYOUT_SNAPSHOT;
 const snapshotMode = process.env.SCOTTY_LAYOUT_MODE || "compare";
+if (!selftest && process.env.SCOTTY_LAYOUT_MODE && !snapshotFile) {
+  console.error("SCOTTY_LAYOUT_MODE is set but SCOTTY_LAYOUT_SNAPSHOT is not; name the baseline file");
+  process.exit(2);
+}
 const shotsDir = process.env.SCOTTY_SHOTS_DIR;
 
 // Runs in the page. Returns plain data only.
 function measure({ minTarget, minInputFont, minTextFont }) {
+  const labelOf = (el) => el.getAttribute("aria-label") || el.getAttribute("title")
+    || (el.textContent || "").trim().replace(/\s+/g, " ").slice(0, 30)
+    || el.getAttribute("placeholder") || "";
   const describe = (el) => {
-    const label = el.getAttribute("aria-label") || el.getAttribute("title")
-      || (el.textContent || "").trim().replace(/\s+/g, " ").slice(0, 30)
-      || el.getAttribute("placeholder") || "";
+    const label = labelOf(el);
     const cls = typeof el.className === "string" ? el.className.trim().split(/\s+/).slice(0, 3).join(".") : "";
     return `${el.tagName.toLowerCase()}${cls ? "." + cls : ""}[${label}]`;
   };
@@ -85,7 +93,10 @@ function measure({ minTarget, minInputFont, minTextFont }) {
   const out = {
     client: root.clientWidth,
     scroll: root.scrollWidth,
-    bodyFont: parseFloat(getComputedStyle(document.body).fontSize),
+    // The app shell sets its own size, so the body size (16px by default) cannot fail.
+    // The size of the main element is the page base that the user reads.
+    mainFont: document.querySelector("main") ? parseFloat(getComputedStyle(document.querySelector("main")).fontSize) : 0,
+    sharedLabels: [],
     overflowing: [],
     smallTargets: [],
     squashed: [],
@@ -123,11 +134,15 @@ function measure({ minTarget, minInputFont, minTextFont }) {
     const isToggle = el.tagName === "INPUT" && /^(checkbox|radio)$/.test(el.type);
     // A checkbox or radio is tapped through its label, so the label box is the target.
     const box = isToggle ? (el.closest("label") || el) : el;
+    // A label that wraps several controls would pass for all of them, so it is a failure.
+    if (isToggle && box !== el && box.querySelectorAll('input:not([type="hidden"]), button, select, textarea, a[href]').length > 1) {
+      out.sharedLabels.push(`${describe(el)} label wraps more than one control`);
+    }
     const r = box.getBoundingClientRect();
     const w = Math.round(r.width);
     const h = Math.round(r.height);
-    // The compare key leaves out class names, so a class rename alone is not a change.
-    out.controls.push({ name: describe(el), key: `${el.tagName.toLowerCase()}[${describe(el).replace(/^[^\[]*\[/, "").replace(/\]$/, "")}]`, w, h });
+    // The compare key is the tag plus the label: class text never enters it.
+    out.controls.push({ name: describe(el), key: `${el.tagName.toLowerCase()}[${labelOf(el)}]`, w, h });
     const clip = clippedBy(el, r);
     if (out.offscreen.length < 12) {
       if (clip && !clip.scroller) {
@@ -187,6 +202,9 @@ function measure({ minTarget, minInputFont, minTextFont }) {
 const errors = [];
 const failures = [];
 const desktop = {};
+const compared = { controls: 0, views: 0 };
+let measuredPages = 0;
+let measuredStates = 0;
 
 function fail(width, view, kind, items) {
   if (!items.length) return;
@@ -201,8 +219,9 @@ function report(width, label, m, layoutOnly = false) {
   }
   fail(width, label, "an element scrolls sideways", m.sideScrollers);
   if (!layoutOnly) {
-    if (m.bodyFont < MIN_INPUT_FONT) fail(width, label, "page base font", [`${m.bodyFont}px`]);
+    if (m.mainFont < MIN_BASE_FONT) fail(width, label, `page base font (main under ${MIN_BASE_FONT}px)`, [`${m.mainFont}px`]);
     fail(width, label, `controls under ${MIN_TARGET}x${MIN_TARGET}`, m.smallTargets);
+    fail(width, label, "a label wraps more than one control", m.sharedLabels);
   }
   fail(width, label, "control content spills out of its box", m.squashed);
   fail(width, label, "text cut to a sliver by an ellipsis (under 60px)", m.slivers);
@@ -254,6 +273,45 @@ const STATES = [
       await p.getByRole("menuitem").first().waitFor({ timeout: 5000 });
     },
   },
+  {
+    name: "report-menu",
+    open: async (p) => {
+      const menu = p.locator('button[aria-label="Open navigation and project menu"]');
+      if (await menu.isVisible()) await menu.click();
+      await p.getByRole("button", { name: /Report \/ request/ }).first().click();
+      await p.getByRole("menuitem", { name: /Report a bug/ }).waitFor({ timeout: 5000 });
+    },
+  },
+  {
+    name: "drawer-assignee",
+    view: "drawer",
+    open: async (p) => {
+      await p.getByRole("button", { name: "Change assignee" }).click();
+      await p.locator('input[aria-label="Assignee"]').waitFor({ timeout: 5000 });
+    },
+  },
+  {
+    name: "drawer-add-dependency",
+    view: "drawer",
+    open: async (p) => {
+      await p.getByRole("button", { name: /Add dependency/ }).click();
+      const search = p.locator('input[aria-label="Search dependency beads"]');
+      await search.waitFor({ timeout: 5000 });
+      await search.fill("bd-");
+      await p.waitForTimeout(300);
+    },
+  },
+  {
+    name: "new-epic-modal",
+    view: "epics",
+    open: async (p) => {
+      await p.getByRole("button", { name: /New epic/ }).click();
+      await p.getByRole("dialog").first().waitFor({ timeout: 5000 });
+    },
+  },
+  // Not opened, and the reason:
+  //  - drawer epic picker: the drawer Epic field is a link to the parent, not a picker.
+  //  - delete confirm: the drawer calls window.confirm, a native dialog that is not in the page.
 ];
 
 async function openView(page, view) {
@@ -294,9 +352,115 @@ async function swipeScrolls(page) {
   return (await scrollOf()) > before;
 }
 
+// Compare the recorded and the measured control sizes of one view.
+// Controls are counted per key and size, so a duplicate that appears or disappears is reported.
+function compareControls(before, after) {
+  const count = (list) => {
+    const m = new Map();
+    for (const c of list) {
+      const k = `${c.key} ${c.w}x${c.h}`;
+      m.set(k, (m.get(k) || 0) + 1);
+    }
+    return m;
+  };
+  const a = count(before);
+  const b = count(after);
+  const out = [];
+  for (const [k, n] of b) if (n > (a.get(k) || 0)) out.push(`now ${k}${n - (a.get(k) || 0) > 1 || a.has(k) ? ` (+${n - (a.get(k) || 0)})` : ""}`);
+  for (const [k, n] of a) if (n > (b.get(k) || 0)) out.push(`was ${k}${n - (b.get(k) || 0) > 1 || b.has(k) ? ` (-${n - (b.get(k) || 0)})` : ""}`);
+  return out;
+}
+
+// Self-test: runs measure, report and compareControls on synthetic pages, with no server.
+async function runSelftest() {
+  const args = { minTarget: MIN_TARGET, minInputFont: MIN_INPUT_FONT, minTextFont: MIN_TEXT_FONT };
+  const sized = "min-height:44px;min-width:44px";
+  const cases = [
+    {
+      name: "AC 6: one checkbox in its own label passes",
+      html: `<main style="font:16px sans-serif"><label style="display:flex;align-items:center;${sized}"><input type="checkbox"> One</label></main>`,
+      kinds: (k) => k.length === 0,
+    },
+    {
+      name: "AC 6: a label that wraps two checkboxes fails",
+      html: `<main style="font:16px sans-serif"><label style="display:flex;align-items:center;${sized}"><input type="checkbox"><input type="checkbox"> Both</label></main>`,
+      kinds: (k) => k.some((x) => x.includes("label wraps more than one control")),
+    },
+    {
+      name: "AC 7: main at 12px fails the base font check",
+      html: `<main style="font:12px sans-serif"><p>Twelve pixel text</p></main>`,
+      kinds: (k) => k.some((x) => x.includes("page base font")),
+    },
+    {
+      name: "AC 7: main at 14px passes the base font check",
+      html: `<main style="font:14px sans-serif"><p>Fourteen pixel text</p></main>`,
+      kinds: (k) => !k.some((x) => x.includes("page base font")),
+    },
+    {
+      name: "AC 4: the compare key holds no class text, even with a bracket class",
+      html: `<main style="font:16px sans-serif"><button class="w-[6px] flex w-full" style="${sized}">Go</button></main>`,
+      controls: (c) => c.length === 1 && c[0].key === "button[Go]",
+    },
+  ];
+  const browser = await chromium.launch({ executablePath: process.env.SCOTTY_BROWSER_EXECUTABLE || undefined });
+  const results = [];
+  try {
+    const context = await browser.newContext({ viewport: { width: 360, height: 640 }, hasTouch: true });
+    for (const c of cases) {
+      const page = await context.newPage();
+      await page.setContent(c.html);
+      const m = await page.evaluate(measure, args);
+      failures.length = 0;
+      report(360, c.name, m);
+      const kinds = failures.map((f) => f.kind);
+      const ok = c.kinds ? c.kinds(kinds) : c.controls(m.controls);
+      results.push({ name: c.name, ok, detail: c.kinds ? kinds.join(" | ") || "no failures" : JSON.stringify(m.controls.map((x) => x.key)) });
+      await page.close();
+    }
+  } finally {
+    await browser.close();
+  }
+  const dup = { key: "button[Go]", w: 44, h: 44 };
+  const lost = compareControls([dup, dup], [dup]);
+  results.push({ name: "AC 3: a lost duplicate control is reported", ok: lost.length === 1, detail: lost.join(" | ") || "nothing reported" });
+  const gained = compareControls([dup], [dup, dup]);
+  results.push({ name: "AC 3: an extra duplicate control is reported", ok: gained.length === 1, detail: gained.join(" | ") || "nothing reported" });
+  for (const r of results) console.log(`${r.ok ? "PASS" : "FAIL"} ${r.name}  (${r.detail})`);
+  const bad = results.filter((r) => !r.ok).length;
+  console.log(`mobile-layout selftest: ${bad} failing of ${results.length} cases`);
+  process.exit(bad ? 1 : 0);
+}
+
+if (selftest) await runSelftest();
+
 const browser = await chromium.launch({
   executablePath: process.env.SCOTTY_BROWSER_EXECUTABLE || undefined,
 });
+
+// The first output line names the build that the server serves, so a log ties to a commit.
+try {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 844 } });
+  const page = await context.newPage();
+  let line = "";
+  try {
+    await openView(page, "board");
+    const text = await page.evaluate(() => document.body.innerText);
+    const found = text.match(/Build\s+(\S+)\s*·\s*([0-9a-f]{6,40})/);
+    if (found) line = `Build ${found[1]} · ${found[2]}`;
+  } catch {
+    line = "";
+  }
+  console.log(`served build: ${line || "unknown"}`);
+  await context.close();
+  if (!line) {
+    console.error("the sidebar footer shows no build line; build the app from a git checkout");
+    await browser.close();
+    process.exit(1);
+  }
+} catch (e) {
+  await browser.close();
+  throw e;
+}
 
 try {
   for (const width of [...widths, ...layoutOnlyWidths, 1280]) {
@@ -318,6 +482,7 @@ try {
           continue;
         }
         report(width, view, m, layoutOnlyWidths.includes(width));
+        measuredPages += 1;
         if (width <= 768 && (view === "board" || view === "list")) {
           if (!(await swipeScrolls(page))) {
             fail(width, view, "a swipe on a draggable card or row does not scroll the page", [
@@ -334,11 +499,11 @@ try {
     if (width <= 768) {
       for (const st of STATES) {
         if (st.maxWidth && width > st.maxWidth) continue;
-        const label = `board+${st.name}`;
+        const label = `${st.view || "board"}+${st.name}`;
         const page = await context.newPage();
         page.on("pageerror", (e) => errors.push(`${width}px ${label}: ${e.message}`));
         try {
-          await openView(page, "board");
+          await openView(page, st.view || "board");
           await st.open(page);
           await page.waitForTimeout(500);
           const m = await page.evaluate(measure, {
@@ -346,6 +511,8 @@ try {
           });
           if (shotsDir) await page.screenshot({ path: path.join(shotsDir, `${st.name}-${width}.png`) });
           report(width, label, m);
+          measuredPages += 1;
+          measuredStates += 1;
         } catch (e) {
           fail(width, label, "audit error: could not open the state", [String(e.message || e).split("\n")[0]]);
         } finally {
@@ -378,15 +545,14 @@ if (snapshotFile) {
         fail(1280, view, "baseline has no compare keys", ["record it again with this script"]);
         continue;
       }
-      const a = before[view].map((c) => `${c.key} ${c.w}x${c.h}`);
-      const b = desktop[view].map((c) => `${c.key} ${c.w}x${c.h}`);
-      const changed = [
-        ...b.filter((x) => !a.includes(x)).map((x) => `now ${x}`),
-        ...a.filter((x) => !b.includes(x)).map((x) => `was ${x}`),
-      ];
-      fail(1280, view, "desktop control size changed", changed.slice(0, 12));
+      compared.controls += desktop[view].length;
+      compared.views += 1;
+      fail(1280, view, "desktop control size changed", compareControls(before[view], desktop[view]).slice(0, 12));
     }
+    console.log(`compare: ${compared.controls} controls in ${compared.views} views at 1280px`);
   }
+} else {
+  console.log("compare skipped: SCOTTY_LAYOUT_SNAPSHOT not set");
 }
 
 for (const f of failures) {
@@ -397,6 +563,10 @@ for (const f of failures) {
 for (const e of errors) console.log(`PAGE ERROR ${e}`);
 
 const brokenViews = new Set(failures.map((f) => f.view));
+console.log(
+  `mobile-layout: measured ${measuredPages} pages (${views.length} views, ${measuredStates} open states) ` +
+  `at ${widths.join(", ")} px plus ${layoutOnlyWidths.join(", ")} px layout-only`,
+);
 console.log(
   `mobile-layout: ${failures.length} failing checks in ${brokenViews.size} views or states ` +
   `[${[...brokenViews].join(", ") || "none"}]`,
