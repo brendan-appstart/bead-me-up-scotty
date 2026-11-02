@@ -342,7 +342,8 @@ html[data-theme="rose-pine"] {
 .bd-md ol { list-style: decimal; }
 .bd-md li { margin: 0.15em 0; }
 /* GFM task lists render as a list item with a checkbox; drop the bullet. */
-.bd-md li:has(> input[type="checkbox"]) { list-style: none; margin-left: -1.2em; }
+.bd-md li:has(> input[type="checkbox"]),
+.bd-md li:has(> label > input[type="checkbox"]) { list-style: none; margin-left: -1.2em; }
 .bd-md a { word-break: break-word; }
 .bd-md code {
   font-family: var(--font-mono, ui-monospace, monospace);
@@ -366,7 +367,8 @@ html[data-theme="rose-pine"] {
   border-left: 3px solid var(--border-strong);
   color: var(--text-3);
 }
-.bd-md table { border-collapse: collapse; margin: 0.6em 0; font-size: 0.95em; }
+.bd-md-scroll { overflow-x: auto; max-width: 100%; margin: 0.6em 0; }
+.bd-md table { border-collapse: collapse; margin: 0; font-size: 0.95em; }
 .bd-md th, .bd-md td { border: 1px solid var(--border); padding: 4px 8px; text-align: left; }
 .bd-md hr { margin: 0.9em 0; border: none; border-top: 1px solid var(--border); }
 
@@ -496,5 +498,17 @@ html[data-theme="rose-pine"] {
   /* Chart axis labels are SVG text with a font-size attribute. */
   .recharts-cartesian-axis-tick-value {
     font-size: 12px;
+  }
+  /* Code in a description is 0.9em or 0.86em of its text, which can fall under 12px. */
+  .bd-md code {
+    font-size: max(12px, 0.9em);
+  }
+  .bd-md pre code {
+    font-size: max(12px, 0.86em);
+  }
+  .bd-md-solo-link a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
   }
 }
