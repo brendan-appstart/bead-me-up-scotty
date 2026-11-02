@@ -155,7 +155,7 @@ export function ListView() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="flex flex-shrink-0 items-center gap-3 border-b border-border bg-[var(--surface)] p-[14px_22px] max-lg:flex-wrap">
+      <header className="flex flex-shrink-0 flex-wrap items-center gap-3 border-b border-border bg-[var(--surface)] p-[14px_22px]">
         <div className="mr-1 flex flex-col gap-px">
           <h1 className="m-0 text-base font-[650] tracking-[-.01em]">List</h1>
           <span className="text-[11.5px] text-[var(--text-3)]">

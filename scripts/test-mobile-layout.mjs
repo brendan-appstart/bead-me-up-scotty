@@ -141,7 +141,10 @@ function measure({ minTarget, minInputFont, minTextFont, listView = false, idMin
   for (const el of document.body.querySelectorAll("*")) {
     if (!visible(el) || inCanvas(el) || el.closest("pre") || el.matches(".bd-md table, .bd-md .bd-md-scroll")) continue;
     // From 1024px the board and Focus columns scroll sideways inside their own pane by design.
-    if (window.innerWidth >= deskWidth && el.matches(".bd-scroll")) continue;
+    // Only those column panes (overflow-y hidden) are exempt; a vertical pane must not scroll sideways.
+    // The grouped Focus matrix (overflow auto, a min-w-max child) scrolls both ways by design.
+    if (window.innerWidth >= deskWidth && el.matches(".bd-scroll")
+      && (getComputedStyle(el).overflowY === "hidden" || el.querySelector(":scope > .lg\\:min-w-max"))) continue;
     const ox = getComputedStyle(el).overflowX;
     if ((ox === "auto" || ox === "scroll") && el.scrollWidth > el.clientWidth + 1 && out.sideScrollers.length < 8) {
       out.sideScrollers.push(`${describe(el)} scrollWidth ${el.scrollWidth} > clientWidth ${el.clientWidth}`);
@@ -524,6 +527,19 @@ function compareBrowser(recorded, current) {
 
 // Compare the recorded and the measured control sizes of one view.
 // Controls are counted per key and size, so a duplicate that appears or disappears is reported.
+// Desktop changes at 1280px that were agreed in a bead. Each line must match exactly.
+const ACCEPTED_DESKTOP = new Map([
+  ["now input[Search beads…  (/)] 149x19", "self-49j.3: the board header always wraps, so the search box is no longer collapsed to an icon"],
+]);
+let acceptedDesktop = 0;
+function dropAccepted(lines) {
+  return lines.filter((l) => {
+    if (!ACCEPTED_DESKTOP.has(l)) return true;
+    acceptedDesktop += 1;
+    return false;
+  });
+}
+
 function compareControls(before, after) {
   const count = (list) => {
     const m = new Map();
@@ -645,10 +661,22 @@ async function runSelftest() {
       kinds: (k) => k.some((x) => x.includes("an element scrolls sideways")),
     },
     {
-      name: "49j.3: a wide pane (bd-scroll) is exempt from the desktop width up",
+      name: "49j.3: a column pane (bd-scroll, overflow-y hidden) is exempt from the desktop width up",
       deskWidth: 0,
-      html: `<main style="font:16px sans-serif"><div class="bd-scroll" style="width:200px;overflow-x:auto"><div style="width:600px">wide content</div></div></main>`,
+      html: `<main style="font:16px sans-serif"><div class="bd-scroll" style="width:200px;overflow-x:auto;overflow-y:hidden"><div style="width:600px">wide content</div></div></main>`,
       kinds: (k) => !k.some((x) => x.includes("an element scrolls sideways")),
+    },
+    {
+      name: "49j.3: a matrix pane (bd-scroll with a min-w-max child) is exempt from the desktop width up",
+      deskWidth: 0,
+      html: `<main style="font:16px sans-serif"><div class="bd-scroll" style="width:200px;overflow:auto"><div class="lg:min-w-max" style="width:600px">wide matrix</div></div></main>`,
+      kinds: (k) => !k.some((x) => x.includes("an element scrolls sideways")),
+    },
+    {
+      name: "49j.3: a vertical pane (bd-scroll, overflow-y auto) with wide content still fails at the desktop width",
+      deskWidth: 0,
+      html: `<main style="font:16px sans-serif"><div class="bd-scroll" style="width:200px;overflow-x:auto;overflow-y:auto"><div style="width:600px">wide content</div></div></main>`,
+      kinds: (k) => k.some((x) => x.includes("an element scrolls sideways")),
     },
     {
       name: "eui AC 4: a table that scrolls in its own box is not a page scroller",
@@ -731,6 +759,12 @@ async function runSelftest() {
   results.push({ name: "AC 3: a lost duplicate control is reported", ok: lost.length === 1, detail: lost.join(" | ") || "nothing reported" });
   const gained = compareControls([dup], [dup, dup]);
   results.push({ name: "AC 3: an extra duplicate control is reported", ok: gained.length === 1, detail: gained.join(" | ") || "nothing reported" });
+  const accepted = "now input[Search beads…  (/)] 149x19";
+  const keptOther = dropAccepted([accepted, "now button[Other] 10x10"]);
+  results.push({ name: "49j.3: only the agreed desktop change is dropped from the compare", ok: keptOther.length === 1 && keptOther[0].includes("Other"), detail: keptOther.join(" | ") });
+  const keptSize = dropAccepted(["now input[Search beads…  (/)] 150x19"]);
+  results.push({ name: "49j.3: the same control at another size is still reported", ok: keptSize.length === 1, detail: keptSize.join(" | ") || "nothing reported" });
+  acceptedDesktop = 0;
   const unit = (name, fn) => {
     try {
       const r = fn();
@@ -878,6 +912,34 @@ try {
     }
     await context.close();
   }
+  // A resized sidebar (up to 400px) leaves less room for the page header. Layout-only checks.
+  for (const width of [1024, 1100, 1280, 1440]) {
+    const context = await browser.newContext({ viewport: { width, height: 844 } });
+    await context.addInitScript(() => window.localStorage.setItem("bmus.width.sidebar", "400"));
+    for (const view of ["board", "list", "epics", "focus"]) {
+      if (!views.includes(view)) continue;
+      // List rows wrap by viewport width, not pane width, so titles are cut with a 400px sidebar below
+      // 1280px. That is a known gap, filed as its own bead; the list header is still checked at 1280+.
+      if (view === "list" && width < 1280) continue;
+      const label = `${view}+sidebar-400`;
+      const page = await context.newPage();
+      page.on("pageerror", (e) => errors.push(`${width}px ${label}: ${e.message}`));
+      try {
+        await openView(page, view);
+        const m = await page.evaluate(measure, {
+          minTarget: MIN_TARGET, minInputFont: MIN_INPUT_FONT, minTextFont: MIN_TEXT_FONT,
+          listView: view === "list",
+        });
+        report(width, label, m, true);
+        measuredPages += 1;
+      } catch (e) {
+        fail(width, label, "audit error", [String(e.message || e).split("\n")[0]]);
+      } finally {
+        await page.close();
+      }
+    }
+    await context.close();
+  }
 } finally {
   await browser.close();
 }
@@ -905,11 +967,12 @@ if (snapshotFile) {
       }
       compared.controls += desktop[view].length;
       compared.views += 1;
-      fail(1280, view, "desktop control size changed", compareControls(before[view], desktop[view]).slice(0, 12));
+      fail(1280, view, "desktop control size changed", dropAccepted(compareControls(before[view], desktop[view])).slice(0, 12));
     }
     console.log(browserProblem
       ? "compare not run: the baseline browser differs"
-      : `compare: ${compared.controls} controls in ${compared.views} views at 1280px`);
+      : `compare: ${compared.controls} controls in ${compared.views} views at 1280px` +
+        (acceptedDesktop ? `; ${acceptedDesktop} accepted change(s): ${[...ACCEPTED_DESKTOP.values()].join("; ")}` : ""));
   }
 } else {
   console.log("compare skipped: SCOTTY_LAYOUT_SNAPSHOT not set");
@@ -925,7 +988,7 @@ for (const e of errors) console.log(`PAGE ERROR ${e}`);
 const brokenViews = new Set(failures.map((f) => f.view));
 console.log(
   `mobile-layout: measured ${measuredPages} pages (${views.length} views, ${measuredStates} open states) ` +
-  `at ${widths.join(", ")} px plus ${layoutOnlyWidths.join(", ")} px layout-only; ` +
+  `at ${widths.join(", ")} px plus ${layoutOnlyWidths.join(", ")} px layout-only, plus 1024, 1100, 1280, 1440 px with a 400px sidebar; ` +
   `${nativeDialogs} native delete confirms opened (not measurable)`,
 );
 console.log(
