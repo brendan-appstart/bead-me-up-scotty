@@ -3,14 +3,24 @@
 // For every view and for the widths 360, 390 and 768 px this checks:
 //   AC 3  the page does not scroll sideways (the graph canvas is exempt)
 //   AC 4  every visible control is at least 44x44 px
-//   AC 5  the page base and every input, textarea and select use at least 16 px,
-//         and no visible text is below 12 px
+//   AC 5  the main element uses at least 14 px (a guard: the app shell is text-sm),
+//         every input, textarea and select uses at least 16 px, and no visible
+//         text is below 12 px
 // Exempt: the graph canvas (react-flow pane and its nodes), which pans and zooms.
 // A checkbox or radio is measured by its enclosing label, not by the 20 px box.
+// The audit fails when that label wraps more than one control.
+// The first output line names the served build (Build N . SHA). The script exits 1
+// when the sidebar footer shows no build line.
 // At 1280 px it records or compares the size of every control, so a desktop
-// regression shows up:
+// regression shows up. Controls are counted per key and size, and a run prints
+// how many controls in how many views it compared:
 //   SCOTTY_LAYOUT_SNAPSHOT=FILE SCOTTY_LAYOUT_MODE=record   write the sizes
 //   SCOTTY_LAYOUT_SNAPSHOT=FILE SCOTTY_LAYOUT_MODE=compare  fail when a size changes
+// Record the baseline on the base commit (main) with this script. SCOTTY_LAYOUT_MODE
+// without SCOTTY_LAYOUT_SNAPSHOT exits 2. With neither set, the compare is skipped
+// and the output says so.
+// Self-test, with no server (Chromium only):
+//   SCOTTY_LAYOUT_SELFTEST=1 node scripts/test-mobile-layout.mjs
 //
 // Needs an isolated demo server, as the other scripts/test-*.mjs files do:
 //   BEADS_DEMO=1 npm run start -- --port 3210
@@ -205,6 +215,7 @@ const desktop = {};
 const compared = { controls: 0, views: 0 };
 let measuredPages = 0;
 let measuredStates = 0;
+let nativeDialogs = 0;
 
 function fail(width, view, kind, items) {
   if (!items.length) return;
@@ -311,7 +322,8 @@ const STATES = [
   },
   // Not opened, and the reason:
   //  - drawer epic picker: the drawer Epic field is a link to the parent, not a picker.
-  //  - delete confirm: the drawer calls window.confirm, a native dialog that is not in the page.
+  // The delete confirm is a native window.confirm. It is browser UI, not page content, so
+  // the audit cannot measure it. The step below opens it and dismisses it (nativeDialogs).
 ];
 
 async function openView(page, view) {
@@ -442,18 +454,21 @@ try {
   const context = await browser.newContext({ viewport: { width: 1280, height: 844 } });
   const page = await context.newPage();
   let line = "";
+  let probeError = "";
   try {
     await openView(page, "board");
     const text = await page.evaluate(() => document.body.innerText);
     const found = text.match(/Build\s+(\S+)\s*·\s*([0-9a-f]{6,40})/);
     if (found) line = `Build ${found[1]} · ${found[2]}`;
-  } catch {
-    line = "";
+  } catch (e) {
+    probeError = String(e.message || e).split("\n")[0];
   }
   console.log(`served build: ${line || "unknown"}`);
   await context.close();
   if (!line) {
-    console.error("the sidebar footer shows no build line; build the app from a git checkout");
+    console.error(probeError
+      ? `could not read the build line: ${probeError}`
+      : "the sidebar footer shows no build line; build the app from a git checkout");
     await browser.close();
     process.exit(1);
   }
@@ -520,6 +535,25 @@ try {
         }
       }
     }
+    if (width <= 768) {
+      // The delete confirm is a native dialog. Open it, check its text, dismiss it (no delete).
+      const label = "drawer+delete-confirm";
+      const page = await context.newPage();
+      page.on("pageerror", (e) => errors.push(`${width}px ${label}: ${e.message}`));
+      try {
+        await openView(page, "drawer");
+        let seen = "";
+        page.once("dialog", async (d) => { seen = d.message(); await d.dismiss(); });
+        await page.locator('button[title="Delete"]').click({ timeout: 5000 });
+        await page.waitForTimeout(500);
+        if (/^Delete \S+\?/.test(seen)) nativeDialogs += 1;
+        else fail(width, label, "audit error: the delete confirm did not open", [seen ? `unexpected text: ${seen.slice(0, 40)}` : "no dialog appeared"]);
+      } catch (e) {
+        fail(width, label, "audit error: could not open the state", [String(e.message || e).split("\n")[0]]);
+      } finally {
+        await page.close();
+      }
+    }
     await context.close();
   }
 } finally {
@@ -565,7 +599,8 @@ for (const e of errors) console.log(`PAGE ERROR ${e}`);
 const brokenViews = new Set(failures.map((f) => f.view));
 console.log(
   `mobile-layout: measured ${measuredPages} pages (${views.length} views, ${measuredStates} open states) ` +
-  `at ${widths.join(", ")} px plus ${layoutOnlyWidths.join(", ")} px layout-only`,
+  `at ${widths.join(", ")} px plus ${layoutOnlyWidths.join(", ")} px layout-only; ` +
+  `${nativeDialogs} native delete confirms opened (not measurable)`,
 );
 console.log(
   `mobile-layout: ${failures.length} failing checks in ${brokenViews.size} views or states ` +
