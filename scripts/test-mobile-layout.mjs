@@ -72,7 +72,7 @@ if (!selftest && process.env.SCOTTY_LAYOUT_MODE && !snapshotFile) {
 const shotsDir = process.env.SCOTTY_SHOTS_DIR;
 
 // Runs in the page. Returns plain data only.
-function measure({ minTarget, minInputFont, minTextFont, listView = false }) {
+function measure({ minTarget, minInputFont, minTextFont, listView = false, idMinWidth = 640 }) {
   const labelOf = (el) => el.getAttribute("aria-label") || el.getAttribute("title")
     || (el.textContent || "").trim().replace(/\s+/g, " ").slice(0, 30)
     || el.getAttribute("placeholder") || "";
@@ -208,7 +208,9 @@ function measure({ minTarget, minInputFont, minTextFont, listView = false }) {
     }
     // WCAG 2.5.8 exempts a link inside a line of text, so an inline anchor is not measured.
     // A link that is all the text of its parent stands alone on its line: it is measured.
-    const aloneInParent = el.tagName === "A" && el.parentElement
+    // The renderer gives the 44px target to a link that is the only child of a paragraph (P), so
+    // the audit measures the same case. A link alone in a list item or inside bold text is exempt.
+    const aloneInParent = el.tagName === "A" && el.parentElement && el.parentElement.tagName === "P"
       && (el.parentElement.textContent || "").trim() === (el.textContent || "").trim();
     const inlineLink = el.tagName === "A" && getComputedStyle(el).display === "inline" && !aloneInParent;
     if (!inlineLink && (w < minTarget || h < minTarget)) {
@@ -237,12 +239,14 @@ function measure({ minTarget, minInputFont, minTextFont, listView = false }) {
     const w = Math.round(el.getBoundingClientRect().width);
     // Only text that is really cut off counts; a short chip that fits is fine.
     // A row title in the list view needs 120px; other cut text (chips, theme names) keeps 60px.
-    const isRowTitle = listView && el.matches(".truncate") && el.closest("[data-keyboard-bead-id]");
+    const isRowTitle = listView && el.matches(".truncate") && el.tagName !== "BUTTON" && el.closest("[data-keyboard-bead-id]");
     if (text.length > 8 && w < (isRowTitle ? 120 : 60) && el.scrollWidth > el.clientWidth + 1 && out.slivers.length < 8) out.slivers.push(`${describe(el)} ${w}px wide`);
   }
 
   // A bead id is the one text the user copies whole, so an ellipsis on it hides part of the id.
+  // Below 640px the 88px ID column is intended, so a long id may be cut there.
   for (const el of document.body.querySelectorAll('button[title^="Copy "]')) {
+    if (window.innerWidth < idMinWidth) break;
     if (!visible(el) || inCanvas(el)) continue;
     if (el.scrollWidth > el.clientWidth + 1 && out.idCut.length < 8) {
       out.idCut.push(`${describe(el)} scrollWidth ${el.scrollWidth} > clientWidth ${el.clientWidth}`);
@@ -420,8 +424,25 @@ async function routeFixture(page) {
   });
 }
 
+// The demo ids are at most 9 characters, so they fit even in a narrow ID column. The list view
+// gets one bead with a 14 character id, which is cut off by the old 88px column at 640-1023px.
+const LONG_ID_BEAD = "bd-c552.3";
+const LONG_ID = "bd-abcdef12345";
+
+async function routeLongId(page) {
+  await page.route("**/api/p/demo/beads", async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    const res = await route.fetch();
+    const json = await res.json();
+    for (const b of json.beads || []) if (b.id === LONG_ID_BEAD) b.id = LONG_ID;
+    return route.fulfill({ response: res, json });
+  });
+}
+
 async function openView(page, view) {
   if (view === "drawer" || view === "drawer-markdown") await routeFixture(page);
+  // The 1280px baseline was recorded with the demo ids, so desktop keeps them.
+  if (view === "list" && page.viewportSize().width < 1280) await routeLongId(page);
   await page.goto(`${base}/p/demo?${viewQuery(view)}`, { waitUntil: "domcontentloaded" });
   await page.locator("main, [role='main'], h1, h2").first().waitFor({ timeout: 15000 });
   // The beads stream keeps the network busy, so wait a fixed time for the first render.
@@ -429,6 +450,10 @@ async function openView(page, view) {
   if (view === "drawer") {
     // Without the fixture text on the page the markdown checks would pass on nothing.
     await page.getByText(FIXTURE_MARK).first().waitFor({ timeout: 10000 });
+  }
+  if (view === "list" && page.viewportSize().width < 1280) {
+    // Without the long id on the page the id check would pass on nothing.
+    await page.locator(`button[title="Copy ${LONG_ID}"]`).first().waitFor({ timeout: 10000 });
   }
   if (view === "focus-grouped") {
     await page.locator('label:has-text("Group by") select').selectOption("assignee");
@@ -580,6 +605,12 @@ async function runSelftest() {
       kinds: (k) => !k.some((x) => x.includes("sliver")),
     },
     {
+      name: "eui AC 1: a bead id button in a list row is not a row title",
+      listView: true,
+      html: `<main style="font:16px sans-serif"><div data-keyboard-bead-id="x" role="button"><button title="Copy bd-abcdef12345" class="truncate" style="display:block;width:88px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:12px monospace;min-height:44px">bd-abcdef12345</button></div></main>`,
+      kinds: (k) => !k.some((x) => x.includes("sliver")),
+    },
+    {
       name: "eui AC 1: a chip cut to 100px outside the list is not a sliver",
       html: `<main style="font:16px sans-serif"><span style="display:block;width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">A long chip label that is cut</span></main>`,
       kinds: (k) => !k.some((x) => x.includes("sliver")),
@@ -593,6 +624,16 @@ async function runSelftest() {
       name: "eui AC 6: a standalone link in a description is measured",
       html: `<main style="font:16px sans-serif"><div class="bd-md"><p><a href="#x">alone on its line</a></p></div></main>`,
       kinds: (k) => k.some((x) => x.startsWith("controls under")),
+    },
+    {
+      name: "eui AC 6: a link alone in a list item is exempt (the renderer adds no tap target there)",
+      html: `<main style="font:16px sans-serif"><div class="bd-md"><ul><li><a href="#x">alone in an item</a></li></ul></div></main>`,
+      kinds: (k) => !k.some((x) => x.startsWith("controls under")),
+    },
+    {
+      name: "eui AC 6: a bold link inside a paragraph is exempt (the renderer adds no tap target there)",
+      html: `<main style="font:16px sans-serif"><div class="bd-md"><p><strong><a href="#x">bold link</a></strong></p></div></main>`,
+      kinds: (k) => !k.some((x) => x.startsWith("controls under")),
     },
     {
       name: "eui AC 4: a table that scrolls in its own box is not a page scroller",
@@ -659,7 +700,7 @@ async function runSelftest() {
         await page.close();
         continue;
       }
-      const m = await page.evaluate(measure, { ...args, listView: Boolean(c.listView) });
+      const m = await page.evaluate(measure, { ...args, listView: Boolean(c.listView), idMinWidth: 0 });
       failures.length = 0;
       report(360, c.label || c.name, m);
       const kinds = failures.map((f) => f.kind);
