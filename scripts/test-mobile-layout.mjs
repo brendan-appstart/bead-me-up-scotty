@@ -16,6 +16,9 @@
 // how many controls in how many views it compared:
 //   SCOTTY_LAYOUT_SNAPSHOT=FILE SCOTTY_LAYOUT_MODE=record   write the sizes
 //   SCOTTY_LAYOUT_SNAPSHOT=FILE SCOTTY_LAYOUT_MODE=compare  fail when a size changes
+// The baseline file records the browser (name, version and executable). Font metrics
+// differ between browsers, so compare stops with one message when the browser differs
+// or the record is missing. Use the same SCOTTY_BROWSER_EXECUTABLE for record and compare.
 // Record the baseline on the base commit (main) with this script. SCOTTY_LAYOUT_MODE
 // without SCOTTY_LAYOUT_SNAPSHOT exits 2. With neither set, the compare is skipped
 // and the output says so.
@@ -364,6 +367,36 @@ async function swipeScrolls(page) {
   return (await scrollOf()) > before;
 }
 
+// The sidebar footer shows "Build N . SHA". Returns that text, or "" when it is missing.
+function parseBuildLine(text) {
+  const found = String(text).match(/Build\s+(\S+)\s*·\s*([0-9a-f]{6,40})/);
+  return found ? `Build ${found[1]} · ${found[2]}` : "";
+}
+
+// The verdict on the build probe: ok, or a message that says why the run must stop.
+function buildVerdict(line, probeError) {
+  if (line) return { ok: true, message: line };
+  return {
+    ok: false,
+    message: probeError
+      ? `could not read the build line: ${probeError}`
+      : "no build line in the sidebar footer; build the app from a git checkout",
+  };
+}
+
+// Font metrics depend on the browser, so a baseline only fits the browser that took it.
+// Returns null when they match, or a one-line reason when they do not.
+function compareBrowser(recorded, current) {
+  if (!recorded || !recorded.name) {
+    return "the baseline has no browser record; record it again with this script";
+  }
+  if (recorded.name !== current.name || recorded.executable !== current.executable) {
+    return `the baseline was taken with ${recorded.name} (${recorded.executable}) ` +
+      `but this run uses ${current.name} (${current.executable}); use the same browser, or record the baseline again`;
+  }
+  return null;
+}
+
 // Compare the recorded and the measured control sizes of one view.
 // Controls are counted per key and size, so a duplicate that appears or disappears is reported.
 function compareControls(before, after) {
@@ -413,6 +446,31 @@ async function runSelftest() {
       html: `<main style="font:16px sans-serif"><button class="w-[6px] flex w-full" style="${sized}">Go</button></main>`,
       controls: (c) => c.length === 1 && c[0].key === "button[Go]",
     },
+    {
+      name: "AC 14: a page with a build footer gives the build line",
+      html: `<main style="font:16px sans-serif"><p>v0.4.0 <span>Build 209 <span>·</span></span> <a href="#">f99d76d</a></p></main>`,
+      build: (text) => {
+        const line = parseBuildLine(text);
+        return { ok: line === "Build 209 · f99d76d" && buildVerdict(line, "").ok === true, detail: line || "empty" };
+      },
+    },
+    {
+      name: "AC 14: a page without a build footer gives no line and an exit 1 verdict",
+      html: `<main style="font:16px sans-serif"><p>v0.4.0</p></main>`,
+      build: (text) => {
+        const line = parseBuildLine(text);
+        const v = buildVerdict(line, "");
+        return { ok: line === "" && v.ok === false && /no build line/.test(v.message), detail: v.message };
+      },
+    },
+    {
+      name: "AC 14: a probe error is named in the verdict",
+      html: `<main>x</main>`,
+      build: () => {
+        const v = buildVerdict("", "page.goto: net::ERR_CONNECTION_REFUSED");
+        return { ok: v.ok === false && v.message.includes("ERR_CONNECTION_REFUSED"), detail: v.message };
+      },
+    },
   ];
   const browser = await chromium.launch({ executablePath: process.env.SCOTTY_BROWSER_EXECUTABLE || undefined });
   const results = [];
@@ -421,6 +479,17 @@ async function runSelftest() {
     for (const c of cases) {
       const page = await context.newPage();
       await page.setContent(c.html);
+      if (c.build) {
+        const text = await page.evaluate(() => document.body.innerText);
+        try {
+          const r = c.build(text);
+          results.push({ name: c.name, ok: r.ok, detail: r.detail });
+        } catch (e) {
+          results.push({ name: c.name, ok: false, detail: `threw: ${String(e.message || e)}` });
+        }
+        await page.close();
+        continue;
+      }
       const m = await page.evaluate(measure, args);
       failures.length = 0;
       report(360, c.name, m);
@@ -437,6 +506,31 @@ async function runSelftest() {
   results.push({ name: "AC 3: a lost duplicate control is reported", ok: lost.length === 1, detail: lost.join(" | ") || "nothing reported" });
   const gained = compareControls([dup], [dup, dup]);
   results.push({ name: "AC 3: an extra duplicate control is reported", ok: gained.length === 1, detail: gained.join(" | ") || "nothing reported" });
+  const unit = (name, fn) => {
+    try {
+      const r = fn();
+      results.push({ name, ok: r.ok, detail: r.detail });
+    } catch (e) {
+      results.push({ name, ok: false, detail: `threw: ${String(e.message || e)}` });
+    }
+  };
+  const here = { name: "chromium 131.0.1", executable: "/usr/bin/google-chrome" };
+  unit("AC 13: the same browser matches", () => {
+    const p = compareBrowser({ ...here }, here);
+    return { ok: p === null, detail: String(p) };
+  });
+  unit("AC 13: a different executable is reported with both names", () => {
+    const p = compareBrowser({ ...here, executable: "playwright-bundled" }, here);
+    return { ok: typeof p === "string" && p.includes("playwright-bundled") && p.includes("/usr/bin/google-chrome"), detail: String(p).slice(0, 90) };
+  });
+  unit("AC 13: a different version is reported", () => {
+    const p = compareBrowser({ ...here, name: "chromium 130.0.9" }, here);
+    return { ok: typeof p === "string" && p.includes("chromium 130.0.9"), detail: String(p).slice(0, 90) };
+  });
+  unit("AC 13: a missing browser record is reported", () => {
+    const p = compareBrowser(undefined, here);
+    return { ok: typeof p === "string" && p.includes("no browser record"), detail: String(p).slice(0, 90) };
+  });
   for (const r of results) console.log(`${r.ok ? "PASS" : "FAIL"} ${r.name}  (${r.detail})`);
   const bad = results.filter((r) => !r.ok).length;
   console.log(`mobile-layout selftest: ${bad} failing of ${results.length} cases`);
@@ -448,6 +542,10 @@ if (selftest) await runSelftest();
 const browser = await chromium.launch({
   executablePath: process.env.SCOTTY_BROWSER_EXECUTABLE || undefined,
 });
+const currentBrowser = {
+  name: `chromium ${browser.version()}`,
+  executable: process.env.SCOTTY_BROWSER_EXECUTABLE || "playwright-bundled",
+};
 
 // The first output line names the build that the server serves, so a log ties to a commit.
 try {
@@ -457,21 +555,19 @@ try {
   let probeError = "";
   try {
     await openView(page, "board");
-    const text = await page.evaluate(() => document.body.innerText);
-    const found = text.match(/Build\s+(\S+)\s*·\s*([0-9a-f]{6,40})/);
-    if (found) line = `Build ${found[1]} · ${found[2]}`;
+    line = parseBuildLine(await page.evaluate(() => document.body.innerText));
   } catch (e) {
     probeError = String(e.message || e).split("\n")[0];
   }
   console.log(`served build: ${line || "unknown"}`);
   await context.close();
-  if (!line) {
-    console.error(probeError
-      ? `could not read the build line: ${probeError}`
-      : "the sidebar footer shows no build line; build the app from a git checkout");
+  const verdict = buildVerdict(line, probeError);
+  if (!verdict.ok) {
+    console.error(verdict.message);
     await browser.close();
     process.exit(1);
   }
+  console.log(`browser: ${currentBrowser.name} (${currentBrowser.executable})`);
 } catch (e) {
   await browser.close();
   throw e;
@@ -562,11 +658,13 @@ try {
 
 if (snapshotFile) {
   if (snapshotMode === "record") {
-    fs.writeFileSync(snapshotFile, JSON.stringify(desktop, null, 1));
-    console.log(`recorded 1280px control sizes to ${snapshotFile}`);
+    fs.writeFileSync(snapshotFile, JSON.stringify({ __browser: currentBrowser, ...desktop }, null, 1));
+    console.log(`recorded 1280px control sizes to ${snapshotFile} with ${currentBrowser.name}`);
   } else {
     const before = JSON.parse(fs.readFileSync(snapshotFile, "utf8"));
-    for (const view of views) {
+    const browserProblem = compareBrowser(before.__browser, currentBrowser);
+    if (browserProblem) fail(1280, "baseline", "baseline browser differs", [browserProblem]);
+    for (const view of browserProblem ? [] : views) {
       if (!(before[view] || []).length) {
         fail(1280, view, "no recorded baseline for this view", ["record it on the base commit with SCOTTY_LAYOUT_MODE=record"]);
         continue;
@@ -583,7 +681,9 @@ if (snapshotFile) {
       compared.views += 1;
       fail(1280, view, "desktop control size changed", compareControls(before[view], desktop[view]).slice(0, 12));
     }
-    console.log(`compare: ${compared.controls} controls in ${compared.views} views at 1280px`);
+    console.log(browserProblem
+      ? "compare not run: the baseline browser differs"
+      : `compare: ${compared.controls} controls in ${compared.views} views at 1280px`);
   }
 } else {
   console.log("compare skipped: SCOTTY_LAYOUT_SNAPSHOT not set");
