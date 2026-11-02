@@ -31,6 +31,7 @@
 // Optional: SCOTTY_BROWSER_EXECUTABLE, SCOTTY_LAYOUT_VIEWS=board,list,
 // SCOTTY_SHOTS_DIR=DIR (a screenshot of every view and width).
 import fs from "node:fs";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { chromium } from "playwright";
 
@@ -59,7 +60,9 @@ const widths = [360, 390, 768];
 // 820 px is an iPad in portrait, between the sidebar breakpoint and 1024.
 // 1100 and 1200 px are between 1024 and the 1280 desktop width: the sidebar and the page header
 // compete for room there, and a header that does not wrap loses its right-hand controls.
-const layoutOnlyWidths = [820, 1000, 1100, 1200];
+// 1016 px is the first width where list rows stop wrapping with the default sidebar (the pane
+// content is 744 px, over the 740 px threshold).
+const layoutOnlyWidths = [820, 1000, 1016, 1100, 1200];
 const MIN_TARGET = 44;
 const MIN_INPUT_FONT = 16;
 // The app shell is text-sm (14px). The floor guards against a regression of that size.
@@ -74,7 +77,7 @@ if (!selftest && process.env.SCOTTY_LAYOUT_MODE && !snapshotFile) {
 const shotsDir = process.env.SCOTTY_SHOTS_DIR;
 
 // Runs in the page. Returns plain data only.
-function measure({ minTarget, minInputFont, minTextFont, listView = false, idMinWidth = 640, deskWidth = 1024 }) {
+function measure({ minTarget, minInputFont, minTextFont, listView = false, deskWidth = 1024 }) {
   const labelOf = (el) => el.getAttribute("aria-label") || el.getAttribute("title")
     || (el.textContent || "").trim().replace(/\s+/g, " ").slice(0, 30)
     || el.getAttribute("placeholder") || "";
@@ -245,15 +248,16 @@ function measure({ minTarget, minInputFont, minTextFont, listView = false, idMin
     const text = (el.textContent || "").trim();
     const w = Math.round(el.getBoundingClientRect().width);
     // Only text that is really cut off counts; a short chip that fits is fine.
-    // A row title in the list view needs 120px; other cut text (chips, theme names) keeps 60px.
-    const isRowTitle = listView && el.matches(".truncate") && el.tagName !== "BUTTON" && el.closest("[data-keyboard-bead-id]");
+    // A row title in the list view needs 120px; other cut text (label chips, theme names) keeps 60px.
+    const isRowTitle = listView && el.matches(".truncate") && el.tagName !== "BUTTON" && !el.hasAttribute("data-label-chip") && el.closest("[data-keyboard-bead-id]");
     if (text.length > 8 && w < (isRowTitle ? 120 : 60) && el.scrollWidth > el.clientWidth + 1 && out.slivers.length < 8) out.slivers.push(`${describe(el)} ${w}px wide`);
   }
 
   // A bead id is the one text the user copies whole, so an ellipsis on it hides part of the id.
-  // Below 640px the 88px ID column is intended, so a long id may be cut there.
+  // Only the list rows below 640px have an 88px ID column that may cut a long id. Every other
+  // view (the drawer, for example) is checked at every width.
   for (const el of document.body.querySelectorAll('button[title^="Copy "]')) {
-    if (window.innerWidth < idMinWidth) break;
+    if (listView && window.innerWidth < 640) break;
     if (!visible(el) || inCanvas(el)) continue;
     if (el.scrollWidth > el.clientWidth + 1 && out.idCut.length < 8) {
       out.idCut.push(`${describe(el)} scrollWidth ${el.scrollWidth} > clientWidth ${el.clientWidth}`);
@@ -462,13 +466,19 @@ async function routeFixture(page) {
 // gets one bead with a 14 character id, which is cut off by the old 88px column at 640-1023px.
 const LONG_ID_BEAD = "bd-c552.3";
 const LONG_ID = "bd-abcdef12345";
+// Two label chips with no maximum width, on an open bead that shows in the list and the board.
+const LONG_LABEL_BEAD = "bd-9f2a.4";
+const LONG_LABELS = ["a-very-long-label-name-for-testing-one", "a-very-long-label-name-for-testing-two"];
 
 async function routeLongId(page) {
   await page.route("**/api/p/demo/beads", async (route) => {
     if (route.request().method() !== "GET") return route.fallback();
     const res = await route.fetch();
     const json = await res.json();
-    for (const b of json.beads || []) if (b.id === LONG_ID_BEAD) b.id = LONG_ID;
+    for (const b of json.beads || []) {
+      if (b.id === LONG_ID_BEAD) b.id = LONG_ID;
+      if (b.id === LONG_LABEL_BEAD) b.labels = LONG_LABELS;
+    }
     return route.fulfill({ response: res, json });
   });
 }
@@ -476,7 +486,7 @@ async function routeLongId(page) {
 async function openView(page, view) {
   if (view === "drawer" || view === "drawer-markdown") await routeFixture(page);
   // The 1280px baseline was recorded with the demo ids, so desktop keeps them.
-  if (view === "list" && page.viewportSize().width < 1280) await routeLongId(page);
+  if ((view === "list" || view === "board") && page.viewportSize().width < 1280) await routeLongId(page);
   await page.goto(`${base}/p/demo?${viewQuery(view)}`, { waitUntil: "domcontentloaded" });
   await page.locator("main, [role='main'], h1, h2").first().waitFor({ timeout: 15000 });
   // The beads stream keeps the network busy, so wait a fixed time for the first render.
@@ -488,6 +498,10 @@ async function openView(page, view) {
   if (view === "list" && page.viewportSize().width < 1280) {
     // Without the long id on the page the id check would pass on nothing.
     await page.locator(`button[title="Copy ${LONG_ID}"]`).first().waitFor({ timeout: 10000 });
+  }
+  if ((view === "list" || view === "board") && page.viewportSize().width < 1280) {
+    // The list hides the chips below 1024px, so wait for the element and not for its display.
+    await page.getByText(LONG_LABELS[0], { exact: true }).first().waitFor({ state: "attached", timeout: 10000 });
   }
   if (view === "focus-grouped") {
     await page.locator('label:has-text("Group by") select').selectOption("assignee");
@@ -555,16 +569,49 @@ function compareBrowser(recorded, current) {
 // Compare the recorded and the measured control sizes of one view.
 // Controls are counted per key and size, so a duplicate that appears or disappears is reported.
 // Desktop changes at 1280px that were agreed in a bead. Each line must match exactly.
-const ACCEPTED_DESKTOP = new Map([
-  ["now input[Search beads…  (/)] 149x19", "self-49j.3: the board header always wraps, so the search box is no longer collapsed to an icon"],
-]);
+// An entry names the view and how often the compare must report it; a change seen in another
+// view, or a different number of times, fails the run.
+const SEARCH_BOX = "now input[Search beads…  (/)] 149x19";
+const SEARCH_BOX_WHY = "self-49j.3: the board header always wraps, so the search box is no longer collapsed to an icon";
+const ACCEPTED_DESKTOP = [
+  { view: "board", line: SEARCH_BOX, hits: 1, why: SEARCH_BOX_WHY },
+  { view: "drawer", line: SEARCH_BOX, hits: 1, why: SEARCH_BOX_WHY },
+];
 let acceptedDesktop = 0;
-function dropAccepted(lines) {
+const acceptedHits = new Map();
+function resetAccepted() {
+  acceptedDesktop = 0;
+  acceptedHits.clear();
+}
+function dropAccepted(lines, view) {
   return lines.filter((l) => {
-    if (!ACCEPTED_DESKTOP.has(l)) return true;
+    const entry = ACCEPTED_DESKTOP.find((e) => e.view === view && e.line === l);
+    if (!entry) return true;
     acceptedDesktop += 1;
+    acceptedHits.set(entry, (acceptedHits.get(entry) || 0) + 1);
     return false;
   });
+}
+// One line per agreed change that was not seen the expected number of times. ranViews limits
+// the check to the views that this run measured.
+function checkAcceptedHits(ranViews = null) {
+  const out = [];
+  for (const e of ACCEPTED_DESKTOP) {
+    if (ranViews && !ranViews.includes(e.view)) continue;
+    const n = acceptedHits.get(e) || 0;
+    if (n !== e.hits) out.push(`${e.view}: "${e.line}" seen ${n} time(s), expected ${e.hits}`);
+  }
+  return out;
+}
+
+// The content probe. The build line comes from git and lags the working tree, so two different
+// trees can print the same line. Next.js names its script and stylesheet files by content hash,
+// so a digest of those names changes when client code or CSS changes. It does not see text that
+// only the server renders.
+function contentProbe(files) {
+  const names = [...new Set(files.map((f) => String(f).split("?")[0]))].sort();
+  const digest = createHash("sha256").update(names.join("\n")).digest("hex").slice(0, 8);
+  return `served content: ${names.length} files, digest ${digest}`;
 }
 
 function compareControls(before, after) {
@@ -652,6 +699,18 @@ async function runSelftest() {
       kinds: (k) => !k.some((x) => x.includes("sliver")),
     },
     {
+      name: "49j.2: a label chip cut to 100px in a list row is not held to the row title rule",
+      listView: true,
+      html: `<main style="font:16px sans-serif"><div data-keyboard-bead-id="x" role="button"><span class="truncate" data-label-chip style="display:inline-block;width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">a-very-long-label-name-for-testing</span></div></main>`,
+      kinds: (k) => !k.some((x) => x.includes("sliver")),
+    },
+    {
+      name: "49j.2: a label chip cut to 40px in a list row is still a sliver",
+      listView: true,
+      html: `<main style="font:16px sans-serif"><div data-keyboard-bead-id="x" role="button"><span class="truncate" data-label-chip style="display:inline-block;width:40px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">a-very-long-label-name-for-testing</span></div></main>`,
+      kinds: (k) => k.some((x) => x.includes("sliver")),
+    },
+    {
       name: "eui AC 1: a bead id button in a list row is not a row title",
       listView: true,
       html: `<main style="font:16px sans-serif"><div data-keyboard-bead-id="x" role="button"><button title="Copy bd-abcdef12345" class="truncate" style="display:block;width:88px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:12px monospace;min-height:44px">bd-abcdef12345</button></div></main>`,
@@ -726,6 +785,12 @@ async function runSelftest() {
       kinds: (k) => k.some((x) => x.includes("bead id cut off")),
     },
     {
+      name: "49j.2: a cut id in a list row at 360px is allowed (the 88px column is intended there)",
+      listView: true,
+      html: `<main style="font:16px sans-serif"><button title="Copy bd-abcdef12345" class="truncate" style="display:block;width:88px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:12px monospace;min-height:44px">bd-abcdef12345</button></main>`,
+      kinds: (k) => !k.some((x) => x.includes("bead id cut off")),
+    },
+    {
       name: "eui AC 2: a 14 character bead id in a 150px column fits",
       html: `<main style="font:16px sans-serif"><button title="Copy bd-abcdef12345" class="truncate" style="display:block;width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:12px monospace;min-height:44px">bd-abcdef12345</button></main>`,
       kinds: (k) => !k.some((x) => x.includes("bead id cut off")),
@@ -770,7 +835,7 @@ async function runSelftest() {
         await page.close();
         continue;
       }
-      const m = await page.evaluate(measure, { ...args, listView: Boolean(c.listView), idMinWidth: 0, deskWidth: c.deskWidth ?? 1024 });
+      const m = await page.evaluate(measure, { ...args, listView: Boolean(c.listView), deskWidth: c.deskWidth ?? 1024 });
       failures.length = 0;
       report(360, c.label || c.name, m);
       const kinds = failures.map((f) => f.kind);
@@ -862,11 +927,30 @@ async function runSelftest() {
   const gained = compareControls([dup], [dup, dup]);
   results.push({ name: "AC 3: an extra duplicate control is reported", ok: gained.length === 1, detail: gained.join(" | ") || "nothing reported" });
   const accepted = "now input[Search beads…  (/)] 149x19";
-  const keptOther = dropAccepted([accepted, "now button[Other] 10x10"]);
+  const keptOther = dropAccepted([accepted, "now button[Other] 10x10"], "board");
   results.push({ name: "49j.3: only the agreed desktop change is dropped from the compare", ok: keptOther.length === 1 && keptOther[0].includes("Other"), detail: keptOther.join(" | ") });
-  const keptSize = dropAccepted(["now input[Search beads…  (/)] 150x19"]);
+  const keptSize = dropAccepted(["now input[Search beads…  (/)] 150x19"], "board");
   results.push({ name: "49j.3: the same control at another size is still reported", ok: keptSize.length === 1, detail: keptSize.join(" | ") || "nothing reported" });
-  acceptedDesktop = 0;
+  resetAccepted();
+  const wrongView = dropAccepted([accepted], "list");
+  results.push({ name: "49j.2: the agreed change is not accepted in another view", ok: wrongView.length === 1, detail: wrongView.join(" | ") || "dropped" });
+  resetAccepted();
+  const missing = checkAcceptedHits();
+  results.push({ name: "49j.2: an agreed change with no hit fails the run", ok: missing.length === 2, detail: missing.join(" | ") || "no problem reported" });
+  dropAccepted([accepted], "board");
+  dropAccepted([accepted], "drawer");
+  const complete = checkAcceptedHits();
+  results.push({ name: "49j.2: one hit in the board and one in the drawer passes", ok: complete.length === 0, detail: complete.join(" | ") || "no problem" });
+  dropAccepted([accepted], "board");
+  const extra = checkAcceptedHits();
+  results.push({ name: "49j.2: a second hit in the board fails the run", ok: extra.length === 1, detail: extra.join(" | ") || "no problem reported" });
+  const pA = contentProbe(["/_next/static/chunks/a1.js", "/_next/static/chunks/b2.css"]);
+  const pB = contentProbe(["/_next/static/chunks/a1.js", "/_next/static/chunks/c3.css"]);
+  const pAr = contentProbe(["/_next/static/chunks/b2.css", "/_next/static/chunks/a1.js"]);
+  results.push({ name: "49j.2: a changed file name changes the content probe", ok: pA !== "" && pA !== pB, detail: `${pA} | ${pB}` });
+  results.push({ name: "49j.2: the probe does not depend on the file order", ok: pA !== "" && pA === pAr, detail: `${pA} | ${pAr}` });
+  results.push({ name: "49j.2: an empty file list still prints a probe line", ok: contentProbe([]).startsWith("served content: 0 files"), detail: contentProbe([]) || "empty" });
+  resetAccepted();
   const unit = (name, fn) => {
     try {
       const r = fn();
@@ -915,13 +999,17 @@ try {
   const page = await context.newPage();
   let line = "";
   let probeError = "";
+  let files = [];
   try {
     await openView(page, "board");
     line = parseBuildLine(await page.evaluate(() => document.body.innerText));
+    files = await page.evaluate(() =>
+      [...document.querySelectorAll("script[src], link[rel=stylesheet]")].map((e) => e.getAttribute("src") || e.getAttribute("href")));
   } catch (e) {
     probeError = String(e.message || e).split("\n")[0];
   }
   console.log(`served build: ${line || "unknown"}`);
+  console.log(contentProbe(files));
   await context.close();
   const verdict = buildVerdict(line, probeError);
   if (!verdict.ok) {
@@ -1069,12 +1157,14 @@ if (snapshotFile) {
       }
       compared.controls += desktop[view].length;
       compared.views += 1;
-      fail(1280, view, "desktop control size changed", dropAccepted(compareControls(before[view], desktop[view])).slice(0, 12));
+      fail(1280, view, "desktop control size changed", dropAccepted(compareControls(before[view], desktop[view]), view).slice(0, 12));
     }
+    const hitProblems = browserProblem ? [] : checkAcceptedHits(views);
+    if (hitProblems.length) fail(1280, "compare", "an agreed desktop change was not seen as often as agreed", hitProblems);
     console.log(browserProblem
       ? "compare not run: the baseline browser differs"
       : `compare: ${compared.controls} controls in ${compared.views} views at 1280px` +
-        (acceptedDesktop ? `; ${acceptedDesktop} accepted change(s): ${[...ACCEPTED_DESKTOP.values()].join("; ")}` : ""));
+        (acceptedDesktop ? `; ${acceptedDesktop} accepted change(s): ${[...new Set(ACCEPTED_DESKTOP.map((e) => e.why))].join("; ")}` : ""));
   }
 } else {
   console.log("compare skipped: SCOTTY_LAYOUT_SNAPSHOT not set");

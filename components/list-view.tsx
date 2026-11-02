@@ -314,13 +314,15 @@ function Row({
         id={bead.id}
         className="w-[88px] flex-shrink-0 truncate font-mono text-[11.5px] text-[var(--text-3)] min-[640px]:w-[150px]"
       />
-      <span className="min-w-0 flex-1 truncate text-[13.5px] font-[550] text-[var(--text)] @max-[740px]:order-1 @max-[740px]:basis-full @max-[740px]:whitespace-normal @max-[740px]:[overflow-wrap:anywhere]">
+      <span className="min-w-[120px] flex-1 truncate text-[13.5px] font-[550] text-[var(--text)] @max-[740px]:order-1 @max-[740px]:basis-full @max-[740px]:whitespace-normal @max-[740px]:[overflow-wrap:anywhere]">
         {bead.title}
       </span>
       {labels.map((l) => (
         <span
           key={l}
-          className="hidden flex-shrink-0 rounded-md border border-border bg-[var(--surface-2)] px-[6px] py-px font-mono text-[10.5px] text-[var(--text-3)] lg:inline"
+          title={l}
+          data-label-chip
+          className="hidden min-w-[60px] max-w-[140px] shrink truncate rounded-md border border-border bg-[var(--surface-2)] px-[6px] py-px font-mono text-[10.5px] text-[var(--text-3)] lg:inline-block"
         >
           {l}
         </span>
