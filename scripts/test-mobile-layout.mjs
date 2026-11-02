@@ -57,7 +57,9 @@ const widths = [360, 390, 768];
 // 1000 px sits between the sidebar breakpoint (768) and the desktop layout (1024). Tap target
 // and font rules apply below 48rem only, so at 1000 px only the layout checks run.
 // 820 px is an iPad in portrait, between the sidebar breakpoint and 1024.
-const layoutOnlyWidths = [820, 1000];
+// 1100 and 1200 px are between 1024 and the 1280 desktop width: the sidebar and the page header
+// compete for room there, and a header that does not wrap loses its right-hand controls.
+const layoutOnlyWidths = [820, 1000, 1100, 1200];
 const MIN_TARGET = 44;
 const MIN_INPUT_FONT = 16;
 // The app shell is text-sm (14px). The floor guards against a regression of that size.
@@ -72,7 +74,7 @@ if (!selftest && process.env.SCOTTY_LAYOUT_MODE && !snapshotFile) {
 const shotsDir = process.env.SCOTTY_SHOTS_DIR;
 
 // Runs in the page. Returns plain data only.
-function measure({ minTarget, minInputFont, minTextFont, listView = false, idMinWidth = 640 }) {
+function measure({ minTarget, minInputFont, minTextFont, listView = false, idMinWidth = 640, deskWidth = 1024 }) {
   const labelOf = (el) => el.getAttribute("aria-label") || el.getAttribute("title")
     || (el.textContent || "").trim().replace(/\s+/g, " ").slice(0, 30)
     || el.getAttribute("placeholder") || "";
@@ -138,6 +140,8 @@ function measure({ minTarget, minInputFont, minTextFont, listView = false, idMin
   // because a long line cannot wrap. The graph canvas pans by design.
   for (const el of document.body.querySelectorAll("*")) {
     if (!visible(el) || inCanvas(el) || el.closest("pre") || el.matches(".bd-md table, .bd-md .bd-md-scroll")) continue;
+    // From 1024px the board and Focus columns scroll sideways inside their own pane by design.
+    if (window.innerWidth >= deskWidth && el.matches(".bd-scroll")) continue;
     const ox = getComputedStyle(el).overflowX;
     if ((ox === "auto" || ox === "scroll") && el.scrollWidth > el.clientWidth + 1 && out.sideScrollers.length < 8) {
       out.sideScrollers.push(`${describe(el)} scrollWidth ${el.scrollWidth} > clientWidth ${el.clientWidth}`);
@@ -636,6 +640,17 @@ async function runSelftest() {
       kinds: (k) => !k.some((x) => x.startsWith("controls under")),
     },
     {
+      name: "49j.3: a wide pane (bd-scroll) is a sideways scroller below the desktop width",
+      html: `<main style="font:16px sans-serif"><div class="bd-scroll" style="width:200px;overflow-x:auto"><div style="width:600px">wide content</div></div></main>`,
+      kinds: (k) => k.some((x) => x.includes("an element scrolls sideways")),
+    },
+    {
+      name: "49j.3: a wide pane (bd-scroll) is exempt from the desktop width up",
+      deskWidth: 0,
+      html: `<main style="font:16px sans-serif"><div class="bd-scroll" style="width:200px;overflow-x:auto"><div style="width:600px">wide content</div></div></main>`,
+      kinds: (k) => !k.some((x) => x.includes("an element scrolls sideways")),
+    },
+    {
       name: "eui AC 4: a table that scrolls in its own box is not a page scroller",
       html: `<main style="font:16px sans-serif"><div class="bd-md" style="width:300px"><table style="display:block;overflow-x:auto"><tbody><tr><td style="white-space:nowrap">${"x".repeat(80)}</td></tr></tbody></table></div></main>`,
       kinds: (k) => !k.some((x) => x.includes("an element scrolls sideways")),
@@ -700,7 +715,7 @@ async function runSelftest() {
         await page.close();
         continue;
       }
-      const m = await page.evaluate(measure, { ...args, listView: Boolean(c.listView), idMinWidth: 0 });
+      const m = await page.evaluate(measure, { ...args, listView: Boolean(c.listView), idMinWidth: 0, deskWidth: c.deskWidth ?? 1024 });
       failures.length = 0;
       report(360, c.label || c.name, m);
       const kinds = failures.map((f) => f.kind);
