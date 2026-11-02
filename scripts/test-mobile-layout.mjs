@@ -1023,9 +1023,6 @@ try {
     await context.addInitScript(() => window.localStorage.setItem("bmus.width.sidebar", "400"));
     for (const view of ["board", "list", "epics", "focus"]) {
       if (!views.includes(view)) continue;
-      // List rows wrap by viewport width, not pane width, so titles are cut with a 400px sidebar below
-      // 1280px. That is a known gap, filed as its own bead; the list header is still checked at 1280+.
-      if (view === "list" && width < 1280) continue;
       const label = `${view}+sidebar-400`;
       const page = await context.newPage();
       page.on("pageerror", (e) => errors.push(`${width}px ${label}: ${e.message}`));

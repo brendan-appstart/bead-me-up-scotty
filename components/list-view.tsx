@@ -185,7 +185,7 @@ export function ListView() {
         )}
       </header>
 
-      <div className="bd-scroll min-h-0 flex-1 overflow-y-auto p-[12px_22px]">
+      <div className="bd-scroll @container min-h-0 flex-1 overflow-y-auto p-[12px_22px]">
         {loading && beads.length === 0 ? (
           <div className="text-[13px] text-[var(--text-3)]">Loading beads…</div>
         ) : rows.length === 0 ? (
@@ -293,7 +293,7 @@ function Row({
         opacity: isDragging ? 0.4 : 1,
         zIndex: isDragging ? 10 : undefined,
       }}
-      className={`flex w-full cursor-pointer touch-manipulation items-center gap-3 rounded-[10px] border max-lg:flex-wrap max-lg:gap-y-1 bg-[var(--surface)] px-[13px] py-[9px] text-left transition-[border-color,box-shadow] hover:border-[var(--border-strong)] hover:shadow-[var(--shadow)] focus-visible:outline-none ${
+      className={`flex w-full cursor-pointer touch-manipulation items-center gap-3 rounded-[10px] border @max-[740px]:flex-wrap @max-[740px]:gap-y-1 bg-[var(--surface)] px-[13px] py-[9px] text-left transition-[border-color,box-shadow] hover:border-[var(--border-strong)] hover:shadow-[var(--shadow)] focus-visible:outline-none ${
         selectedBeadId === bead.id
           ? "border-[var(--brand)] ring-2 ring-[var(--brand)]/30"
           : "border-border"
@@ -314,7 +314,7 @@ function Row({
         id={bead.id}
         className="w-[88px] flex-shrink-0 truncate font-mono text-[11.5px] text-[var(--text-3)] min-[640px]:w-[150px]"
       />
-      <span className="min-w-0 flex-1 truncate text-[13.5px] font-[550] text-[var(--text)] max-lg:order-1 max-lg:basis-full max-lg:whitespace-normal max-lg:[overflow-wrap:anywhere]">
+      <span className="min-w-0 flex-1 truncate text-[13.5px] font-[550] text-[var(--text)] @max-[740px]:order-1 @max-[740px]:basis-full @max-[740px]:whitespace-normal @max-[740px]:[overflow-wrap:anywhere]">
         {bead.title}
       </span>
       {labels.map((l) => (
@@ -359,7 +359,7 @@ function Row({
           <span className="truncate">{parent.title}</span>
         </button>
       )}
-      <span className="flex-shrink-0 max-lg:ml-auto">
+      <span className="flex-shrink-0 @max-[740px]:ml-auto">
         <PriorityChip p={bead.priority} />
       </span>
       <span className="hidden w-[26px] flex-shrink-0 justify-center sm:flex">
