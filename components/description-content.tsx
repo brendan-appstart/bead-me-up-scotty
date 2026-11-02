@@ -59,16 +59,32 @@ export function DescriptionContent({
       if (type !== "checkbox") return null;
       const idx = counter.i++;
       return (
-        <input
-          type="checkbox"
-          checked={!!checked}
-          disabled={!onToggleTask}
-          onChange={() => onToggleTask?.(idx)}
-          className="mr-[6px] translate-y-[2px] cursor-pointer disabled:cursor-default"
-          style={{ accentColor: "var(--brand)" }}
-        />
+        // The label is the tap target on a phone (self-eui); the box keeps its drawn size.
+        <label className="mr-[6px] inline-flex cursor-pointer items-center align-middle has-[:disabled]:cursor-default">
+          <input
+            type="checkbox"
+            checked={!!checked}
+            disabled={!onToggleTask}
+            onChange={() => onToggleTask?.(idx)}
+            className="cursor-pointer disabled:cursor-default"
+            style={{ accentColor: "var(--brand)" }}
+          />
+        </label>
       );
     },
+    // A link that is all of its paragraph stands alone on its line, so it is a 44px tap
+    // target on a phone. A link inside a sentence stays inline (WCAG 2.5.8). Self-eui.
+    p: ({ node, children }) => {
+      const kids = (node?.children ?? []).filter((c) => !(c.type === "text" && !c.value.trim()));
+      const solo = kids.length === 1 && kids[0].type === "element" && kids[0].tagName === "a";
+      return <p className={solo ? "bd-md-solo-link" : undefined}>{children}</p>;
+    },
+    // A wide table scrolls inside its own box and never moves the page (self-eui).
+    table: ({ children }) => (
+      <div className="bd-md-scroll">
+        <table>{children}</table>
+      </div>
+    ),
   };
 
   return (

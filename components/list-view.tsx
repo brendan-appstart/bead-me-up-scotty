@@ -293,7 +293,7 @@ function Row({
         opacity: isDragging ? 0.4 : 1,
         zIndex: isDragging ? 10 : undefined,
       }}
-      className={`flex w-full cursor-pointer touch-manipulation items-center gap-3 rounded-[10px] border bg-[var(--surface)] px-[13px] py-[9px] text-left transition-[border-color,box-shadow] hover:border-[var(--border-strong)] hover:shadow-[var(--shadow)] focus-visible:outline-none ${
+      className={`flex w-full cursor-pointer touch-manipulation items-center gap-3 rounded-[10px] border max-lg:flex-wrap max-lg:gap-y-1 bg-[var(--surface)] px-[13px] py-[9px] text-left transition-[border-color,box-shadow] hover:border-[var(--border-strong)] hover:shadow-[var(--shadow)] focus-visible:outline-none ${
         selectedBeadId === bead.id
           ? "border-[var(--brand)] ring-2 ring-[var(--brand)]/30"
           : "border-border"
@@ -312,9 +312,9 @@ function Row({
       />
       <CopyableId
         id={bead.id}
-        className="w-[88px] flex-shrink-0 truncate font-mono text-[11.5px] text-[var(--text-3)] lg:w-[150px]"
+        className="w-[88px] flex-shrink-0 truncate font-mono text-[11.5px] text-[var(--text-3)] min-[640px]:w-[150px]"
       />
-      <span className="min-w-0 flex-1 truncate text-[13.5px] font-[550] text-[var(--text)]">
+      <span className="min-w-0 flex-1 truncate text-[13.5px] font-[550] text-[var(--text)] max-lg:order-1 max-lg:basis-full max-lg:whitespace-normal max-lg:[overflow-wrap:anywhere]">
         {bead.title}
       </span>
       {labels.map((l) => (
@@ -359,7 +359,7 @@ function Row({
           <span className="truncate">{parent.title}</span>
         </button>
       )}
-      <span className="flex-shrink-0">
+      <span className="flex-shrink-0 max-lg:ml-auto">
         <PriorityChip p={bead.priority} />
       </span>
       <span className="hidden w-[26px] flex-shrink-0 justify-center sm:flex">

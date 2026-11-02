@@ -56,7 +56,8 @@ const views = (process.env.SCOTTY_LAYOUT_VIEWS || ALL_VIEWS.join(",")).split(","
 const widths = [360, 390, 768];
 // 1000 px sits between the sidebar breakpoint (768) and the desktop layout (1024). Tap target
 // and font rules apply below 48rem only, so at 1000 px only the layout checks run.
-const layoutOnlyWidths = [1000];
+// 820 px is an iPad in portrait, between the sidebar breakpoint and 1024.
+const layoutOnlyWidths = [820, 1000];
 const MIN_TARGET = 44;
 const MIN_INPUT_FONT = 16;
 // The app shell is text-sm (14px). The floor guards against a regression of that size.
@@ -71,7 +72,7 @@ if (!selftest && process.env.SCOTTY_LAYOUT_MODE && !snapshotFile) {
 const shotsDir = process.env.SCOTTY_SHOTS_DIR;
 
 // Runs in the page. Returns plain data only.
-function measure({ minTarget, minInputFont, minTextFont }) {
+function measure({ minTarget, minInputFont, minTextFont, listView = false }) {
   const labelOf = (el) => el.getAttribute("aria-label") || el.getAttribute("title")
     || (el.textContent || "").trim().replace(/\s+/g, " ").slice(0, 30)
     || el.getAttribute("placeholder") || "";
@@ -110,10 +111,14 @@ function measure({ minTarget, minInputFont, minTextFont }) {
     // The size of the main element is the page base that the user reads.
     mainFont: document.querySelector("main") ? parseFloat(getComputedStyle(document.querySelector("main")).fontSize) : 0,
     sharedLabels: [],
+    overlaps: [],
+    graphNodes: 0,
+    wideBlocks: [],
     overflowing: [],
     smallTargets: [],
     squashed: [],
     slivers: [],
+    idCut: [],
     offscreen: [],
     sideScrollers: [],
     smallInputs: [],
@@ -132,10 +137,47 @@ function measure({ minTarget, minInputFont, minTextFont }) {
   // AC 3: nothing may need sideways scrolling. A code block (pre) keeps its own scroll bar,
   // because a long line cannot wrap. The graph canvas pans by design.
   for (const el of document.body.querySelectorAll("*")) {
-    if (!visible(el) || inCanvas(el) || el.closest("pre")) continue;
+    if (!visible(el) || inCanvas(el) || el.closest("pre") || el.matches(".bd-md table, .bd-md .bd-md-scroll")) continue;
     const ox = getComputedStyle(el).overflowX;
     if ((ox === "auto" || ox === "scroll") && el.scrollWidth > el.clientWidth + 1 && out.sideScrollers.length < 8) {
       out.sideScrollers.push(`${describe(el)} scrollWidth ${el.scrollWidth} > clientWidth ${el.clientWidth}`);
+    }
+  }
+
+  // A markdown table or code block wider than the box that holds it must have its own scroller.
+  // Without one the shell clips it, and part of the content cannot be reached.
+  for (const el of document.querySelectorAll(".bd-md table, .bd-md pre")) {
+    if (!visible(el)) continue;
+    const scroller = el.closest(".bd-md-scroll") || (el.tagName === "PRE" ? el : null);
+    const ox = scroller ? getComputedStyle(scroller).overflowX : "visible";
+    const host = el.closest(".bd-md");
+    const room = host ? host.getBoundingClientRect().width : root.clientWidth;
+    const wide = Math.max(el.scrollWidth, el.getBoundingClientRect().width) > room + 1;
+    if (wide && ox !== "auto" && ox !== "scroll" && out.wideBlocks.length < 8) {
+      out.wideBlocks.push(`${el.tagName.toLowerCase()} is ${Math.round(Math.max(el.scrollWidth, el.getBoundingClientRect().width))}px in a ${Math.round(room)}px box with no scroller`);
+    }
+  }
+
+  // Graph nodes must not sit on top of each other (a bigger font could push them together).
+  // The graph is fitted to the screen, often at a zoom near 0.2. Overlap is measured in
+  // layout units (box size on screen divided by the zoom), so a few units still count.
+  const nodeBoxes = [...document.querySelectorAll(".react-flow__node")].filter(visible)
+    .map((n) => {
+      const r = n.getBoundingClientRect();
+      const zoom = n.offsetWidth ? r.width / n.offsetWidth : 1;
+      return { el: n, r, zoom: zoom || 1 };
+    });
+  out.graphNodes = nodeBoxes.length;
+  for (let i = 0; i < nodeBoxes.length; i++) {
+    for (let j = i + 1; j < nodeBoxes.length; j++) {
+      const a = nodeBoxes[i].r;
+      const b = nodeBoxes[j].r;
+      const zoom = nodeBoxes[i].zoom;
+      const w = (Math.min(a.right, b.right) - Math.max(a.left, b.left)) / zoom;
+      const h = (Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top)) / zoom;
+      if (w > 2 && h > 2 && out.overlaps.length < 8) {
+        out.overlaps.push(`${describe(nodeBoxes[i].el)} and ${describe(nodeBoxes[j].el)} overlap by ${Math.round(w)}x${Math.round(h)} units`);
+      }
     }
   }
 
@@ -165,7 +207,10 @@ function measure({ minTarget, minInputFont, minTextFont }) {
       }
     }
     // WCAG 2.5.8 exempts a link inside a line of text, so an inline anchor is not measured.
-    const inlineLink = el.tagName === "A" && getComputedStyle(el).display === "inline";
+    // A link that is all the text of its parent stands alone on its line: it is measured.
+    const aloneInParent = el.tagName === "A" && el.parentElement
+      && (el.parentElement.textContent || "").trim() === (el.textContent || "").trim();
+    const inlineLink = el.tagName === "A" && getComputedStyle(el).display === "inline" && !aloneInParent;
     if (!inlineLink && (w < minTarget || h < minTarget)) {
       out.smallTargets.push(`${describe(el)} ${w}x${h}${box === el ? "" : " (label)"}`);
     }
@@ -191,7 +236,17 @@ function measure({ minTarget, minInputFont, minTextFont }) {
     const text = (el.textContent || "").trim();
     const w = Math.round(el.getBoundingClientRect().width);
     // Only text that is really cut off counts; a short chip that fits is fine.
-    if (text.length > 8 && w < 60 && el.scrollWidth > el.clientWidth + 1 && out.slivers.length < 8) out.slivers.push(`${describe(el)} ${w}px wide`);
+    // A row title in the list view needs 120px; other cut text (chips, theme names) keeps 60px.
+    const isRowTitle = listView && el.matches(".truncate") && el.closest("[data-keyboard-bead-id]");
+    if (text.length > 8 && w < (isRowTitle ? 120 : 60) && el.scrollWidth > el.clientWidth + 1 && out.slivers.length < 8) out.slivers.push(`${describe(el)} ${w}px wide`);
+  }
+
+  // A bead id is the one text the user copies whole, so an ellipsis on it hides part of the id.
+  for (const el of document.body.querySelectorAll('button[title^="Copy "]')) {
+    if (!visible(el) || inCanvas(el)) continue;
+    if (el.scrollWidth > el.clientWidth + 1 && out.idCut.length < 8) {
+      out.idCut.push(`${describe(el)} scrollWidth ${el.scrollWidth} > clientWidth ${el.clientWidth}`);
+    }
   }
 
   const seen = new Set();
@@ -238,7 +293,12 @@ function report(width, label, m, layoutOnly = false) {
     fail(width, label, "a label wraps more than one control", m.sharedLabels);
   }
   fail(width, label, "control content spills out of its box", m.squashed);
-  fail(width, label, "text cut to a sliver by an ellipsis (under 60px)", m.slivers);
+  fail(width, label, "text cut to a sliver by an ellipsis (list row titles under 120px, other text under 60px)", m.slivers);
+  fail(width, label, "bead id cut off by an ellipsis", m.idCut);
+  fail(width, label, "graph nodes overlap", m.overlaps);
+  // Without nodes the overlap check passes on nothing, so a graph view with none is a failure.
+  if (label === "graph" && !m.graphNodes) fail(width, label, "no graph nodes were measured", ["the graph view showed no node"]);
+  fail(width, label, "markdown block wider than its box with no scroller", m.wideBlocks);
   fail(width, label, "control outside the screen or clipped", m.offscreen);
   if (!layoutOnly) {
     fail(width, label, `inputs under ${MIN_INPUT_FONT}px`, m.smallInputs);
@@ -329,11 +389,47 @@ const STATES = [
   // the audit cannot measure it. The step below opens it and dismisses it (nativeDialogs).
 ];
 
+// A description with the markdown that the demo data lacks: a standalone link, an inline
+// link, a task list, a table wider than the screen and a code block with a long line.
+const FIXTURE_BEAD = "bd-7e40.2";
+const FIXTURE_MARK = "Fixture standalone link";
+const FIXTURE_DESCRIPTION = [
+  "Intro text with an [inline link](https://example.com/inline) inside a sentence.",
+  "",
+  `[${FIXTURE_MARK}](https://example.com/alone)`,
+  "",
+  "- [ ] first task item",
+  "- [x] second task item",
+  "",
+  "| unbreakable_column_heading_one | unbreakable_column_heading_two | unbreakable_column_heading_three |",
+  "| --- | --- | --- |",
+  "| unbreakable_cell_text_number_one | unbreakable_cell_text_number_two | unbreakable_cell_text_number_three |",
+  "",
+  "```sh",
+  "echo this_is_a_very_long_line_of_code_that_cannot_wrap_and_must_scroll_inside_its_own_box_without_moving_the_page_sideways",
+  "```",
+].join("\n");
+
+async function routeFixture(page) {
+  await page.route("**/api/p/demo/beads", async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    const res = await route.fetch();
+    const json = await res.json();
+    for (const b of json.beads || []) if (b.id === FIXTURE_BEAD) b.description = FIXTURE_DESCRIPTION;
+    return route.fulfill({ response: res, json });
+  });
+}
+
 async function openView(page, view) {
+  if (view === "drawer" || view === "drawer-markdown") await routeFixture(page);
   await page.goto(`${base}/p/demo?${viewQuery(view)}`, { waitUntil: "domcontentloaded" });
   await page.locator("main, [role='main'], h1, h2").first().waitFor({ timeout: 15000 });
   // The beads stream keeps the network busy, so wait a fixed time for the first render.
   await page.waitForTimeout(1500);
+  if (view === "drawer") {
+    // Without the fixture text on the page the markdown checks would pass on nothing.
+    await page.getByText(FIXTURE_MARK).first().waitFor({ timeout: 10000 });
+  }
   if (view === "focus-grouped") {
     await page.locator('label:has-text("Group by") select').selectOption("assignee");
     await page.locator('section[aria-label^="Assignee:"]').first().waitFor({ timeout: 5000 });
@@ -471,6 +567,79 @@ async function runSelftest() {
         return { ok: v.ok === false && v.message.includes("ERR_CONNECTION_REFUSED"), detail: v.message };
       },
     },
+    {
+      name: "eui AC 1: a list row title cut to 100px is a sliver",
+      listView: true,
+      html: `<main style="font:16px sans-serif"><div data-keyboard-bead-id="x" role="button"><span class="truncate" style="display:block;width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">A long list title that is cut off</span></div></main>`,
+      kinds: (k) => k.some((x) => x.includes("sliver")),
+    },
+    {
+      name: "eui AC 1: a list row title with 200px of room is not a sliver",
+      listView: true,
+      html: `<main style="font:16px sans-serif"><div data-keyboard-bead-id="x" role="button"><span class="truncate" style="display:block;width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">A long list title that is cut off</span></div></main>`,
+      kinds: (k) => !k.some((x) => x.includes("sliver")),
+    },
+    {
+      name: "eui AC 1: a chip cut to 100px outside the list is not a sliver",
+      html: `<main style="font:16px sans-serif"><span style="display:block;width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">A long chip label that is cut</span></main>`,
+      kinds: (k) => !k.some((x) => x.includes("sliver")),
+    },
+    {
+      name: "eui AC 6: an inline link in a sentence of a description is exempt",
+      html: `<main style="font:16px sans-serif"><div class="bd-md"><p>See <a href="#x">this link</a> in the text.</p></div></main>`,
+      kinds: (k) => !k.some((x) => x.startsWith("controls under")),
+    },
+    {
+      name: "eui AC 6: a standalone link in a description is measured",
+      html: `<main style="font:16px sans-serif"><div class="bd-md"><p><a href="#x">alone on its line</a></p></div></main>`,
+      kinds: (k) => k.some((x) => x.startsWith("controls under")),
+    },
+    {
+      name: "eui AC 4: a table that scrolls in its own box is not a page scroller",
+      html: `<main style="font:16px sans-serif"><div class="bd-md" style="width:300px"><table style="display:block;overflow-x:auto"><tbody><tr><td style="white-space:nowrap">${"x".repeat(80)}</td></tr></tbody></table></div></main>`,
+      kinds: (k) => !k.some((x) => x.includes("an element scrolls sideways")),
+    },
+    {
+      name: "eui AC 5: a markdown table wider than its box with no scroller fails",
+      html: `<main style="font:16px sans-serif;overflow:hidden"><div class="bd-md" style="width:300px"><table><tbody><tr><td style="white-space:nowrap">${"x".repeat(80)}</td></tr></tbody></table></div></main>`,
+      kinds: (k) => k.some((x) => x.includes("wider than its box")),
+    },
+    {
+      name: "eui AC 5: a markdown table inside a scroller passes",
+      html: `<main style="font:16px sans-serif;overflow:hidden"><div class="bd-md" style="width:300px"><div class="bd-md-scroll" style="overflow-x:auto"><table><tbody><tr><td style="white-space:nowrap">${"x".repeat(80)}</td></tr></tbody></table></div></div></main>`,
+      kinds: (k) => !k.some((x) => x.includes("wider than its box")) && !k.some((x) => x.includes("an element scrolls sideways")),
+    },
+    {
+      name: "eui AC 2: a 14 character bead id in an 88px column is cut off",
+      html: `<main style="font:16px sans-serif"><button title="Copy bd-abcdef12345" class="truncate" style="display:block;width:88px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:12px monospace;min-height:44px">bd-abcdef12345</button></main>`,
+      kinds: (k) => k.some((x) => x.includes("bead id cut off")),
+    },
+    {
+      name: "eui AC 2: a 14 character bead id in a 150px column fits",
+      html: `<main style="font:16px sans-serif"><button title="Copy bd-abcdef12345" class="truncate" style="display:block;width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:12px monospace;min-height:44px">bd-abcdef12345</button></main>`,
+      kinds: (k) => !k.some((x) => x.includes("bead id cut off")),
+    },
+    {
+      name: "eui AC 7: two graph nodes that overlap fail",
+      html: `<main style="font:16px sans-serif"><div class="react-flow__node" style="position:absolute;left:0;top:60px;width:100px;height:50px">A node</div><div class="react-flow__node" style="position:absolute;left:50px;top:80px;width:100px;height:50px">B node</div></main>`,
+      kinds: (k) => k.some((x) => x.includes("graph nodes overlap")),
+    },
+    {
+      name: "eui AC 7: a small overlap is found even when the graph is zoomed out to 0.2",
+      html: `<main style="font:16px sans-serif"><div style="position:absolute;left:0;top:0;transform:scale(0.2);transform-origin:0 0"><div class="react-flow__node" style="position:absolute;left:0;top:0;width:100px;height:50px">A node</div><div class="react-flow__node" style="position:absolute;left:92px;top:0;width:100px;height:50px">B node</div></div></main>`,
+      kinds: (k) => k.some((x) => x.includes("graph nodes overlap")),
+    },
+    {
+      name: "eui AC 7: the graph view fails when no node was measured",
+      html: `<main style="font:16px sans-serif"><p>An empty graph page</p></main>`,
+      label: "graph",
+      kinds: (k) => k.some((x) => x.includes("no graph nodes")),
+    },
+    {
+      name: "eui AC 7: graph nodes that do not overlap pass",
+      html: `<main style="font:16px sans-serif"><div class="react-flow__node" style="position:absolute;left:0;top:60px;width:100px;height:50px">A node</div><div class="react-flow__node" style="position:absolute;left:150px;top:60px;width:100px;height:50px">B node</div></main>`,
+      kinds: (k) => !k.some((x) => x.includes("graph nodes overlap")),
+    },
   ];
   const browser = await chromium.launch({ executablePath: process.env.SCOTTY_BROWSER_EXECUTABLE || undefined });
   const results = [];
@@ -490,9 +659,9 @@ async function runSelftest() {
         await page.close();
         continue;
       }
-      const m = await page.evaluate(measure, args);
+      const m = await page.evaluate(measure, { ...args, listView: Boolean(c.listView) });
       failures.length = 0;
-      report(360, c.name, m);
+      report(360, c.label || c.name, m);
       const kinds = failures.map((f) => f.kind);
       const ok = c.kinds ? c.kinds(kinds) : c.controls(m.controls);
       results.push({ name: c.name, ok, detail: c.kinds ? kinds.join(" | ") || "no failures" : JSON.stringify(m.controls.map((x) => x.key)) });
@@ -583,6 +752,7 @@ try {
         await openView(page, view);
         const m = await page.evaluate(measure, {
           minTarget: MIN_TARGET, minInputFont: MIN_INPUT_FONT, minTextFont: MIN_TEXT_FONT,
+          listView: view === "list",
         });
         if (shotsDir) {
           fs.mkdirSync(shotsDir, { recursive: true });
