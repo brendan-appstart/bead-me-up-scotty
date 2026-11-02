@@ -293,6 +293,10 @@ let nativeDialogs = 0;
 // or the request skips the guard.
 const blockedWrites = [];
 const ignoredPings = [];
+// Turns the recorded writes into one failure. A usage ping is not recorded here.
+function reportBlockedWrites() {
+  if (blockedWrites.length) fail(0, "audit", "a write request was sent (aborted before it reached the server)", [...new Set(blockedWrites)]);
+}
 async function installWriteGuard(context) {
   await context.route("**/api/**", async (route) => {
     const method = route.request().method();
@@ -828,6 +832,22 @@ async function runSelftest() {
       const r = await send(page, "POST", "/api/telemetry/reset");
       return { ok: r === "failed" && blockedWrites.length === 1 && ignoredPings.length === 0 && !hits.some((h) => h.startsWith("POST")), detail: `${r}; blocked ${blockedWrites.join(",") || "none"}; pings ${ignoredPings.length}; reached ${hits.join(",")}` };
     });
+    await guardCase("49j.1: a recorded write becomes a failure of the run", async (page) => {
+      await send(page, "POST", "/api/p/demo/beads");
+      failures.length = 0;
+      reportBlockedWrites();
+      const kinds = failures.map((f) => f.kind);
+      failures.length = 0;
+      return { ok: kinds.length === 1 && kinds[0].startsWith("a write request was sent"), detail: kinds.join(" | ") || "no failure reported" };
+    });
+    await guardCase("49j.1: a usage ping alone is not a failure of the run", async (page) => {
+      await send(page, "POST", "/api/telemetry");
+      failures.length = 0;
+      reportBlockedWrites();
+      const n = failures.length;
+      failures.length = 0;
+      return { ok: n === 0, detail: `${n} failure(s)` };
+    });
     await guardCase("49j.1: a fixture route still lets the guard see a write", async (page, hits) => {
       await routeFixture(page);
       const r = await send(page, "POST", "/api/p/demo/beads");
@@ -1063,7 +1083,7 @@ if (snapshotFile) {
   console.log("compare skipped: SCOTTY_LAYOUT_SNAPSHOT not set");
 }
 
-if (blockedWrites.length) fail(0, "audit", "a write request was sent (aborted before it reached the server)", [...new Set(blockedWrites)]);
+reportBlockedWrites();
 console.log(`write guard: ${blockedWrites.length} write request(s) aborted as failures, ${ignoredPings.length} usage ping(s) aborted (POST /api/telemetry, not a failure)`);
 
 for (const f of failures) {
