@@ -322,7 +322,7 @@ function Row({
           key={l}
           title={l}
           data-label-chip
-          className="hidden min-w-[60px] max-w-[140px] shrink truncate rounded-md border border-border bg-[var(--surface-2)] px-[6px] py-px font-mono text-[10.5px] text-[var(--text-3)] @min-[820px]:inline-block"
+          className="hidden min-w-[60px] max-w-[140px] shrink truncate rounded-md border border-border bg-[var(--surface-2)] px-[6px] py-px font-mono text-[10.5px] text-[var(--text-3)] @min-[890px]:inline-block"
         >
           {l}
         </span>

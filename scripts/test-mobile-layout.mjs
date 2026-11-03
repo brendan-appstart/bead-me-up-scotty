@@ -126,6 +126,8 @@ function measure({ minTarget, minInputFont, minTextFont, listView = false, deskW
     slivers: [],
     idCut: [],
     idChecked: 0,
+    chips: { total: 0, shown: 0 },
+    drawerHeaderCopy: -1,
     offscreen: [],
     sideScrollers: [],
     smallInputs: [],
@@ -267,6 +269,18 @@ function measure({ minTarget, minInputFont, minTextFont, listView = false, deskW
     }
   }
 
+  // List label chips (data-label-chip): how many exist and how many show.
+  for (const el of document.querySelectorAll("[data-label-chip]")) {
+    out.chips.total += 1;
+    if (visible(el)) out.chips.shown += 1;
+  }
+  // The drawer header holds the id button and Copy link. Counting there proves the drawer's own
+  // id button was checked, which the page-wide count cannot (the board cards also have Copy buttons).
+  const copyLink = document.querySelector('button[title="Copy link"]');
+  if (copyLink && copyLink.parentElement) {
+    out.drawerHeaderCopy = [...copyLink.parentElement.querySelectorAll('button[title^="Copy "]')].filter((b) => visible(b)).length;
+  }
+
   const seen = new Set();
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   for (let n = walker.nextNode(); n; n = walker.nextNode()) {
@@ -290,6 +304,25 @@ const failures = [];
 const desktop = {};
 const compared = { controls: 0, views: 0 };
 const idChecks = [];
+// Whether the long-label chips must show, by sidebar pass and viewport width. The chips show when the
+// list pane content is 890px or more: the default sidebar gives 752px at 1024, 778px at 1050,
+// 828px at 1100 and 928px at 1200; the 400px sidebar gives 580px at 1024, 656px at 1100,
+// 836px at 1280 and 996px at 1440. A row with two 140px chips needs about 883px of content.
+const CHIPS_SHOWN = {
+  default: { 1024: false, 1050: false, 1100: false, 1200: true },
+  "sidebar-400": { 1024: false, 1100: false, 1280: false, 1440: true },
+};
+function chipProblem(pass, width, shown) {
+  const want = (CHIPS_SHOWN[pass] || {})[width];
+  if (want === undefined || want === shown) return "";
+  return `label chips are ${shown ? "visible" : "hidden"} at ${width}px (${pass} sidebar); expected ${want ? "visible" : "hidden"}`;
+}
+// A page with no chip element would pass on nothing, so that is a problem where chips are expected.
+function chipVerdict(pass, width, chips) {
+  if ((CHIPS_SHOWN[pass] || {})[width] === undefined) return "";
+  if (!chips.total) return `no label chip element on the page at ${width}px (${pass} sidebar)`;
+  return chipProblem(pass, width, chips.shown > 0);
+}
 let measuredPages = 0;
 let measuredStates = 0;
 let nativeDialogs = 0;
@@ -487,10 +520,12 @@ async function routeLongId(page) {
   });
 }
 
-async function openView(page, view) {
+async function openView(page, view, opts = {}) {
+  // The 1280px baseline uses demo data, so the fixtures stay off there unless the caller asks for them.
+  const fixtures = Boolean(opts.fixtures) || page.viewportSize().width < 1280;
   if (view === "drawer" || view === "drawer-markdown") await routeFixture(page);
   // The 1280px baseline was recorded with the demo ids, so desktop keeps them.
-  if ((view === "list" || view === "board") && page.viewportSize().width < 1280) await routeLongId(page);
+  if ((view === "list" || view === "board") && fixtures) await routeLongId(page);
   await page.goto(`${base}/p/demo?${viewQuery(view)}`, { waitUntil: "domcontentloaded" });
   await page.locator("main, [role='main'], h1, h2").first().waitFor({ timeout: 15000 });
   // The beads stream keeps the network busy, so wait a fixed time for the first render.
@@ -499,11 +534,11 @@ async function openView(page, view) {
     // Without the fixture text on the page the markdown checks would pass on nothing.
     await page.getByText(FIXTURE_MARK).first().waitFor({ timeout: 10000 });
   }
-  if (view === "list" && page.viewportSize().width < 1280) {
+  if (view === "list" && fixtures) {
     // Without the long id on the page the id check would pass on nothing.
     await page.locator(`button[title="Copy ${LONG_ID}"]`).first().waitFor({ timeout: 10000 });
   }
-  if ((view === "list" || view === "board") && page.viewportSize().width < 1280) {
+  if ((view === "list" || view === "board") && fixtures) {
     // The list hides the chips below 1024px, so wait for the element and not for its display.
     await page.getByText(LONG_LABELS[0], { exact: true }).first().waitFor({ state: "attached", timeout: 10000 });
   }
@@ -726,6 +761,16 @@ async function runSelftest() {
       measured: (m) => m.idChecked === 0,
     },
     {
+      name: "49j.5: the drawer header count holds the id button and Copy link, not the cards behind it",
+      html: `<main style="font:16px sans-serif"><div id="card"><button title="Copy bd-9" style="min-height:44px">bd-9</button><button title="Copy bd-8" style="min-height:44px">bd-8</button></div><div id="hdr"><button title="Copy bd-1" style="min-height:44px">bd-1</button><button title="Copy link" style="min-height:44px">l</button></div></main>`,
+      measured: (m) => m.drawerHeaderCopy === 2,
+    },
+    {
+      name: "49j.5: a page with no Copy link button reports no drawer header",
+      html: `<main style="font:16px sans-serif"><button title="Copy bd-1" style="min-height:44px">bd-1</button></main>`,
+      measured: (m) => m.drawerHeaderCopy === -1,
+    },
+    {
       name: "eui AC 1: a bead id button in a list row is not a row title",
       listView: true,
       html: `<main style="font:16px sans-serif"><div data-keyboard-bead-id="x" role="button"><button title="Copy bd-abcdef12345" class="truncate" style="display:block;width:88px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:12px monospace;min-height:44px">bd-abcdef12345</button></div></main>`,
@@ -855,7 +900,7 @@ async function runSelftest() {
       report(360, c.label || c.name, m);
       const kinds = failures.map((f) => f.kind);
       const ok = c.measured ? c.measured(m) : c.kinds ? c.kinds(kinds) : c.controls(m.controls);
-      results.push({ name: c.name, ok, detail: c.measured ? `idChecked ${m.idChecked}` : c.kinds ? kinds.join(" | ") || "no failures" : JSON.stringify(m.controls.map((x) => x.key)) });
+      results.push({ name: c.name, ok, detail: c.measured ? `idChecked ${m.idChecked}, drawerHeaderCopy ${m.drawerHeaderCopy}` : c.kinds ? kinds.join(" | ") || "no failures" : JSON.stringify(m.controls.map((x) => x.key)) });
       await page.close();
     }
     // Write guard (self-49j.1). A stub answers http://guard.test, so a request that gets through
@@ -974,6 +1019,18 @@ async function runSelftest() {
   const listOnly = checkAcceptedHits(["list"]);
   results.push({ name: "49j.2: a run limited to the list checks no entry", ok: listOnly.length === 0, detail: listOnly.join(" | ") || "no problem" });
   resetAccepted();
+  const chipCases = [
+    ["default", 1050, true, 1], ["default", 1024, true, 1], ["default", 1100, true, 1],
+    ["default", 1100, false, 0], ["default", 1050, false, 0], ["default", 1200, false, 1], ["default", 1200, true, 0],
+    ["sidebar-400", 1100, true, 1], ["sidebar-400", 1280, true, 1], ["sidebar-400", 1280, false, 0],
+    ["sidebar-400", 1440, false, 1], ["sidebar-400", 1440, true, 0],
+  ];
+  for (const [pass, width, shown, problems] of chipCases) {
+    const r = chipProblem(pass, width, shown);
+    results.push({ name: `49j.5: chips ${shown ? "visible" : "hidden"} at ${width}px (${pass}) ${problems ? "is a problem" : "is expected"}`, ok: (r ? 1 : 0) === problems, detail: r || "no problem" });
+  }
+  results.push({ name: "49j.5: a width with no expectation reports no problem", ok: chipProblem("default", 820, true) === "", detail: chipProblem("default", 820, true) || "no problem" });
+  resetAccepted();
   const unit = (name, fn) => {
     try {
       const r = fn();
@@ -1069,7 +1126,14 @@ try {
         }
         report(width, view, m, layoutOnlyWidths.includes(width));
         measuredPages += 1;
-        if (view === "drawer" || view === "list") idChecks.push(`${view} ${width}px: ${m.idChecked}`);
+        if (view === "drawer") {
+          idChecks.push(`drawer ${width}px: ${m.idChecked} (header ${m.drawerHeaderCopy})`);
+          if (m.drawerHeaderCopy < 2) fail(width, view, "drawer header Copy buttons not found", [`found ${m.drawerHeaderCopy}, expected the id button and Copy link`]);
+        } else if (view === "list") {
+          idChecks.push(`list ${width}px: ${m.idChecked}`);
+          const chip = chipVerdict("default", width, m.chips);
+          if (chip) fail(width, view, "label chips show at the wrong widths", [chip]);
+        }
         if (width <= 768 && (view === "board" || view === "list")) {
           if (!(await swipeScrolls(page))) {
             fail(width, view, "a swipe on a draggable card or row does not scroll the page", [
@@ -1139,12 +1203,16 @@ try {
       const page = await context.newPage();
       page.on("pageerror", (e) => errors.push(`${width}px ${label}: ${e.message}`));
       try {
-        await openView(page, view);
+        await openView(page, view, { fixtures: true });
         const m = await page.evaluate(measure, {
           minTarget: MIN_TARGET, minInputFont: MIN_INPUT_FONT, minTextFont: MIN_TEXT_FONT,
           listView: view === "list",
         });
         report(width, label, m, true);
+        if (view === "list") {
+          const chip = chipVerdict("sidebar-400", width, m.chips);
+          if (chip) fail(width, label, "label chips show at the wrong widths", [chip]);
+        }
         measuredPages += 1;
       } catch (e) {
         fail(width, label, "audit error", [String(e.message || e).split("\n")[0]]);
