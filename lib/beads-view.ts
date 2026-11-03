@@ -240,6 +240,135 @@ export function epicProgress(
   return { closed, total, pct: total ? Math.round((closed / total) * 100) : 0 };
 }
 
+/**
+ * A node of the Epics screen's nested epic tree (GH #40): one epic with its
+ * direct children — nested epics and plain tasks alike.
+ */
+export type EpicTreeNode = {
+  bead: Bead;
+  children: EpicTreeNode[];
+};
+
+/** Roots and siblings share one order: open before closed, then priority, then id. */
+function epicTreeOrder(a: Bead, b: Bead): number {
+  return (
+    Number(a.status === "closed") - Number(b.status === "closed") ||
+    a.priority - b.priority ||
+    a.id.localeCompare(b.id)
+  );
+}
+
+/**
+ * Build the nested epic tree for the Epics screen (GH #40).
+ *
+ * Every epic appears exactly once: an epic whose parent is another epic hangs
+ * off that parent instead of also rendering as its own top-level card, so a
+ * four-level hierarchy reads as one tree rather than four unrelated cards.
+ * Parent cycles cannot swallow epics — their members have no root above them,
+ * so any epic the root walk does not reach is appended as an additional root.
+ */
+export function buildEpicTree(beads: Bead[]): EpicTreeNode[] {
+  const byId = new Map<string, Bead>();
+  for (const bead of beads) {
+    if (!byId.has(bead.id)) byId.set(bead.id, bead);
+  }
+
+  const epicIds = new Set<string>();
+  for (const bead of byId.values()) {
+    if (bead.issue_type === "epic") epicIds.add(bead.id);
+  }
+
+  // One pass collects each epic's direct children — nested epics and plain
+  // tasks alike — the same shape childrenCountMap uses. A task's own children
+  // are not collected, so tasks stay leaves as on the flat screen.
+  const childEdges = new Map<string, Bead[]>();
+  for (const bead of byId.values()) {
+    for (const dependency of bead.dependencies ?? []) {
+      if (dependency.type !== "parent-child" || !epicIds.has(dependency.depends_on_id)) continue;
+      const siblings = childEdges.get(dependency.depends_on_id);
+      if (siblings) siblings.push(bead);
+      else childEdges.set(dependency.depends_on_id, [bead]);
+    }
+  }
+
+  // An epic parented by a non-epic (or by a bead bd export dropped) has no
+  // epic above it, so it roots here rather than vanishing with its parent.
+  const roots: Bead[] = [];
+  for (const bead of byId.values()) {
+    if (!epicIds.has(bead.id)) continue;
+    const parent = parentOf(bead, byId);
+    if (!parent || !epicIds.has(parent.id)) roots.push(bead);
+  }
+  roots.sort(epicTreeOrder);
+
+  const visited = new Set<string>();
+  const build = (bead: Bead): EpicTreeNode => {
+    visited.add(bead.id);
+    const children = (childEdges.get(bead.id) ?? [])
+      .filter((child) => !visited.has(child.id))
+      .sort(epicTreeOrder);
+    return { bead, children: children.map(build) };
+  };
+
+  const tree = roots.map(build);
+  // Cycle members (A the parent of B while B is the parent of A) have no root
+  // above them, so the walk above never reaches them. Append them as roots
+  // rather than dropping epics the user can no longer see at all; the visited
+  // guard keeps an epic that an earlier orphan already pulled in unique.
+  const orphans = [...byId.values()]
+    .filter((bead) => epicIds.has(bead.id))
+    .sort(epicTreeOrder);
+  for (const orphan of orphans) {
+    if (visited.has(orphan.id)) continue;
+    tree.push(build(orphan));
+  }
+  return tree;
+}
+
+/**
+ * Apply the Epics screen's "hide closed" filter to a nested tree.
+ *
+ * A closed node is dropped and its still-open epic descendants are promoted to
+ * the nearest visible ancestor, so hiding a closed epic cannot hide open work
+ * beneath it. Tasks under a hidden epic go with it — on the flat screen they
+ * were only reachable through the hidden card. `keepId` survives the filter: a
+ * focused closed epic stays for the first render, until the focus effect turns
+ * the filter off.
+ */
+export function filterEpicTreeClosed(nodes: EpicTreeNode[], keepId?: string): EpicTreeNode[] {
+  const visible: EpicTreeNode[] = [];
+  for (const node of nodes) {
+    if (node.bead.status === "closed" && node.bead.id !== keepId) {
+      for (const child of filterEpicTreeClosed(node.children, keepId)) {
+        if (child.bead.issue_type === "epic") visible.push(child);
+      }
+    } else {
+      visible.push({ ...node, children: filterEpicTreeClosed(node.children, keepId) });
+    }
+  }
+  return visible;
+}
+
+/**
+ * Epic ancestors of `beadId`, nearest first — the chain the Epics screen must
+ * auto-expand so a focused nested epic is in the DOM to scroll to (GH #40).
+ * Stops at the first non-epic parent and on malformed cycles.
+ */
+export function epicAncestorIds(beads: Bead[], beadId: string): string[] {
+  const index = makeIndex(beads);
+  const ancestors: string[] = [];
+  const seen = new Set<string>([beadId]);
+  let cursor = index.get(beadId);
+  while (cursor) {
+    const parent = parentOf(cursor, index);
+    if (!parent || parent.issue_type !== "epic" || seen.has(parent.id)) break;
+    ancestors.push(parent.id);
+    seen.add(parent.id);
+    cursor = parent;
+  }
+  return ancestors;
+}
+
 // ---- relative time ----
 
 export function relTime(iso?: string | null, now: Date = new Date()): string {
