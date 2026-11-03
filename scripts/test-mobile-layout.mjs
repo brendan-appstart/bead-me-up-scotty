@@ -61,8 +61,9 @@ const widths = [360, 390, 768];
 // 1100 and 1200 px are between 1024 and the 1280 desktop width: the sidebar and the page header
 // compete for room there, and a header that does not wrap loses its right-hand controls.
 // 1016 px is the first width where list rows stop wrapping with the default sidebar (the pane
-// content is 744 px, over the 740 px threshold).
-const layoutOnlyWidths = [820, 1000, 1016, 1100, 1200];
+// content is 744 px, over the 740 px threshold). 1024 and 1050 px are where the label chips first
+// show (lg), so a long label can push a row sideways there.
+const layoutOnlyWidths = [820, 1000, 1016, 1024, 1050, 1100, 1200];
 const MIN_TARGET = 44;
 const MIN_INPUT_FONT = 16;
 // The app shell is text-sm (14px). The floor guards against a regression of that size.
@@ -124,6 +125,7 @@ function measure({ minTarget, minInputFont, minTextFont, listView = false, deskW
     squashed: [],
     slivers: [],
     idCut: [],
+    idChecked: 0,
     offscreen: [],
     sideScrollers: [],
     smallInputs: [],
@@ -259,6 +261,7 @@ function measure({ minTarget, minInputFont, minTextFont, listView = false, deskW
   for (const el of document.body.querySelectorAll('button[title^="Copy "]')) {
     if (listView && window.innerWidth < 640) break;
     if (!visible(el) || inCanvas(el)) continue;
+    out.idChecked += 1;
     if (el.scrollWidth > el.clientWidth + 1 && out.idCut.length < 8) {
       out.idCut.push(`${describe(el)} scrollWidth ${el.scrollWidth} > clientWidth ${el.clientWidth}`);
     }
@@ -286,6 +289,7 @@ const errors = [];
 const failures = [];
 const desktop = {};
 const compared = { controls: 0, views: 0 };
+const idChecks = [];
 let measuredPages = 0;
 let measuredStates = 0;
 let nativeDialogs = 0;
@@ -711,6 +715,17 @@ async function runSelftest() {
       kinds: (k) => k.some((x) => x.includes("sliver")),
     },
     {
+      name: "49j.2: a visible Copy button in a non-list view at 360px is counted by the id check",
+      html: `<main style="font:16px sans-serif"><button title="Copy bd-1" style="min-height:44px;min-width:44px">bd-1</button></main>`,
+      measured: (m) => m.idChecked === 1,
+    },
+    {
+      name: "49j.2: a Copy button in a list row at 360px is not counted (the id check is skipped there)",
+      listView: true,
+      html: `<main style="font:16px sans-serif"><button title="Copy bd-1" style="min-height:44px;min-width:44px">bd-1</button></main>`,
+      measured: (m) => m.idChecked === 0,
+    },
+    {
       name: "eui AC 1: a bead id button in a list row is not a row title",
       listView: true,
       html: `<main style="font:16px sans-serif"><div data-keyboard-bead-id="x" role="button"><button title="Copy bd-abcdef12345" class="truncate" style="display:block;width:88px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:12px monospace;min-height:44px">bd-abcdef12345</button></div></main>`,
@@ -839,8 +854,8 @@ async function runSelftest() {
       failures.length = 0;
       report(360, c.label || c.name, m);
       const kinds = failures.map((f) => f.kind);
-      const ok = c.kinds ? c.kinds(kinds) : c.controls(m.controls);
-      results.push({ name: c.name, ok, detail: c.kinds ? kinds.join(" | ") || "no failures" : JSON.stringify(m.controls.map((x) => x.key)) });
+      const ok = c.measured ? c.measured(m) : c.kinds ? c.kinds(kinds) : c.controls(m.controls);
+      results.push({ name: c.name, ok, detail: c.measured ? `idChecked ${m.idChecked}` : c.kinds ? kinds.join(" | ") || "no failures" : JSON.stringify(m.controls.map((x) => x.key)) });
       await page.close();
     }
     // Write guard (self-49j.1). A stub answers http://guard.test, so a request that gets through
@@ -951,6 +966,14 @@ async function runSelftest() {
   results.push({ name: "49j.2: the probe does not depend on the file order", ok: pA !== "" && pA === pAr, detail: `${pA} | ${pAr}` });
   results.push({ name: "49j.2: an empty file list still prints a probe line", ok: contentProbe([]).startsWith("served content: 0 files"), detail: contentProbe([]) || "empty" });
   resetAccepted();
+  dropAccepted([accepted], "board");
+  const boardOnly = checkAcceptedHits(["board"]);
+  results.push({ name: "49j.2: a run limited to the board checks only the board entry", ok: boardOnly.length === 0, detail: boardOnly.join(" | ") || "no problem" });
+  const boardAndDrawer = checkAcceptedHits(["board", "drawer"]);
+  results.push({ name: "49j.2: a run with the board and the drawer reports the missing drawer hit", ok: boardAndDrawer.length === 1 && boardAndDrawer[0].startsWith("drawer"), detail: boardAndDrawer.join(" | ") || "no problem reported" });
+  const listOnly = checkAcceptedHits(["list"]);
+  results.push({ name: "49j.2: a run limited to the list checks no entry", ok: listOnly.length === 0, detail: listOnly.join(" | ") || "no problem" });
+  resetAccepted();
   const unit = (name, fn) => {
     try {
       const r = fn();
@@ -1046,6 +1069,7 @@ try {
         }
         report(width, view, m, layoutOnlyWidths.includes(width));
         measuredPages += 1;
+        if (view === "drawer" || view === "list") idChecks.push(`${view} ${width}px: ${m.idChecked}`);
         if (width <= 768 && (view === "board" || view === "list")) {
           if (!(await swipeScrolls(page))) {
             fail(width, view, "a swipe on a draggable card or row does not scroll the page", [
@@ -1171,6 +1195,7 @@ if (snapshotFile) {
 }
 
 reportBlockedWrites();
+console.log(`id check: Copy buttons checked per page: ${idChecks.join("; ")}`);
 console.log(`write guard: ${blockedWrites.length} write request(s) aborted as failures, ${ignoredPings.length} usage ping(s) aborted (POST /api/telemetry, not a failure)`);
 
 for (const f of failures) {
