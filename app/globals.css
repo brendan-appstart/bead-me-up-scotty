@@ -366,7 +366,10 @@ html[data-theme="rose-pine"] {
   border-left: 3px solid var(--border-strong);
   color: var(--text-3);
 }
-.bd-md table { border-collapse: collapse; margin: 0.6em 0; font-size: 0.95em; }
+/* A wide table scrolls sideways inside its wrapper (DescriptionContent) so it
+   cannot widen a phone-sized page. */
+.bd-md-table-scroll { max-width: 100%; margin: 0.6em 0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.bd-md table { border-collapse: collapse; margin: 0; font-size: 0.95em; }
 .bd-md th, .bd-md td { border: 1px solid var(--border); padding: 4px 8px; text-align: left; }
 .bd-md hr { margin: 0.9em 0; border: none; border-top: 1px solid var(--border); }
 
