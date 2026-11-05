@@ -55,6 +55,13 @@ export function DescriptionContent({
         />
       );
     },
+    // A wide table scrolls sideways inside its own box instead of pushing the
+    // page wider than a phone screen (see .bd-md-table-scroll in globals.css).
+    table: ({ children }) => (
+      <div className="bd-md-table-scroll">
+        <table>{children}</table>
+      </div>
+    ),
     input: ({ type, checked }) => {
       if (type !== "checkbox") return null;
       const idx = counter.i++;
