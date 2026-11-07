@@ -36,7 +36,9 @@ async function runBdRaw(
   try {
     const { stdout } = await pExecFile(BD_BIN, args, {
       cwd: opts.repoPath,
-      maxBuffer: 32 * 1024 * 1024,
+      // No cap: the export of a large board runs past any fixed limit, and
+      // its result is held whole (list + JSON response) regardless.
+      maxBuffer: Infinity,
       env: {
         ...process.env,
         BD_JSON_ENVELOPE: "1",
