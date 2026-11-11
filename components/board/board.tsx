@@ -2,7 +2,8 @@
 import * as React from "react";
 import {
   DndContext,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   closestCorners,
@@ -77,7 +78,9 @@ export function Board() {
   const [now] = React.useState(() => Date.now());
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    // A swipe scrolls the page. A press of 250 ms starts a drag.
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
   );
 
   // The card being dragged and the column under the pointer. The card renders in a
@@ -197,7 +200,7 @@ export function Board() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="flex flex-shrink-0 items-center gap-3 border-b border-border bg-[var(--surface)] p-[14px_22px]">
+      <header className="flex flex-shrink-0 flex-wrap items-center gap-3 border-b border-border bg-[var(--surface)] p-[14px_22px]">
         <div className="mr-1 flex flex-col gap-px">
           <h1 className="m-0 text-base font-[650] tracking-[-.01em]">Board</h1>
           <span className="text-[11.5px] text-[var(--text-3)]">
@@ -253,7 +256,7 @@ export function Board() {
         )}
       </header>
 
-      <div className="bd-scroll min-h-0 flex-1 overflow-x-auto overflow-y-hidden p-[18px_22px]">
+      <div className="bd-scroll min-h-0 flex-1 overflow-x-auto overflow-y-hidden p-[18px_22px] max-lg:overflow-x-hidden max-lg:overflow-y-auto">
         {loading && beads.length === 0 ? (
           <div className="text-[13px] text-[var(--text-3)]">Loading beads…</div>
         ) : (
@@ -265,7 +268,7 @@ export function Board() {
             onDragEnd={onDragEnd}
             onDragCancel={endDrag}
           >
-            <div className="flex h-full min-h-0 gap-4">
+            <div className="flex h-full min-h-0 gap-4 max-lg:h-auto max-lg:flex-col">
               {shownColumns.map(({ col, cards }) => (
                 <Column
                   key={col.id}

@@ -342,7 +342,8 @@ html[data-theme="rose-pine"] {
 .bd-md ol { list-style: decimal; }
 .bd-md li { margin: 0.15em 0; }
 /* GFM task lists render as a list item with a checkbox; drop the bullet. */
-.bd-md li:has(> input[type="checkbox"]) { list-style: none; margin-left: -1.2em; }
+.bd-md li:has(> input[type="checkbox"]),
+.bd-md li:has(> label > input[type="checkbox"]) { list-style: none; margin-left: -1.2em; }
 .bd-md a { word-break: break-word; }
 .bd-md code {
   font-family: var(--font-mono, ui-monospace, monospace);
@@ -366,7 +367,8 @@ html[data-theme="rose-pine"] {
   border-left: 3px solid var(--border-strong);
   color: var(--text-3);
 }
-.bd-md table { border-collapse: collapse; margin: 0.6em 0; font-size: 0.95em; }
+.bd-md-scroll { overflow-x: auto; max-width: 100%; margin: 0.6em 0; }
+.bd-md table { border-collapse: collapse; margin: 0; font-size: 0.95em; }
 .bd-md th, .bd-md td { border: 1px solid var(--border); padding: 4px 8px; text-align: left; }
 .bd-md hr { margin: 0.9em 0; border: none; border-top: 1px solid var(--border); }
 
@@ -440,4 +442,73 @@ html[data-theme="rose-pine"] {
 }
 .react-flow .react-flow__controls-button svg {
   fill: currentColor;
+}
+
+/* Phones and small tablets (self-oof). 48rem is the width at which the shell
+   switches to the desktop sidebar, so this range includes 768px. Rules here are
+   not in a cascade layer, so they beat the Tailwind utilities without !important. */
+@media (max-width: 48rem) {
+  /* Tap targets of at least 44x44 px. An article card is excluded: it is a flex
+     item that holds other content, and a fixed min-height would let a flex column
+     squash it below its content height. */
+  button,
+  a[href],
+  select,
+  textarea,
+  [role="button"]:not(article),
+  [role="tab"],
+  [role="menuitem"],
+  [role="menuitemcheckbox"],
+  [role="menuitemradio"],
+  [role="switch"],
+  [role="option"],
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  /* A checkbox or radio keeps its drawn size. Its label is the tap target. */
+  input[type="checkbox"],
+  input[type="radio"] {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+  label:has(> input[type="checkbox"]),
+  label:has(> input[type="radio"]) {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 44px;
+    min-width: 44px;
+  }
+  /* 16px stops iOS from zooming into a focused field. */
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select {
+    font-size: 16px;
+  }
+  /* Captions and badges: nothing below 12px. Form fields keep the 16px rule above. */
+  [class*="text-[9px]"]:not(input):not(textarea):not(select),
+  [class*="text-[9.5px]"]:not(input):not(textarea):not(select),
+  [class*="text-[10px]"]:not(input):not(textarea):not(select),
+  [class*="text-[10.5px]"]:not(input):not(textarea):not(select),
+  [class*="text-[11px]"]:not(input):not(textarea):not(select),
+  [class*="text-[11.5px]"]:not(input):not(textarea):not(select) {
+    font-size: 12px;
+  }
+  /* Chart axis labels are SVG text with a font-size attribute. */
+  .recharts-cartesian-axis-tick-value {
+    font-size: 12px;
+  }
+  /* Code in a description is 0.9em or 0.86em of its text, which can fall under 12px. */
+  .bd-md code {
+    font-size: max(12px, 0.9em);
+  }
+  .bd-md pre code {
+    font-size: max(12px, 0.86em);
+  }
+  .bd-md-solo-link a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
 }

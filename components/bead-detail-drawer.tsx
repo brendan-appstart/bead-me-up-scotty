@@ -413,7 +413,7 @@ function DrawerBody({
     <>
       <SheetDescription className="sr-only">Bead details for {bead.id}</SheetDescription>
 
-      <div className="sticky top-0 z-[2] flex items-center gap-[10px] border-b border-border bg-[var(--drawer)] p-[15px_20px]">
+      <div className="sticky top-0 z-[2] flex items-center gap-[10px] border-b border-border bg-[var(--drawer)] p-[15px_20px] max-md:flex-wrap">
         {/* Naming the destination rather than saying "Back" — you arrive here
             from a subtask and need to know what you're returning to (GH #15).
             No left-arrow icon exists; the drawer already rotates `chevron`. */}

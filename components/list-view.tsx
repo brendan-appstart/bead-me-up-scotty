@@ -2,7 +2,8 @@
 import * as React from "react";
 import {
   DndContext,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   closestCenter,
@@ -70,7 +71,11 @@ export function ListView() {
   // One pass, not childrenOf() per row (that would be O(n^2)).
   const childCounts = React.useMemo(() => childrenCountMap(beads), [beads]);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    // A swipe scrolls the page. A press of 250 ms starts a drag.
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
+  );
 
   // Which board column each bead belongs to (shared with the Board view).
   const colById = React.useMemo(() => {
@@ -150,7 +155,7 @@ export function ListView() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="flex flex-shrink-0 items-center gap-3 border-b border-border bg-[var(--surface)] p-[14px_22px]">
+      <header className="flex flex-shrink-0 flex-wrap items-center gap-3 border-b border-border bg-[var(--surface)] p-[14px_22px]">
         <div className="mr-1 flex flex-col gap-px">
           <h1 className="m-0 text-base font-[650] tracking-[-.01em]">List</h1>
           <span className="text-[11.5px] text-[var(--text-3)]">
@@ -180,7 +185,7 @@ export function ListView() {
         )}
       </header>
 
-      <div className="bd-scroll min-h-0 flex-1 overflow-y-auto p-[12px_22px]">
+      <div className="bd-scroll @container min-h-0 flex-1 overflow-y-auto p-[12px_22px]">
         {loading && beads.length === 0 ? (
           <div className="text-[13px] text-[var(--text-3)]">Loading beads…</div>
         ) : rows.length === 0 ? (
@@ -288,7 +293,7 @@ function Row({
         opacity: isDragging ? 0.4 : 1,
         zIndex: isDragging ? 10 : undefined,
       }}
-      className={`flex w-full cursor-pointer touch-none items-center gap-3 rounded-[10px] border bg-[var(--surface)] px-[13px] py-[9px] text-left transition-[border-color,box-shadow] hover:border-[var(--border-strong)] hover:shadow-[var(--shadow)] focus-visible:outline-none ${
+      className={`flex w-full cursor-pointer touch-manipulation items-center gap-3 rounded-[10px] border @max-[740px]:flex-wrap @max-[740px]:gap-y-1 bg-[var(--surface)] px-[13px] py-[9px] text-left transition-[border-color,box-shadow] hover:border-[var(--border-strong)] hover:shadow-[var(--shadow)] focus-visible:outline-none ${
         selectedBeadId === bead.id
           ? "border-[var(--brand)] ring-2 ring-[var(--brand)]/30"
           : "border-border"
@@ -307,15 +312,17 @@ function Row({
       />
       <CopyableId
         id={bead.id}
-        className="w-[150px] flex-shrink-0 truncate font-mono text-[11.5px] text-[var(--text-3)]"
+        className="w-[88px] flex-shrink-0 truncate font-mono text-[11.5px] text-[var(--text-3)] min-[640px]:w-[150px]"
       />
-      <span className="min-w-0 flex-1 truncate text-[13.5px] font-[550] text-[var(--text)]">
+      <span className="min-w-[120px] flex-1 truncate text-[13.5px] font-[550] text-[var(--text)] @max-[740px]:order-1 @max-[740px]:basis-full @max-[740px]:whitespace-normal @max-[740px]:[overflow-wrap:anywhere]">
         {bead.title}
       </span>
       {labels.map((l) => (
         <span
           key={l}
-          className="hidden flex-shrink-0 rounded-md border border-border bg-[var(--surface-2)] px-[6px] py-px font-mono text-[10.5px] text-[var(--text-3)] lg:inline"
+          title={l}
+          data-label-chip
+          className="hidden min-w-[60px] max-w-[140px] shrink truncate rounded-md border border-border bg-[var(--surface-2)] px-[6px] py-px font-mono text-[10.5px] text-[var(--text-3)] @min-[890px]:inline-block"
         >
           {l}
         </span>
@@ -354,7 +361,7 @@ function Row({
           <span className="truncate">{parent.title}</span>
         </button>
       )}
-      <span className="flex-shrink-0">
+      <span className="flex-shrink-0 @max-[740px]:ml-auto">
         <PriorityChip p={bead.priority} />
       </span>
       <span className="hidden w-[26px] flex-shrink-0 justify-center sm:flex">
