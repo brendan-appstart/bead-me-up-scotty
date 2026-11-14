@@ -16,6 +16,18 @@ export function needsHuman(b: Bead): boolean {
 }
 
 /**
+ * A bead that exists only to get a person's answer opts in with this label.
+ * Respond and Dismiss then do what `bd human respond` / `bd human dismiss` do:
+ * close it, so it no longer blocks the beads that wait on it (#88). Without the label
+ * both leave the bead open, for an agent that asked on its own work bead.
+ */
+export const HUMAN_QUESTION_LABEL = "human-question";
+
+export function isHumanQuestion(b: Bead): boolean {
+  return (b.labels ?? []).includes(HUMAN_QUESTION_LABEL);
+}
+
+/**
  * A human-approval gate: an `issue_type === "gate"` bead created by
  * `bd gate create --type human`. Unlike `bd human` (a label on a normal bead),
  * a gate is its own bead whose sub-type lives in `await_type`, so it never
@@ -39,6 +51,28 @@ export function readyHumanGate(b: Bead, index: Map<string, Bead>): boolean {
 export function gateBlocks(gateId: string, beads: Bead[]): Bead[] {
   return beads.filter((b) =>
     (b.dependencies ?? []).some((d) => d.depends_on_id === gateId && BLOCKING_DEP_TYPES.includes(d.type as never)),
+  );
+}
+
+/** Statuses of beads that no answer moves on: done, or set aside on purpose. */
+const NOT_WAITING_STATUSES = new Set(["closed", "deferred", "pinned"]);
+
+/**
+ * Active beads that wait on this bead's answer (a blocking dependency on it).
+ * A hint on the Needs You card only: it never changes what Respond does.
+ * `parent-child` is left out, as in blockingDeps(): a child does not wait on
+ * its parent's answer. Closed, deferred and pinned beads are left out too.
+ */
+export function waitingOnAnswer(id: string, beads: Bead[]): Bead[] {
+  return beads.filter(
+    (b) =>
+      !NOT_WAITING_STATUSES.has(b.status) &&
+      (b.dependencies ?? []).some(
+        (d) =>
+          d.depends_on_id === id &&
+          d.type !== "parent-child" &&
+          BLOCKING_DEP_TYPES.includes(d.type as never),
+      ),
   );
 }
 

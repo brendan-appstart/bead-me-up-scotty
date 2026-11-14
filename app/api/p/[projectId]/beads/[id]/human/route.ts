@@ -19,6 +19,12 @@ const bodySchema = z.discriminatedUnion("action", [
  *    can read the answer and keep working (bead 0p0). This intentionally differs
  *    from `bd human respond`, which also closes the bead.
  *  - dismiss → remove the `human` label so it leaves the inbox.
+ *
+ * A bead labelled `human-question` exists only to get the answer, so both
+ * actions do exactly what `bd human respond` / `bd human dismiss` do instead:
+ * close it with reason "Responded" / "Dismissed" and keep the `human` label,
+ * so it no longer blocks the beads that wait on it, as after the CLI (#88).
+ * A retry on such a bead that is already closed changes nothing.
  */
 export async function POST(req: Request, { params }: Ctx) {
   try {
@@ -26,6 +32,13 @@ export async function POST(req: Request, { params }: Ctx) {
     const store = await getStore(projectId);
     const cfg = getConfig();
     const body = bodySchema.parse(await req.json());
+
+    // The bead's own label decides, never the client: a stale card can't close
+    // it. The store reads the label and writes in one step; null means no label.
+    const answered = body.action === "respond"
+      ? await store.respondHuman(id, body.text, cfg.humanActor)
+      : await store.dismissHuman(id, cfg.humanActor);
+    if (answered) return ok(answered);
 
     if (body.action === "respond") {
       await store.addComment(id, body.text, cfg.humanActor);

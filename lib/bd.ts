@@ -12,6 +12,7 @@ import {
   type DepType,
 } from "./schema";
 import type { BeadsStore, DoctorInfo } from "./store";
+import { isHumanQuestion } from "./beads-view";
 
 const pExecFile = promisify(execFile);
 const BD_BIN = process.env.BD_BIN || "bd";
@@ -288,6 +289,30 @@ export function createBdStore(repoPath: string): BeadsStore {
     removeLabel(id, label, actor) {
       return serializeWrite(repoPath, async () => {
         await runBdRaw(["update", id, "--remove-label", label], rw(actor));
+        return show(id);
+      });
+    },
+
+    // bd's own commands, so the comment, the close reason and the labels
+    // match a person who answers in the terminal exactly. The label is read
+    // in the same serialized step as the write, so no other write from Scotty
+    // comes between them.
+    respondHuman(id, text, actor) {
+      return serializeWrite(repoPath, async () => {
+        const current = await show(id);
+        if (!isHumanQuestion(current)) return null;
+        if (current.status === "closed") return current;
+        await runBdRaw(["human", "respond", id, "--response", text], rw(actor));
+        return show(id);
+      });
+    },
+
+    dismissHuman(id, actor) {
+      return serializeWrite(repoPath, async () => {
+        const current = await show(id);
+        if (!isHumanQuestion(current)) return null;
+        if (current.status === "closed") return current;
+        await runBdRaw(["human", "dismiss", id], rw(actor));
         return show(id);
       });
     },
