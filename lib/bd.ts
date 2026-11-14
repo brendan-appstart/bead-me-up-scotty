@@ -292,6 +292,22 @@ export function createBdStore(repoPath: string): BeadsStore {
       });
     },
 
+    // bd's own commands, so the comment, the close reason and the labels
+    // match a person who answers in the terminal exactly.
+    respondHuman(id, text, actor) {
+      return serializeWrite(repoPath, async () => {
+        await runBdRaw(["human", "respond", id, "--response", text], rw(actor));
+        return show(id);
+      });
+    },
+
+    dismissHuman(id, actor) {
+      return serializeWrite(repoPath, async () => {
+        await runBdRaw(["human", "dismiss", id], rw(actor));
+        return show(id);
+      });
+    },
+
     archive(id, actor) {
       return serializeWrite(repoPath, async () => {
         await runBdRaw(["close", id], rw(actor));

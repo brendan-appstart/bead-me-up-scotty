@@ -8,6 +8,8 @@ import { OriginBadge } from "@/components/board/bead-card";
 import { beadOrigin } from "@/lib/attribution";
 import {
   needsHuman,
+  isHumanQuestion,
+  waitingOnAnswer,
   readyHumanGate,
   gateBlocks,
   typeColor,
@@ -24,7 +26,8 @@ import { isSubmitKey } from "@/lib/keyboard-shortcuts";
  * Mission Control — "Needs You" decision inbox. Surfaces two kinds of items
  * waiting on a person:
  *   1. Beads an agent flagged for a decision (the `human` label, via `bd human`)
- *      — answered inline (comment + clear the flag) or dismissed.
+ *      — answered inline (comment + clear the flag) or dismissed. A bead that
+ *      also carries `human-question` closes instead, as `bd human` does (#88).
  *   2. Human-approval gates (`bd gate create --type human`) whose blockers are
  *      resolved — approved (closed, which unblocks dependents) from here so they
  *      don't sit invisibly waiting on the board (bead 8qc / gh-6).
@@ -172,11 +175,14 @@ function GateCard({ gate }: { gate: Bead }) {
 }
 
 function NeedsYouCard({ bead }: { bead: Bead }) {
-  const { humanAllowlist, openDetail, readOnly, selectedBeadId, selectBead } = useApp();
+  const { beads, humanAllowlist, openDetail, readOnly, selectedBeadId, selectBead } = useApp();
   const respond = useRespondHuman();
   const dismiss = useDismissHuman();
   const [text, setText] = React.useState("");
   const o = beadOrigin(bead, humanAllowlist);
+  // Say before the click what the buttons do: a `human-question` bead closes.
+  const closes = isHumanQuestion(bead);
+  const waiting = React.useMemo(() => waitingOnAnswer(bead.id, beads), [bead.id, beads]);
   const busy = respond.isPending || dismiss.isPending;
   const canRespond = !readOnly && !busy && !!text.trim();
   const submit = () => respond.mutate({ id: bead.id, text: text.trim() });
@@ -216,6 +222,23 @@ function NeedsYouCard({ bead }: { bead: Bead }) {
       </button>
       <CardDescription bead={bead} />
       <ReviewLinks bead={bead} />
+      {waiting.length > 0 && (
+        <p className="mb-3 text-[12px] leading-[1.5] text-[var(--text-2)]">
+          {waiting.length === 1 ? "1 bead is" : `${waiting.length} beads are`} waiting on this answer:{" "}
+          {waiting.map((b, i) => (
+            <React.Fragment key={b.id}>
+              {i > 0 && ", "}
+              <button
+                onClick={() => openDetail(b.id)}
+                className="font-mono text-[var(--text)] hover:underline"
+              >
+                {b.id}
+              </button>
+            </React.Fragment>
+          ))}
+          .
+        </p>
+      )}
       <textarea
         disabled={readOnly}
         value={text}
@@ -226,7 +249,9 @@ function NeedsYouCard({ bead }: { bead: Bead }) {
           if (canRespond) submit();
         }}
         rows={2}
-        placeholder="Answer the agent's question… (posts a comment; the bead stays open)"
+        placeholder={closes
+          ? "Answer the agent's question… (posts a comment and closes the bead)"
+          : "Answer the agent's question… (posts a comment; the bead stays open)"}
         className="mb-2 w-full resize-y rounded-[9px] border border-border bg-[var(--surface-2)] p-[9px_11px] text-[13px] leading-[1.5] text-[var(--text)] outline-none focus:border-[var(--brand)]"
       />
       <div className="flex items-center justify-end gap-2">
@@ -235,7 +260,7 @@ function NeedsYouCard({ bead }: { bead: Bead }) {
           onClick={() => dismiss.mutate({ id: bead.id })}
           className="h-8 rounded-lg border border-border bg-[var(--surface-2)] px-3 text-[12.5px] font-[550] text-[var(--text-2)] hover:bg-[var(--surface-3)] disabled:opacity-50"
         >
-          Dismiss
+          {closes ? "Dismiss & close" : "Dismiss"}
         </button>
         <button
           disabled={!canRespond}
@@ -243,7 +268,7 @@ function NeedsYouCard({ bead }: { bead: Bead }) {
           className="flex h-8 items-center gap-[6px] rounded-lg px-3 text-[12.5px] font-[550] text-white disabled:opacity-50"
           style={{ background: "var(--brand)" }}
         >
-          <Icon name="check" size={14} /> Respond
+          <Icon name="check" size={14} /> {closes ? "Respond & close" : "Respond"}
         </button>
       </div>
     </div>

@@ -82,6 +82,12 @@ npm, Docker) are below.
 - **Dependencies & graph** — view/add/remove typed dependencies in the detail
   drawer, plus an interactive React Flow dependency graph (drag node→node to link).
 - **Comments** — author-stamped comment threads with a composer on every bead.
+- **Needs You** — answer or dismiss the beads that agents flag with `bd human`.
+  By default the bead stays open, so an agent can keep working on it. A bead that
+  also carries the `human-question` label exists only for the answer: **Respond &
+  close** and **Dismiss & close** close it as `bd human respond` and `bd human
+  dismiss` do, so the beads that wait on it become ready. Each card says how many
+  open beads wait on its answer.
 - **Bead links** — open a bead directly with `/p/<project>?bead=<id>`. The address
   bar follows the open drawer; its **Copy link** button copies a shareable link,
   including in read-only mode. Drawer navigation keeps its own Back trail.

@@ -36,6 +36,13 @@ export interface BeadsStore {
   /** Create a human approval gate that blocks `blocks` (`bd gate create --type human`). */
   createGate(blocks: string, reason: string | undefined, actor: string): Promise<Bead>;
   removeLabel(id: string, label: string, actor: string): Promise<Bead>;
+  /**
+   * `bd human respond`: a "Response: …" comment, then close with reason
+   * "Responded". The `human` label stays, as the CLI leaves it.
+   */
+  respondHuman(id: string, text: string, actor: string): Promise<Bead>;
+  /** `bd human dismiss`: close with reason "Dismissed"; the `human` label stays. */
+  dismissHuman(id: string, actor: string): Promise<Bead>;
   archive(id: string, actor: string): Promise<Bead>;
   doctor(): Promise<DoctorInfo>;
 }

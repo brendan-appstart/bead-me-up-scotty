@@ -141,6 +141,15 @@ export const demoStore: BeadsStore = {
     b.updated_at = nowIso();
     return { ...b };
   },
+  async respondHuman(id, text, actor) {
+    // Mirror `bd human respond`: a "Response: …" comment, then close as "Responded".
+    await demoStore.addComment(id, `Response: ${text}`, actor);
+    return demoStore.setStatus(id, "closed", actor, "Responded");
+  },
+  async dismissHuman(id, actor) {
+    // Mirror `bd human dismiss`: close as "Dismissed", no comment.
+    return demoStore.setStatus(id, "closed", actor, "Dismissed");
+  },
   async archive(id) {
     const b = find(id);
     b.status = "closed";

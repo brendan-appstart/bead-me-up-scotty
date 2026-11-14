@@ -1,6 +1,7 @@
 import { getStore } from "@/lib/store";
 import { getConfig } from "@/lib/config";
 import { ok, fail } from "@/lib/api";
+import { isHumanQuestion } from "@/lib/beads-view";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +20,11 @@ const bodySchema = z.discriminatedUnion("action", [
  *    can read the answer and keep working (bead 0p0). This intentionally differs
  *    from `bd human respond`, which also closes the bead.
  *  - dismiss → remove the `human` label so it leaves the inbox.
+ *
+ * A bead labelled `human-question` exists only to get the answer, so both
+ * actions do exactly what `bd human respond` / `bd human dismiss` do instead:
+ * close it with reason "Responded" / "Dismissed" and keep the `human` label.
+ * The beads that wait on it become ready, as after the CLI (#88).
  */
 export async function POST(req: Request, { params }: Ctx) {
   try {
@@ -26,6 +32,15 @@ export async function POST(req: Request, { params }: Ctx) {
     const store = await getStore(projectId);
     const cfg = getConfig();
     const body = bodySchema.parse(await req.json());
+
+    // The bead's own label decides, never the client: a stale card can't close it.
+    const current = await store.get(id);
+    if (current && isHumanQuestion(current)) {
+      const bead = body.action === "respond"
+        ? await store.respondHuman(id, body.text, cfg.humanActor)
+        : await store.dismissHuman(id, cfg.humanActor);
+      return ok(bead);
+    }
 
     if (body.action === "respond") {
       await store.addComment(id, body.text, cfg.humanActor);
