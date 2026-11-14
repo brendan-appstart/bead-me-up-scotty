@@ -27,6 +27,7 @@ import { useUrlFilters } from "@/hooks/use-url-filters";
 import { matchesFilters, labelOptionsFrom, assigneeOptionsFrom } from "@/lib/filters";
 import { BOARD_COLUMNS, COLUMN_ORDER, colOf } from "@/lib/board-columns";
 import { beadOrigin, originTitle } from "@/lib/attribution";
+import { mergeVisibleOrder } from "@/lib/column-order";
 import {
   catColor,
   statusLabel,
@@ -142,7 +143,11 @@ export function ListView() {
       const oldI = ids.indexOf(activeId);
       const newI = ids.indexOf(overId);
       if (oldI === -1 || newI === -1 || oldI === newI) return;
-      setOrder.mutate({ columnId: activeCol, ids: arrayMove(ids, oldI, newI) });
+      // `ids` is only the visible rows; merge so hidden beads keep their ranks.
+      setOrder.mutate({
+        columnId: activeCol,
+        ids: mergeVisibleOrder(orders[activeCol], ids, arrayMove(ids, oldI, newI)),
+      });
     } else {
       // Across columns → status change (cross-column = status, like the Board).
       const target = BOARD_COLUMNS.find((c) => c.id === overCol);

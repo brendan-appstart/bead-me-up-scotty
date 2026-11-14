@@ -23,6 +23,7 @@ import { useBoardPrefs } from "@/hooks/use-board-prefs";
 import { useUrlFilters } from "@/hooks/use-url-filters";
 import { useUrlState } from "@/hooks/use-url-state";
 import { isBlocked, childrenCountMap } from "@/lib/beads-view";
+import { mergeVisibleOrder } from "@/lib/column-order";
 import { FilterBar } from "@/components/filter-bar";
 import { matchesFilters, labelOptionsFrom, assigneeOptionsFrom } from "@/lib/filters";
 import {
@@ -187,7 +188,11 @@ export function Board() {
     const oldIndex = ids.indexOf(activeId);
     const newIndex = overRaw === activeCol ? ids.length - 1 : ids.indexOf(overRaw);
     if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
-    setOrder.mutate({ columnId: activeCol, ids: arrayMove(ids, oldIndex, newIndex) });
+    // `ids` is only the visible cards; merge so hidden beads keep their ranks.
+    setOrder.mutate({
+      columnId: activeCol,
+      ids: mergeVisibleOrder(orders[activeCol], ids, arrayMove(ids, oldIndex, newIndex)),
+    });
   }
 
   const draggingBead = draggingId ? index.get(draggingId) : undefined;
