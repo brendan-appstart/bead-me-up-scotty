@@ -1,16 +1,33 @@
-// Mobile layout audit (self-oof).
+// Mobile layout audit.
 //
 // For every view and for the widths 360, 390 and 768 px this checks:
-//   AC 3  the page does not scroll sideways (the graph canvas is exempt)
-//   AC 4  every visible control is at least 44x44 px
-//   AC 5  the main element uses at least 14 px (a guard: the app shell is text-sm),
-//         every input, textarea and select uses at least 16 px, and no visible
-//         text is below 12 px
+//   - the page does not scroll sideways (the graph canvas is exempt)
+//   - every visible control is at least 44x44 px
+//   - the main element uses at least 14 px (a guard: the app shell is text-sm),
+//     every input, textarea and select uses at least 16 px, and no visible
+//     text is below 12 px
 // Exempt: the graph canvas (react-flow pane and its nodes), which pans and zooms.
 // A checkbox or radio is measured by its enclosing label, not by the 20 px box.
 // The audit fails when that label wraps more than one control.
+// A control is off screen when an overflow hidden or clip ancestor cuts it on any side, or
+// when it lies outside the area that the page can scroll to (left, right, above the top or
+// below the end of the document; a fixed control outside the viewport). A control below
+// the fold of a scrolling pane or page is reachable and passes.
+// Below 1280px the epics view is measured with one epic open, so its child rows are checked too
+// (a child row title cut by an ellipsis to under 120px fails, as a list row title does).
 // The first output line names the served build (Build N . SHA). The script exits 1
-// when the sidebar footer shows no build line.
+// when the sidebar footer shows no build line, or when the server does not serve the
+// build of this checkout. The build must match on three points:
+//   - the build line SHA is this checkout's commit (git rev-parse --short=7 HEAD, or
+//     BUILD_SHA when set, as next.config.ts does);
+//   - every /_next/static file that the page loads exists in this checkout's .next/static
+//     (Next.js names them by content hash, so another or an older build fails);
+//   - no source file (app, components, lib, hooks, root config) is newer than .next/BUILD_ID.
+//     This is a heuristic on file times; a rebuild clears it.
+// Rebuild (npm run build) and restart the server when one of them fails.
+// So the server must run `next start` from this checkout's own local build. A remote server,
+// a container (its .next is not this one) or an app under a basePath (asset URLs that do not
+// start with /_next/static/) fails the asset check by design.
 // At 1280 px it records or compares the size of every control, so a desktop
 // regression shows up. Controls are counted per key and size, and a run prints
 // how many controls in how many views it compared:
@@ -19,9 +36,24 @@
 // The baseline file records the browser (name, version and executable). Font metrics
 // differ between browsers, so compare stops with one message when the browser differs
 // or the record is missing. Use the same SCOTTY_BROWSER_EXECUTABLE for record and compare.
-// Record the baseline on the base commit (main) with this script. SCOTTY_LAYOUT_MODE
-// without SCOTTY_LAYOUT_SNAPSHOT exits 2. With neither set, the compare is skipped
-// and the output says so.
+// Record the baseline on the base commit (main). The build checks compare the server with the
+// checkout that holds the script, so the script must run from the main checkout. Main may have
+// an older copy of this script, or none, so copy this one there:
+//   1. in a separate main checkout (a git worktree or a jj workspace, not `jj new main` here,
+//      which would replace this script): npm ci, npm run build;
+//   2. cp THIS_CHECKOUT/scripts/test-mobile-layout.mjs MAIN/scripts/;
+//   3. in MAIN: BEADS_DEMO=1 npm run start -- --port 3211;
+//   4. in MAIN: SCOTTY_TEST_URL=http://localhost:3211 SCOTTY_LAYOUT_SNAPSHOT=/tmp/base.json
+//      SCOTTY_LAYOUT_MODE=record node scripts/test-mobile-layout.mjs
+//   5. back here, with this checkout's server: SCOTTY_LAYOUT_SNAPSHOT=/tmp/base.json (compare).
+// Record mode keeps the build checks. They run before any page is measured, so a stale or
+// foreign build exits 1 and writes no baseline; a baseline of the wrong build would make every
+// later compare wrong. The file is written at the end of a run that passed the build checks.
+// The compare is required: without SCOTTY_LAYOUT_SNAPSHOT the script exits 2 before it runs,
+// unless SCOTTY_LAYOUT_SKIP_COMPARE=1 is set. Then the compare is skipped and the output says so.
+// Also exit 2 before the run: SCOTTY_LAYOUT_MODE without SCOTTY_LAYOUT_SNAPSHOT, a mode other
+// than record or compare, compare mode with a snapshot file that does not exist, and
+// SCOTTY_LAYOUT_SNAPSHOT together with SCOTTY_LAYOUT_SKIP_COMPARE=1.
 // Self-test, with no server (Chromium only):
 //   SCOTTY_LAYOUT_SELFTEST=1 node scripts/test-mobile-layout.mjs
 //
@@ -31,9 +63,14 @@
 // Optional: SCOTTY_BROWSER_EXECUTABLE, SCOTTY_LAYOUT_VIEWS=board,list,
 // SCOTTY_SHOTS_DIR=DIR (a screenshot of every view and width).
 import fs from "node:fs";
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+
+// The checkout that holds this script. The served build must come from here.
+const checkoutDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 const base = process.env.SCOTTY_TEST_URL;
 const selftest = process.env.SCOTTY_LAYOUT_SELFTEST === "1";
@@ -71,9 +108,16 @@ const MIN_BASE_FONT = 14;
 const MIN_TEXT_FONT = 12;
 const snapshotFile = process.env.SCOTTY_LAYOUT_SNAPSHOT;
 const snapshotMode = process.env.SCOTTY_LAYOUT_MODE || "compare";
-if (!selftest && process.env.SCOTTY_LAYOUT_MODE && !snapshotFile) {
-  console.error("SCOTTY_LAYOUT_MODE is set but SCOTTY_LAYOUT_SNAPSHOT is not; name the baseline file");
-  process.exit(2);
+const skipCompare = process.env.SCOTTY_LAYOUT_SKIP_COMPARE === "1";
+// Checked before the browser starts: an unset or missing baseline, an unknown mode, and a
+// snapshot with the skip fail in a second, not after the run. A baseline file that exists but
+// does not parse is still found only at the compare, after the run.
+if (!selftest) {
+  const problem = compareConfigProblem({ snapshot: snapshotFile, mode: process.env.SCOTTY_LAYOUT_MODE, skip: skipCompare });
+  if (problem) {
+    console.error(problem);
+    process.exit(2);
+  }
 }
 const shotsDir = process.env.SCOTTY_SHOTS_DIR;
 
@@ -94,19 +138,67 @@ function measure({ minTarget, minInputFont, minTextFont, listView = false, deskW
     return s.visibility !== "hidden" && s.display !== "none" && s.opacity !== "0";
   };
   const inCanvas = (el) => Boolean(el.closest(".react-flow__pane, .react-flow__viewport"));
-  // The nearest ancestor that cuts the control off at the side. A scroller (auto or scroll)
-  // is reported by the sideways-scroller check below. A hidden or clip ancestor makes the
-  // control unreachable, so it is reported as off screen.
+  // The same wrappers as INLINE_WRAPPERS in components/description-content.tsx (solo links).
+  const INLINE_WRAPPERS = new Set(["STRONG", "EM", "B", "I", "DEL", "S", "U", "MARK", "SPAN", "SUB", "SUP"]);
+  // The ancestors that cut the control off. A sideways scroller is reported by the
+  // sideways-scroller check below. A hidden or clip ancestor makes the control unreachable,
+  // so it is reported as off screen.
+  // Each axis is checked on its own: overflow-x for the left and right sides, overflow-y for
+  // the top and bottom. The first ancestor that cuts an axis decides it. A scroller (auto or
+  // scroll) makes that axis reachable, and the walk goes on for the other axis. A hidden or
+  // clip ancestor ends the walk: the control is clipped. A control below the fold of a
+  // vertical scroller is reachable by scrolling, so it is not reported.
+  // Returns { node, scroller, scrolledX, scrolledY }, or null when nothing cuts the control.
+  const scrolls = (o) => o === "auto" || o === "scroll";
   const clippedBy = (el, r) => {
+    let scrolledX = null;
+    let scrolledY = null;
+    // A fixed box is not clipped by the ancestors above it, unless one of them has a transform
+    // or filter (that ancestor becomes its containing block).
+    let escaped = getComputedStyle(el).position === "fixed";
     for (let n = el.parentElement; n && n !== document.documentElement; n = n.parentElement) {
-      const ox = getComputedStyle(n).overflowX;
-      if (ox === "visible") continue;
+      const s = getComputedStyle(n);
+      const holdsFixed = s.transform !== "none" || s.filter !== "none";
+      const skip = escaped && !holdsFixed;
+      if (holdsFixed) escaped = false;
+      if (s.position === "fixed") escaped = true;
+      if (skip) continue;
+      const ox = s.overflowX;
+      const oy = s.overflowY;
+      if (ox === "visible" && oy === "visible") continue;
+      // overflow does not apply to an inline box or display contents, so it clips nothing
+      // (a truncate span around a 44px inline-flex link is shorter than the link).
+      if (s.display === "inline" || s.display === "contents") continue;
       const nr = n.getBoundingClientRect();
-      if (r.right > nr.right + 1 || r.left < nr.left - 1) {
-        return { node: n, scroller: ox === "auto" || ox === "scroll" };
+      const cutX = !scrolledX && ox !== "visible" && (r.right > nr.right + 1 || r.left < nr.left - 1);
+      const cutY = !scrolledY && oy !== "visible" && (r.bottom > nr.bottom + 1 || r.top < nr.top - 1);
+      if ((cutX && !scrolls(ox)) || (cutY && !scrolls(oy))) {
+        return { node: n, scroller: false, scrolledX: Boolean(scrolledX), scrolledY: Boolean(scrolledY) };
       }
+      if (cutX) scrolledX = n;
+      if (cutY) scrolledY = n;
     }
-    return null;
+    if (!scrolledX && !scrolledY) return null;
+    return { node: scrolledX || scrolledY, scroller: true, scrolledX: Boolean(scrolledX), scrolledY: Boolean(scrolledY) };
+  };
+  // A fixed control does not move when the page scrolls, so only the viewport can show it.
+  const inFixed = (el) => {
+    for (let n = el; n && n !== document.documentElement; n = n.parentElement) {
+      if (getComputedStyle(n).position === "fixed") return true;
+    }
+    return false;
+  };
+  // The page can scroll down to scrollHeight unless the root hides its overflow. The viewport
+  // takes its overflow from html, or from body when html is visible.
+  const rootOverflowY = (() => {
+    const html = getComputedStyle(document.documentElement).overflowY;
+    return html !== "visible" ? html : getComputedStyle(document.body).overflowY;
+  })();
+  const pageScrollsY = rootOverflowY !== "hidden" && rootOverflowY !== "clip";
+  // The vertical range (viewport coordinates) that the user can bring on screen.
+  const reachY = (el) => {
+    if (inFixed(el) || !pageScrollsY) return { top: 0, bottom: window.innerHeight };
+    return { top: -window.scrollY, bottom: Math.max(root.scrollHeight, window.innerHeight) - window.scrollY };
   };
 
   const root = document.documentElement;
@@ -143,10 +235,10 @@ function measure({ minTarget, minInputFont, minTextFont, listView = false, deskW
     }
   }
 
-  // AC 3: nothing may need sideways scrolling. A code block (pre) keeps its own scroll bar,
+  // Nothing may need sideways scrolling. A code block (pre) keeps its own scroll bar,
   // because a long line cannot wrap. The graph canvas pans by design.
   for (const el of document.body.querySelectorAll("*")) {
-    if (!visible(el) || inCanvas(el) || el.closest("pre") || el.matches(".bd-md table, .bd-md .bd-md-scroll")) continue;
+    if (!visible(el) || inCanvas(el) || el.closest("pre") || el.matches(".bd-md table, .bd-md .bd-md-table-scroll")) continue;
     // From 1024px the board and Focus columns scroll sideways inside their own pane by design.
     // Only those column panes (overflow-y hidden) are exempt; a vertical pane must not scroll sideways.
     // The grouped Focus matrix (overflow auto, a min-w-max child) scrolls both ways by design.
@@ -162,7 +254,7 @@ function measure({ minTarget, minInputFont, minTextFont, listView = false, deskW
   // Without one the shell clips it, and part of the content cannot be reached.
   for (const el of document.querySelectorAll(".bd-md table, .bd-md pre")) {
     if (!visible(el)) continue;
-    const scroller = el.closest(".bd-md-scroll") || (el.tagName === "PRE" ? el : null);
+    const scroller = el.closest(".bd-md-table-scroll") || (el.tagName === "PRE" ? el : null);
     const ox = scroller ? getComputedStyle(scroller).overflowX : "visible";
     const host = el.closest(".bd-md");
     const room = host ? host.getBoundingClientRect().width : root.clientWidth;
@@ -214,18 +306,27 @@ function measure({ minTarget, minInputFont, minTextFont, listView = false, deskW
     out.controls.push({ name: describe(el), key: `${el.tagName.toLowerCase()}[${labelOf(el)}]`, w, h });
     const clip = clippedBy(el, r);
     if (out.offscreen.length < 12) {
+      // An axis that a scroller ancestor already makes reachable is not checked against the page.
+      const y = reachY(el);
       if (clip && !clip.scroller) {
         out.offscreen.push(`${describe(el)} clipped by ${describe(clip.node)}`);
-      } else if (!clip && (r.right > root.clientWidth + 1 || r.left < -1)) {
+      } else if (!clip?.scrolledX && (r.right > root.clientWidth + 1 || r.left < -1)) {
         out.offscreen.push(`${describe(el)} left ${Math.round(r.left)} right ${Math.round(r.right)} of ${root.clientWidth}`);
+      } else if (!clip?.scrolledY && (r.top < y.top - 1 || r.bottom > y.bottom + 1)) {
+        out.offscreen.push(`${describe(el)} top ${Math.round(r.top)} bottom ${Math.round(r.bottom)} outside the reachable ${Math.round(y.top)}..${Math.round(y.bottom)}`);
       }
     }
     // WCAG 2.5.8 exempts a link inside a line of text, so an inline anchor is not measured.
     // A link that is all the text of its parent stands alone on its line: it is measured.
-    // The renderer gives the 44px target to a link that is the only child of a paragraph (P), so
-    // the audit measures the same case. A link alone in a list item or inside bold text is exempt.
-    const aloneInParent = el.tagName === "A" && el.parentElement && el.parentElement.tagName === "P"
-      && (el.parentElement.textContent || "").trim() === (el.textContent || "").trim();
+    // The renderer gives the 44px target to a link that is all of its paragraph (P), also when
+    // it sits inside inline wrappers such as bold or italic text (the P gets bd-md-solo-link).
+    // The audit walks up through the same wrappers to the P and measures that case. The check
+    // reads the structure, not the class, so a solo link that lost its class still fails.
+    // A link alone in a list item, or one in a sentence inside bold text, is exempt.
+    let para = el.tagName === "A" ? el.parentElement : null;
+    while (para && INLINE_WRAPPERS.has(para.tagName)) para = para.parentElement;
+    const aloneInParent = Boolean(para) && para.tagName === "P"
+      && (para.textContent || "").trim() === (el.textContent || "").trim();
     const inlineLink = el.tagName === "A" && getComputedStyle(el).display === "inline" && !aloneInParent;
     if (!inlineLink && (w < minTarget || h < minTarget)) {
       out.smallTargets.push(`${describe(el)} ${w}x${h}${box === el ? "" : " (label)"}`);
@@ -253,7 +354,9 @@ function measure({ minTarget, minInputFont, minTextFont, listView = false, deskW
     const w = Math.round(el.getBoundingClientRect().width);
     // Only text that is really cut off counts; a short chip that fits is fine.
     // A row title in the list view needs 120px; other cut text (label chips, theme names) keeps 60px.
-    const isRowTitle = listView && el.matches(".truncate") && el.tagName !== "BUTTON" && !el.hasAttribute("data-label-chip") && el.closest("[data-keyboard-bead-id]");
+    // A child row in an open epic (any nesting depth) gets the same 120px as a list row title.
+    const isEpicChildTitle = el.matches("span.flex-1") && el.closest('[data-epic-id] > div:not([aria-expanded]) > div[role="button"]');
+    const isRowTitle = isEpicChildTitle || (listView && el.matches(".truncate") && el.tagName !== "BUTTON" && !el.hasAttribute("data-label-chip") && el.closest("[data-keyboard-bead-id]"));
     if (text.length > 8 && w < (isRowTitle ? 120 : 60) && el.scrollWidth > el.clientWidth + 1 && out.slivers.length < 8) out.slivers.push(`${describe(el)} ${w}px wide`);
   }
 
@@ -327,7 +430,7 @@ let measuredPages = 0;
 let measuredStates = 0;
 let nativeDialogs = 0;
 
-// Write guard (self-49j.1). The audit only reads. Any request to /api/ that is not GET or HEAD is
+// Write guard. The audit only reads. Any request to /api/ that is not GET or HEAD is
 // aborted before it reaches the server and recorded, and the run fails. This protects a server
 // with real beads if the app ever drops window.confirm before a delete. Install it on a context
 // before any page route; a page route must call route.fallback() (not continue()) for writes,
@@ -542,6 +645,20 @@ async function openView(page, view, opts = {}) {
     // The list hides the chips below 1024px, so wait for the element and not for its display.
     await page.getByText(LONG_LABELS[0], { exact: true }).first().waitFor({ state: "attached", timeout: 10000 });
   }
+  if (view === "epics" && page.viewportSize().width < 1280) {
+    // Child rows only exist in an open epic, so open the first epic with children. Expanding is
+    // client state and sends no request. 1280px stays collapsed, as the baseline was recorded.
+    // A closed child is hidden, so an epic can count children and still show none: try each.
+    const ids = await page.locator('[data-epic-id] > div[aria-expanded="false"]').evaluateAll((rows) => rows.map((r) => r.parentElement.dataset.epicId));
+    let opened = null;
+    for (const id of ids) {
+      await page.locator(`[data-epic-id="${id}"] > div[aria-expanded]`).first().click();
+      const child = page.locator(`[data-epic-id="${id}"] > div:not([aria-expanded]) > div[role="button"]`).first();
+      if (await child.waitFor({ timeout: 1500 }).then(() => true, () => false)) { opened = id; break; }
+    }
+    if (!opened) throw new Error("epics: no epic with a visible child row to open");
+    await page.waitForTimeout(300);
+  }
   if (view === "focus-grouped") {
     await page.locator('label:has-text("Group by") select').selectOption("assignee");
     await page.locator('section[aria-label^="Assignee:"]').first().waitFor({ timeout: 5000 });
@@ -592,6 +709,92 @@ function buildVerdict(line, probeError) {
   };
 }
 
+// The desktop compare is required. Returns "" when the settings are usable, or why they are not.
+// exists is injectable so the self-test needs no real file.
+function compareConfigProblem({ snapshot, mode, skip, exists = fs.existsSync }) {
+  if (mode && mode !== "record" && mode !== "compare") {
+    return `SCOTTY_LAYOUT_MODE=${mode} is not a mode; use record or compare`;
+  }
+  if (mode && !snapshot) return "SCOTTY_LAYOUT_MODE is set but SCOTTY_LAYOUT_SNAPSHOT is not; name the baseline file";
+  if (snapshot && skip) return "SCOTTY_LAYOUT_SNAPSHOT and SCOTTY_LAYOUT_SKIP_COMPARE=1 are both set; choose one";
+  if (!snapshot && !skip) {
+    return "the 1280px desktop compare needs a baseline: set SCOTTY_LAYOUT_SNAPSHOT=FILE " +
+      "(record it on main with SCOTTY_LAYOUT_MODE=record), or set SCOTTY_LAYOUT_SKIP_COMPARE=1 to skip the compare";
+  }
+  if (snapshot && (mode || "compare") === "compare" && !exists(snapshot)) {
+    return `SCOTTY_LAYOUT_SNAPSHOT=${snapshot} does not exist; record it on main first with SCOTTY_LAYOUT_MODE=record`;
+  }
+  return "";
+}
+
+// The commit that next.config.ts bakes into a build of this checkout (BUILD_SHA wins, as there).
+function checkoutSha(dir) {
+  if (process.env.BUILD_SHA) return process.env.BUILD_SHA;
+  try {
+    return execFileSync("git", ["rev-parse", "--short=7", "HEAD"], { cwd: dir, stdio: ["ignore", "pipe", "ignore"] }).toString().trim();
+  } catch {
+    return "";
+  }
+}
+
+// The source that a build reads. A file here that is newer than .next/BUILD_ID is not in the build.
+// public is left out: next start serves it as it is, so a change there needs no build.
+const SOURCE_DIRS = ["app", "components", "lib", "hooks"];
+const SOURCE_FILES = ["next.config.ts", "package.json", "package-lock.json", "postcss.config.mjs", "proxy.ts", "instrumentation.ts", "instrumentation-node.ts", "tsconfig.json"];
+function newestSource(dir) {
+  let newest = { file: "", mtime: 0 };
+  const visit = (p) => {
+    let st;
+    try { st = fs.statSync(p); } catch { return; }
+    if (st.isDirectory()) {
+      for (const name of fs.readdirSync(p)) if (name !== "node_modules" && !name.startsWith(".")) visit(path.join(p, name));
+    } else if (st.mtimeMs > newest.mtime) {
+      newest = { file: path.relative(dir, p), mtime: st.mtimeMs };
+    }
+  };
+  for (const d of SOURCE_DIRS) visit(path.join(dir, d));
+  for (const f of SOURCE_FILES) visit(path.join(dir, f));
+  return newest;
+}
+
+// Whether the server serves the build of this checkout. The build line alone cannot tell: it
+// names the last commit, so a stale build of the same commit prints the same line. Three checks:
+//   1. the SHA in the build line is the checkout's SHA (another commit was built);
+//   2. every /_next/static file that the page loaded exists in this checkout's .next/static.
+//      Next.js names these files by content hash, so a file from another or an older build is
+//      missing here. This ties the served assets to this checkout's build output;
+//   3. no source file is newer than .next/BUILD_ID (the build is older than the working tree).
+// Check 2 covers client code and CSS, the part the layout audit measures; check 3 also covers
+// text that only the server renders. Returns a list of problems; empty means the build matches.
+function buildIdentityProblems({ line, files, sha, dir }) {
+  const problems = [];
+  const served = (line.match(/·\s*([0-9a-f]{6,40})$/) || [])[1] || "";
+  if (!sha) problems.push("cannot read this checkout's commit (git rev-parse failed and BUILD_SHA is not set)");
+  else if (served && !(served.startsWith(sha) || sha.startsWith(served))) {
+    problems.push(`the server was built from commit ${served}, this checkout is at ${sha}`);
+  }
+  const buildIdFile = path.join(dir, ".next", "BUILD_ID");
+  let buildTime = 0;
+  try { buildTime = fs.statSync(buildIdFile).mtimeMs; } catch { /* no build */ }
+  if (!buildTime) {
+    problems.push(`no production build in this checkout (${path.relative(dir, buildIdFile)} is missing); run npm run build`);
+    return problems;
+  }
+  const statics = [...new Set(files.map((f) => {
+    try { return decodeURIComponent(new URL(String(f), "http://x").pathname); } catch { return ""; }
+  }).filter((p) => p.startsWith("/_next/static/")))].sort();
+  if (!statics.length) problems.push("the page loaded no /_next/static file, so the served build cannot be matched");
+  const missing = statics.filter((p) => !fs.existsSync(path.join(dir, ".next", "static", p.slice("/_next/static/".length))));
+  if (missing.length) {
+    problems.push(`${missing.length} of ${statics.length} served /_next/static files are not in this checkout's .next/static (first: ${missing[0]}); the server runs another build`);
+  }
+  const newest = newestSource(dir);
+  if (newest.mtime > buildTime + 1000) {
+    problems.push(`${newest.file} is newer than the build (.next/BUILD_ID), so the build may be stale; this is a heuristic on file times, and npm run build plus a server restart clears it`);
+  }
+  return problems;
+}
+
 // Font metrics depend on the browser, so a baseline only fits the browser that took it.
 // Returns null when they match, or a one-line reason when they do not.
 function compareBrowser(recorded, current) {
@@ -610,8 +813,11 @@ function compareBrowser(recorded, current) {
 // Desktop changes at 1280px that were agreed in a bead. Each line must match exactly.
 // An entry names the view and how often the compare must report it; a change seen in another
 // view, or a different number of times, fails the run.
-const SEARCH_BOX = "now input[Search beads…  (/)] 149x19";
-const SEARCH_BOX_WHY = "self-49j.3: the board header always wraps, so the search box is no longer collapsed to an icon";
+// The width depends on the browser's font metrics, so it is the width that the browser of the
+// baseline measures (chromium 149.0.7827.55, playwright build 1228). A new browser build can move
+// it; record a fresh baseline on main with that build and update the width here.
+const SEARCH_BOX = "now input[Search beads…  (/)] 132x19";
+const SEARCH_BOX_WHY = "the board header always wraps, so the search box is no longer collapsed to an icon";
 const ACCEPTED_DESKTOP = [
   { view: "board", line: SEARCH_BOX, hits: 1, why: SEARCH_BOX_WHY },
   { view: "drawer", line: SEARCH_BOX, hits: 1, why: SEARCH_BOX_WHY },
@@ -676,32 +882,32 @@ async function runSelftest() {
   const sized = "min-height:44px;min-width:44px";
   const cases = [
     {
-      name: "AC 6: one checkbox in its own label passes",
+      name: "checkbox label: one checkbox in its own label passes",
       html: `<main style="font:16px sans-serif"><label style="display:flex;align-items:center;${sized}"><input type="checkbox"> One</label></main>`,
       kinds: (k) => k.length === 0,
     },
     {
-      name: "AC 6: a label that wraps two checkboxes fails",
+      name: "checkbox label: a label that wraps two checkboxes fails",
       html: `<main style="font:16px sans-serif"><label style="display:flex;align-items:center;${sized}"><input type="checkbox"><input type="checkbox"> Both</label></main>`,
       kinds: (k) => k.some((x) => x.includes("label wraps more than one control")),
     },
     {
-      name: "AC 7: main at 12px fails the base font check",
+      name: "base font: main at 12px fails the base font check",
       html: `<main style="font:12px sans-serif"><p>Twelve pixel text</p></main>`,
       kinds: (k) => k.some((x) => x.includes("page base font")),
     },
     {
-      name: "AC 7: main at 14px passes the base font check",
+      name: "base font: main at 14px passes the base font check",
       html: `<main style="font:14px sans-serif"><p>Fourteen pixel text</p></main>`,
       kinds: (k) => !k.some((x) => x.includes("page base font")),
     },
     {
-      name: "AC 4: the compare key holds no class text, even with a bracket class",
+      name: "compare key: the compare key holds no class text, even with a bracket class",
       html: `<main style="font:16px sans-serif"><button class="w-[6px] flex w-full" style="${sized}">Go</button></main>`,
       controls: (c) => c.length === 1 && c[0].key === "button[Go]",
     },
     {
-      name: "AC 14: a page with a build footer gives the build line",
+      name: "build line: a page with a build footer gives the build line",
       html: `<main style="font:16px sans-serif"><p>v0.4.0 <span>Build 209 <span>·</span></span> <a href="#">f99d76d</a></p></main>`,
       build: (text) => {
         const line = parseBuildLine(text);
@@ -709,7 +915,7 @@ async function runSelftest() {
       },
     },
     {
-      name: "AC 14: a page without a build footer gives no line and an exit 1 verdict",
+      name: "build line: a page without a build footer gives no line and an exit 1 verdict",
       html: `<main style="font:16px sans-serif"><p>v0.4.0</p></main>`,
       build: (text) => {
         const line = parseBuildLine(text);
@@ -718,7 +924,7 @@ async function runSelftest() {
       },
     },
     {
-      name: "AC 14: a probe error is named in the verdict",
+      name: "build line: a probe error is named in the verdict",
       html: `<main>x</main>`,
       build: () => {
         const v = buildVerdict("", "page.goto: net::ERR_CONNECTION_REFUSED");
@@ -726,153 +932,223 @@ async function runSelftest() {
       },
     },
     {
-      name: "eui AC 1: a list row title cut to 100px is a sliver",
+      name: "row title: a list row title cut to 100px is a sliver",
       listView: true,
       html: `<main style="font:16px sans-serif"><div data-keyboard-bead-id="x" role="button"><span class="truncate" style="display:block;width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">A long list title that is cut off</span></div></main>`,
       kinds: (k) => k.some((x) => x.includes("sliver")),
     },
     {
-      name: "eui AC 1: a list row title with 200px of room is not a sliver",
+      name: "row title: a list row title with 200px of room is not a sliver",
       listView: true,
       html: `<main style="font:16px sans-serif"><div data-keyboard-bead-id="x" role="button"><span class="truncate" style="display:block;width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">A long list title that is cut off</span></div></main>`,
       kinds: (k) => !k.some((x) => x.includes("sliver")),
     },
     {
-      name: "49j.2: a label chip cut to 100px in a list row is not held to the row title rule",
+      name: "row title: a label chip cut to 100px in a list row is not held to the row title rule",
       listView: true,
       html: `<main style="font:16px sans-serif"><div data-keyboard-bead-id="x" role="button"><span class="truncate" data-label-chip style="display:inline-block;width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">a-very-long-label-name-for-testing</span></div></main>`,
       kinds: (k) => !k.some((x) => x.includes("sliver")),
     },
     {
-      name: "49j.2: a label chip cut to 40px in a list row is still a sliver",
+      name: "row title: a label chip cut to 40px in a list row is still a sliver",
       listView: true,
       html: `<main style="font:16px sans-serif"><div data-keyboard-bead-id="x" role="button"><span class="truncate" data-label-chip style="display:inline-block;width:40px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">a-very-long-label-name-for-testing</span></div></main>`,
       kinds: (k) => k.some((x) => x.includes("sliver")),
     },
     {
-      name: "49j.2: a visible Copy button in a non-list view at 360px is counted by the id check",
+      name: "id check: a visible Copy button in a non-list view at 360px is counted by the id check",
       html: `<main style="font:16px sans-serif"><button title="Copy bd-1" style="min-height:44px;min-width:44px">bd-1</button></main>`,
       measured: (m) => m.idChecked === 1,
     },
     {
-      name: "49j.2: a Copy button in a list row at 360px is not counted (the id check is skipped there)",
+      name: "id check: a Copy button in a list row at 360px is not counted (the id check is skipped there)",
       listView: true,
       html: `<main style="font:16px sans-serif"><button title="Copy bd-1" style="min-height:44px;min-width:44px">bd-1</button></main>`,
       measured: (m) => m.idChecked === 0,
     },
     {
-      name: "49j.5: the drawer header count holds the id button and Copy link, not the cards behind it",
+      name: "id check: the drawer header count holds the id button and Copy link, not the cards behind it",
       html: `<main style="font:16px sans-serif"><div id="card"><button title="Copy bd-9" style="min-height:44px">bd-9</button><button title="Copy bd-8" style="min-height:44px">bd-8</button></div><div id="hdr"><button title="Copy bd-1" style="min-height:44px">bd-1</button><button title="Copy link" style="min-height:44px">l</button></div></main>`,
       measured: (m) => m.drawerHeaderCopy === 2,
     },
     {
-      name: "49j.5: a page with no Copy link button reports no drawer header",
+      name: "id check: a page with no Copy link button reports no drawer header",
       html: `<main style="font:16px sans-serif"><button title="Copy bd-1" style="min-height:44px">bd-1</button></main>`,
       measured: (m) => m.drawerHeaderCopy === -1,
     },
     {
-      name: "eui AC 1: a bead id button in a list row is not a row title",
+      name: "row title: a bead id button in a list row is not a row title",
       listView: true,
       html: `<main style="font:16px sans-serif"><div data-keyboard-bead-id="x" role="button"><button title="Copy bd-abcdef12345" class="truncate" style="display:block;width:88px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:12px monospace;min-height:44px">bd-abcdef12345</button></div></main>`,
       kinds: (k) => !k.some((x) => x.includes("sliver")),
     },
     {
-      name: "eui AC 1: a chip cut to 100px outside the list is not a sliver",
+      name: "epic child row: a title cut to 60px in an open epic is a sliver",
+      html: `<main style="font:16px sans-serif"><section data-epic-id="e"><div role="button" aria-expanded="true" style="min-height:44px">Epic</div><div><div role="button" style="display:flex;width:300px;min-height:44px"><span style="width:200px;flex-shrink:0">bd-1</span><span class="flex-1" style="width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">A long child title that is cut off</span></div></div></section></main>`,
+      kinds: (k) => k.some((x) => x.includes("sliver")),
+    },
+    {
+      name: "epic child row: a title with 200px of room in an open epic is not a sliver",
+      html: `<main style="font:16px sans-serif"><section data-epic-id="e"><div role="button" aria-expanded="true" style="min-height:44px">Epic</div><div><div role="button" style="display:flex;width:300px;min-height:44px"><span class="flex-1" style="width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">A long child title that is cut off</span></div></div></section></main>`,
+      kinds: (k) => !k.some((x) => x.includes("sliver")),
+    },
+    {
+      name: "row title: a chip cut to 100px outside the list is not a sliver",
       html: `<main style="font:16px sans-serif"><span style="display:block;width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">A long chip label that is cut</span></main>`,
       kinds: (k) => !k.some((x) => x.includes("sliver")),
     },
     {
-      name: "eui AC 6: an inline link in a sentence of a description is exempt",
+      name: "tap target: an inline link in a sentence of a description is exempt",
       html: `<main style="font:16px sans-serif"><div class="bd-md"><p>See <a href="#x">this link</a> in the text.</p></div></main>`,
       kinds: (k) => !k.some((x) => x.startsWith("controls under")),
     },
     {
-      name: "eui AC 6: a standalone link in a description is measured",
+      name: "tap target: a standalone link in a description is measured",
       html: `<main style="font:16px sans-serif"><div class="bd-md"><p><a href="#x">alone on its line</a></p></div></main>`,
       kinds: (k) => k.some((x) => x.startsWith("controls under")),
     },
     {
-      name: "eui AC 6: a link alone in a list item is exempt (the renderer adds no tap target there)",
+      name: "tap target: a link alone in a list item is exempt (the renderer adds no tap target there)",
       html: `<main style="font:16px sans-serif"><div class="bd-md"><ul><li><a href="#x">alone in an item</a></li></ul></div></main>`,
       kinds: (k) => !k.some((x) => x.startsWith("controls under")),
     },
     {
-      name: "eui AC 6: a bold link inside a paragraph is exempt (the renderer adds no tap target there)",
-      html: `<main style="font:16px sans-serif"><div class="bd-md"><p><strong><a href="#x">bold link</a></strong></p></div></main>`,
+      name: "solo link: a bold link that is all of its paragraph is measured (the renderer gives it a tap target)",
+      html: `<main style="font:16px sans-serif"><div class="bd-md"><p class="bd-md-solo-link"><strong><a href="#x">bold link</a></strong></p></div></main>`,
+      kinds: (k) => k.some((x) => x.startsWith("controls under")),
+    },
+    {
+      name: "solo link: a link in bold and italic that is all of its paragraph is measured",
+      html: `<main style="font:16px sans-serif"><div class="bd-md"><p class="bd-md-solo-link"><em><strong><a href="#x">nested link</a></strong></em></p></div></main>`,
+      kinds: (k) => k.some((x) => x.startsWith("controls under")),
+    },
+    {
+      name: "solo link: a nested solo link with the 44px target passes",
+      html: `<main style="font:16px sans-serif"><div class="bd-md"><p class="bd-md-solo-link"><strong><a href="#x" style="display:inline-flex;align-items:center;min-height:44px;min-width:44px">bold link</a></strong></p></div></main>`,
       kinds: (k) => !k.some((x) => x.startsWith("controls under")),
     },
     {
-      name: "49j.3: a wide pane (bd-scroll) is a sideways scroller below the desktop width",
+      name: "solo link: a link inside bold text in a sentence is exempt",
+      html: `<main style="font:16px sans-serif"><div class="bd-md"><p>See <strong><a href="#x">this link</a></strong> in the text.</p></div></main>`,
+      kinds: (k) => !k.some((x) => x.startsWith("controls under")),
+    },
+    {
+      name: "vertical clip: a control below the bottom of an overflow hidden box is clipped",
+      html: `<main style="font:16px sans-serif"><div style="height:60px;overflow:hidden"><div style="height:100px"></div><button style="${sized}">Hidden</button></div></main>`,
+      kinds: (k) => k.some((x) => x.includes("outside the screen or clipped")),
+    },
+    {
+      name: "vertical clip: a control above the top of an overflow hidden box is clipped",
+      html: `<main style="font:16px sans-serif"><div style="height:60px;overflow:hidden;position:relative;margin-top:100px"><button style="${sized};position:absolute;top:-80px">Above</button></div></main>`,
+      kinds: (k) => k.some((x) => x.includes("outside the screen or clipped")),
+    },
+    {
+      name: "vertical clip: a control below the fold of a vertical scroller is reachable",
+      html: `<main style="font:16px sans-serif"><div style="height:60px;overflow-y:auto;overflow-x:hidden"><div style="height:300px"></div><button style="${sized}">Below</button></div></main>`,
+      kinds: (k) => !k.some((x) => x.includes("outside the screen or clipped")),
+    },
+    {
+      name: "vertical clip: a scroller pane inside an overflow hidden shell (the app layout) is reachable",
+      html: `<main style="font:16px sans-serif;height:640px;overflow:hidden;display:flex;flex-direction:column"><div style="flex:1;min-height:0;overflow-y:auto"><div style="height:2000px"></div><button style="${sized}">Deep</button></div></main>`,
+      kinds: (k) => !k.some((x) => x.includes("outside the screen or clipped")),
+    },
+    {
+      name: "vertical clip: a control below the fold of a scrolling page is reachable",
+      html: `<main style="font:16px sans-serif"><div style="height:2000px"></div><button style="${sized}">Far down</button></main>`,
+      kinds: (k) => !k.some((x) => x.includes("outside the screen or clipped")),
+    },
+    {
+      name: "vertical clip: a control above the top of the document is off screen",
+      html: `<main style="font:16px sans-serif"><button style="${sized};position:absolute;top:-200px">Above page</button></main>`,
+      kinds: (k) => k.some((x) => x.includes("outside the screen or clipped")),
+    },
+    {
+      name: "vertical clip: a fixed control below the viewport is off screen (the page cannot scroll it into view)",
+      html: `<main style="font:16px sans-serif"><div style="height:2000px"></div><button style="${sized};position:fixed;bottom:-100px">Fixed</button></main>`,
+      kinds: (k) => k.some((x) => x.includes("outside the screen or clipped")),
+    },
+    {
+      name: "vertical clip: a control below the viewport of a page that hides its overflow is off screen",
+      html: `<style>html,body{overflow:hidden;margin:0}</style><main style="font:16px sans-serif"><div style="height:2000px"></div><button style="${sized}">Lost</button></main>`,
+      kinds: (k) => k.some((x) => x.includes("outside the screen or clipped")),
+    },
+    {
+      name: "vertical clip: a control past the right edge of an overflow hidden box is still clipped",
+      html: `<main style="font:16px sans-serif"><div style="width:100px;overflow:hidden;white-space:nowrap"><span style="display:inline-block;width:150px"></span><button style="${sized}">Right</button></div></main>`,
+      kinds: (k) => k.some((x) => x.includes("outside the screen or clipped")),
+    },
+    {
+      name: "sideways scroll: a wide pane (bd-scroll) is a sideways scroller below the desktop width",
       html: `<main style="font:16px sans-serif"><div class="bd-scroll" style="width:200px;overflow-x:auto"><div style="width:600px">wide content</div></div></main>`,
       kinds: (k) => k.some((x) => x.includes("an element scrolls sideways")),
     },
     {
-      name: "49j.3: a column pane (bd-scroll, overflow-y hidden) is exempt from the desktop width up",
+      name: "sideways scroll: a column pane (bd-scroll, overflow-y hidden) is exempt from the desktop width up",
       deskWidth: 0,
       html: `<main style="font:16px sans-serif"><div class="bd-scroll" style="width:200px;overflow-x:auto;overflow-y:hidden"><div style="width:600px">wide content</div></div></main>`,
       kinds: (k) => !k.some((x) => x.includes("an element scrolls sideways")),
     },
     {
-      name: "49j.3: a matrix pane (bd-scroll with a min-w-max child) is exempt from the desktop width up",
+      name: "sideways scroll: a matrix pane (bd-scroll with a min-w-max child) is exempt from the desktop width up",
       deskWidth: 0,
       html: `<main style="font:16px sans-serif"><div class="bd-scroll" style="width:200px;overflow:auto"><div class="lg:min-w-max" style="width:600px">wide matrix</div></div></main>`,
       kinds: (k) => !k.some((x) => x.includes("an element scrolls sideways")),
     },
     {
-      name: "49j.3: a vertical pane (bd-scroll, overflow-y auto) with wide content still fails at the desktop width",
+      name: "sideways scroll: a vertical pane (bd-scroll, overflow-y auto) with wide content still fails at the desktop width",
       deskWidth: 0,
       html: `<main style="font:16px sans-serif"><div class="bd-scroll" style="width:200px;overflow-x:auto;overflow-y:auto"><div style="width:600px">wide content</div></div></main>`,
       kinds: (k) => k.some((x) => x.includes("an element scrolls sideways")),
     },
     {
-      name: "eui AC 4: a table that scrolls in its own box is not a page scroller",
+      name: "markdown table: a table that scrolls in its own box is not a page scroller",
       html: `<main style="font:16px sans-serif"><div class="bd-md" style="width:300px"><table style="display:block;overflow-x:auto"><tbody><tr><td style="white-space:nowrap">${"x".repeat(80)}</td></tr></tbody></table></div></main>`,
       kinds: (k) => !k.some((x) => x.includes("an element scrolls sideways")),
     },
     {
-      name: "eui AC 5: a markdown table wider than its box with no scroller fails",
+      name: "markdown table: a markdown table wider than its box with no scroller fails",
       html: `<main style="font:16px sans-serif;overflow:hidden"><div class="bd-md" style="width:300px"><table><tbody><tr><td style="white-space:nowrap">${"x".repeat(80)}</td></tr></tbody></table></div></main>`,
       kinds: (k) => k.some((x) => x.includes("wider than its box")),
     },
     {
-      name: "eui AC 5: a markdown table inside a scroller passes",
-      html: `<main style="font:16px sans-serif;overflow:hidden"><div class="bd-md" style="width:300px"><div class="bd-md-scroll" style="overflow-x:auto"><table><tbody><tr><td style="white-space:nowrap">${"x".repeat(80)}</td></tr></tbody></table></div></div></main>`,
+      name: "markdown table: a markdown table inside a scroller passes",
+      html: `<main style="font:16px sans-serif;overflow:hidden"><div class="bd-md" style="width:300px"><div class="bd-md-table-scroll" style="overflow-x:auto"><table><tbody><tr><td style="white-space:nowrap">${"x".repeat(80)}</td></tr></tbody></table></div></div></main>`,
       kinds: (k) => !k.some((x) => x.includes("wider than its box")) && !k.some((x) => x.includes("an element scrolls sideways")),
     },
     {
-      name: "eui AC 2: a 14 character bead id in an 88px column is cut off",
+      name: "bead id: a 14 character bead id in an 88px column is cut off",
       html: `<main style="font:16px sans-serif"><button title="Copy bd-abcdef12345" class="truncate" style="display:block;width:88px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:12px monospace;min-height:44px">bd-abcdef12345</button></main>`,
       kinds: (k) => k.some((x) => x.includes("bead id cut off")),
     },
     {
-      name: "49j.2: a cut id in a list row at 360px is allowed (the 88px column is intended there)",
+      name: "bead id: a cut id in a list row at 360px is allowed (the 88px column is intended there)",
       listView: true,
       html: `<main style="font:16px sans-serif"><button title="Copy bd-abcdef12345" class="truncate" style="display:block;width:88px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:12px monospace;min-height:44px">bd-abcdef12345</button></main>`,
       kinds: (k) => !k.some((x) => x.includes("bead id cut off")),
     },
     {
-      name: "eui AC 2: a 14 character bead id in a 150px column fits",
+      name: "bead id: a 14 character bead id in a 150px column fits",
       html: `<main style="font:16px sans-serif"><button title="Copy bd-abcdef12345" class="truncate" style="display:block;width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:12px monospace;min-height:44px">bd-abcdef12345</button></main>`,
       kinds: (k) => !k.some((x) => x.includes("bead id cut off")),
     },
     {
-      name: "eui AC 7: two graph nodes that overlap fail",
+      name: "graph: two graph nodes that overlap fail",
       html: `<main style="font:16px sans-serif"><div class="react-flow__node" style="position:absolute;left:0;top:60px;width:100px;height:50px">A node</div><div class="react-flow__node" style="position:absolute;left:50px;top:80px;width:100px;height:50px">B node</div></main>`,
       kinds: (k) => k.some((x) => x.includes("graph nodes overlap")),
     },
     {
-      name: "eui AC 7: a small overlap is found even when the graph is zoomed out to 0.2",
+      name: "graph: a small overlap is found even when the graph is zoomed out to 0.2",
       html: `<main style="font:16px sans-serif"><div style="position:absolute;left:0;top:0;transform:scale(0.2);transform-origin:0 0"><div class="react-flow__node" style="position:absolute;left:0;top:0;width:100px;height:50px">A node</div><div class="react-flow__node" style="position:absolute;left:92px;top:0;width:100px;height:50px">B node</div></div></main>`,
       kinds: (k) => k.some((x) => x.includes("graph nodes overlap")),
     },
     {
-      name: "eui AC 7: the graph view fails when no node was measured",
+      name: "graph: the graph view fails when no node was measured",
       html: `<main style="font:16px sans-serif"><p>An empty graph page</p></main>`,
       label: "graph",
       kinds: (k) => k.some((x) => x.includes("no graph nodes")),
     },
     {
-      name: "eui AC 7: graph nodes that do not overlap pass",
+      name: "graph: graph nodes that do not overlap pass",
       html: `<main style="font:16px sans-serif"><div class="react-flow__node" style="position:absolute;left:0;top:60px;width:100px;height:50px">A node</div><div class="react-flow__node" style="position:absolute;left:150px;top:60px;width:100px;height:50px">B node</div></main>`,
       kinds: (k) => !k.some((x) => x.includes("graph nodes overlap")),
     },
@@ -903,7 +1179,7 @@ async function runSelftest() {
       results.push({ name: c.name, ok, detail: c.measured ? `idChecked ${m.idChecked}, drawerHeaderCopy ${m.drawerHeaderCopy}` : c.kinds ? kinds.join(" | ") || "no failures" : JSON.stringify(m.controls.map((x) => x.key)) });
       await page.close();
     }
-    // Write guard (self-49j.1). A stub answers http://guard.test, so a request that gets through
+    // Write guard. A stub answers http://guard.test, so a request that gets through
     // shows up in stubHits; a request that the guard aborts shows up in blockedWrites.
     const guardCase = async (name, run) => {
       const context = await browser.newContext();
@@ -928,15 +1204,15 @@ async function runSelftest() {
       }
     };
     const send = (page, method, path) => page.evaluate(([m, u]) => fetch(u, { method: m }).then(() => "sent", () => "failed"), [method, path]);
-    await guardCase("49j.1: a POST to /api/ is aborted and recorded", async (page, hits) => {
+    await guardCase("write guard: a POST to /api/ is aborted and recorded", async (page, hits) => {
       const r = await send(page, "POST", "/api/p/demo/beads");
       return { ok: r === "failed" && blockedWrites.length === 1 && blockedWrites[0].startsWith("POST /api/p/demo/beads") && !hits.some((h) => h.startsWith("POST")), detail: `${r}; blocked ${blockedWrites.join(",") || "none"}; reached ${hits.join(",")}` };
     });
-    await guardCase("49j.1: a GET to /api/ passes through", async (page, hits) => {
+    await guardCase("write guard: a GET to /api/ passes through", async (page, hits) => {
       const r = await send(page, "GET", "/api/p/demo/beads");
       return { ok: r === "sent" && blockedWrites.length === 0 && hits.includes("GET /api/p/demo/beads"), detail: `${r}; blocked ${blockedWrites.join(",") || "none"}; reached ${hits.join(",")}` };
     });
-    await guardCase("49j.1: a DELETE sent by a click with no confirm is aborted", async (page, hits) => {
+    await guardCase("write guard: a DELETE sent by a click with no confirm is aborted", async (page, hits) => {
       await page.evaluate(() => {
         document.body.innerHTML = '<button id="d">Delete</button>';
         document.getElementById("d").onclick = () => fetch("/api/p/demo/beads/bd-1", { method: "DELETE" }).catch(() => {});
@@ -945,19 +1221,19 @@ async function runSelftest() {
       await page.waitForTimeout(300);
       return { ok: blockedWrites.length === 1 && blockedWrites[0].startsWith("DELETE /api/p/demo/beads/bd-1") && !hits.some((h) => h.startsWith("DELETE")), detail: `blocked ${blockedWrites.join(",") || "none"}; reached ${hits.join(",")}` };
     });
-    await guardCase("49j.1: the telemetry ping is aborted but is not a failure", async (page, hits) => {
+    await guardCase("write guard: the telemetry ping is aborted but is not a failure", async (page, hits) => {
       const r = await send(page, "POST", "/api/telemetry");
       return { ok: r === "failed" && blockedWrites.length === 0 && ignoredPings.length === 1 && !hits.some((h) => h.startsWith("POST")), detail: `${r}; blocked ${blockedWrites.join(",") || "none"}; pings ${ignoredPings.length}; reached ${hits.join(",")}` };
     });
-    await guardCase("49j.1: a PUT to /api/telemetry is still a failure", async (page, hits) => {
+    await guardCase("write guard: a PUT to /api/telemetry is still a failure", async (page, hits) => {
       const r = await send(page, "PUT", "/api/telemetry");
       return { ok: r === "failed" && blockedWrites.length === 1 && ignoredPings.length === 0 && !hits.some((h) => h.startsWith("PUT")), detail: `${r}; blocked ${blockedWrites.join(",") || "none"}; pings ${ignoredPings.length}; reached ${hits.join(",")}` };
     });
-    await guardCase("49j.1: a POST to another path under /api/telemetry is still a failure", async (page, hits) => {
+    await guardCase("write guard: a POST to another path under /api/telemetry is still a failure", async (page, hits) => {
       const r = await send(page, "POST", "/api/telemetry/reset");
       return { ok: r === "failed" && blockedWrites.length === 1 && ignoredPings.length === 0 && !hits.some((h) => h.startsWith("POST")), detail: `${r}; blocked ${blockedWrites.join(",") || "none"}; pings ${ignoredPings.length}; reached ${hits.join(",")}` };
     });
-    await guardCase("49j.1: a recorded write becomes a failure of the run", async (page) => {
+    await guardCase("write guard: a recorded write becomes a failure of the run", async (page) => {
       await send(page, "POST", "/api/p/demo/beads");
       failures.length = 0;
       reportBlockedWrites();
@@ -965,7 +1241,7 @@ async function runSelftest() {
       failures.length = 0;
       return { ok: kinds.length === 1 && kinds[0].startsWith("a write request was sent"), detail: kinds.join(" | ") || "no failure reported" };
     });
-    await guardCase("49j.1: a usage ping alone is not a failure of the run", async (page) => {
+    await guardCase("write guard: a usage ping alone is not a failure of the run", async (page) => {
       await send(page, "POST", "/api/telemetry");
       failures.length = 0;
       reportBlockedWrites();
@@ -973,7 +1249,7 @@ async function runSelftest() {
       failures.length = 0;
       return { ok: n === 0, detail: `${n} failure(s)` };
     });
-    await guardCase("49j.1: a fixture route still lets the guard see a write", async (page, hits) => {
+    await guardCase("write guard: a fixture route still lets the guard see a write", async (page, hits) => {
       await routeFixture(page);
       const r = await send(page, "POST", "/api/p/demo/beads");
       return { ok: r === "failed" && blockedWrites.length === 1 && !hits.some((h) => h.startsWith("POST")), detail: `${r}; blocked ${blockedWrites.join(",") || "none"}; reached ${hits.join(",")}` };
@@ -983,41 +1259,41 @@ async function runSelftest() {
   }
   const dup = { key: "button[Go]", w: 44, h: 44 };
   const lost = compareControls([dup, dup], [dup]);
-  results.push({ name: "AC 3: a lost duplicate control is reported", ok: lost.length === 1, detail: lost.join(" | ") || "nothing reported" });
+  results.push({ name: "duplicate controls: a lost duplicate control is reported", ok: lost.length === 1, detail: lost.join(" | ") || "nothing reported" });
   const gained = compareControls([dup], [dup, dup]);
-  results.push({ name: "AC 3: an extra duplicate control is reported", ok: gained.length === 1, detail: gained.join(" | ") || "nothing reported" });
-  const accepted = "now input[Search beads…  (/)] 149x19";
+  results.push({ name: "duplicate controls: an extra duplicate control is reported", ok: gained.length === 1, detail: gained.join(" | ") || "nothing reported" });
+  const accepted = SEARCH_BOX;
   const keptOther = dropAccepted([accepted, "now button[Other] 10x10"], "board");
-  results.push({ name: "49j.3: only the agreed desktop change is dropped from the compare", ok: keptOther.length === 1 && keptOther[0].includes("Other"), detail: keptOther.join(" | ") });
+  results.push({ name: "desktop compare: only the agreed desktop change is dropped from the compare", ok: keptOther.length === 1 && keptOther[0].includes("Other"), detail: keptOther.join(" | ") });
   const keptSize = dropAccepted(["now input[Search beads…  (/)] 150x19"], "board");
-  results.push({ name: "49j.3: the same control at another size is still reported", ok: keptSize.length === 1, detail: keptSize.join(" | ") || "nothing reported" });
+  results.push({ name: "desktop compare: the same control at another size is still reported", ok: keptSize.length === 1, detail: keptSize.join(" | ") || "nothing reported" });
   resetAccepted();
   const wrongView = dropAccepted([accepted], "list");
-  results.push({ name: "49j.2: the agreed change is not accepted in another view", ok: wrongView.length === 1, detail: wrongView.join(" | ") || "dropped" });
+  results.push({ name: "desktop compare: the agreed change is not accepted in another view", ok: wrongView.length === 1, detail: wrongView.join(" | ") || "dropped" });
   resetAccepted();
   const missing = checkAcceptedHits();
-  results.push({ name: "49j.2: an agreed change with no hit fails the run", ok: missing.length === 2, detail: missing.join(" | ") || "no problem reported" });
+  results.push({ name: "desktop compare: an agreed change with no hit fails the run", ok: missing.length === 2, detail: missing.join(" | ") || "no problem reported" });
   dropAccepted([accepted], "board");
   dropAccepted([accepted], "drawer");
   const complete = checkAcceptedHits();
-  results.push({ name: "49j.2: one hit in the board and one in the drawer passes", ok: complete.length === 0, detail: complete.join(" | ") || "no problem" });
+  results.push({ name: "desktop compare: one hit in the board and one in the drawer passes", ok: complete.length === 0, detail: complete.join(" | ") || "no problem" });
   dropAccepted([accepted], "board");
   const extra = checkAcceptedHits();
-  results.push({ name: "49j.2: a second hit in the board fails the run", ok: extra.length === 1, detail: extra.join(" | ") || "no problem reported" });
+  results.push({ name: "desktop compare: a second hit in the board fails the run", ok: extra.length === 1, detail: extra.join(" | ") || "no problem reported" });
   const pA = contentProbe(["/_next/static/chunks/a1.js", "/_next/static/chunks/b2.css"]);
   const pB = contentProbe(["/_next/static/chunks/a1.js", "/_next/static/chunks/c3.css"]);
   const pAr = contentProbe(["/_next/static/chunks/b2.css", "/_next/static/chunks/a1.js"]);
-  results.push({ name: "49j.2: a changed file name changes the content probe", ok: pA !== "" && pA !== pB, detail: `${pA} | ${pB}` });
-  results.push({ name: "49j.2: the probe does not depend on the file order", ok: pA !== "" && pA === pAr, detail: `${pA} | ${pAr}` });
-  results.push({ name: "49j.2: an empty file list still prints a probe line", ok: contentProbe([]).startsWith("served content: 0 files"), detail: contentProbe([]) || "empty" });
+  results.push({ name: "content probe: a changed file name changes the content probe", ok: pA !== "" && pA !== pB, detail: `${pA} | ${pB}` });
+  results.push({ name: "content probe: the probe does not depend on the file order", ok: pA !== "" && pA === pAr, detail: `${pA} | ${pAr}` });
+  results.push({ name: "content probe: an empty file list still prints a probe line", ok: contentProbe([]).startsWith("served content: 0 files"), detail: contentProbe([]) || "empty" });
   resetAccepted();
   dropAccepted([accepted], "board");
   const boardOnly = checkAcceptedHits(["board"]);
-  results.push({ name: "49j.2: a run limited to the board checks only the board entry", ok: boardOnly.length === 0, detail: boardOnly.join(" | ") || "no problem" });
+  results.push({ name: "desktop compare: a run limited to the board checks only the board entry", ok: boardOnly.length === 0, detail: boardOnly.join(" | ") || "no problem" });
   const boardAndDrawer = checkAcceptedHits(["board", "drawer"]);
-  results.push({ name: "49j.2: a run with the board and the drawer reports the missing drawer hit", ok: boardAndDrawer.length === 1 && boardAndDrawer[0].startsWith("drawer"), detail: boardAndDrawer.join(" | ") || "no problem reported" });
+  results.push({ name: "desktop compare: a run with the board and the drawer reports the missing drawer hit", ok: boardAndDrawer.length === 1 && boardAndDrawer[0].startsWith("drawer"), detail: boardAndDrawer.join(" | ") || "no problem reported" });
   const listOnly = checkAcceptedHits(["list"]);
-  results.push({ name: "49j.2: a run limited to the list checks no entry", ok: listOnly.length === 0, detail: listOnly.join(" | ") || "no problem" });
+  results.push({ name: "desktop compare: a run limited to the list checks no entry", ok: listOnly.length === 0, detail: listOnly.join(" | ") || "no problem" });
   resetAccepted();
   const chipCases = [
     ["default", 1050, true, 1], ["default", 1024, true, 1], ["default", 1100, true, 1],
@@ -1027,9 +1303,9 @@ async function runSelftest() {
   ];
   for (const [pass, width, shown, problems] of chipCases) {
     const r = chipProblem(pass, width, shown);
-    results.push({ name: `49j.5: chips ${shown ? "visible" : "hidden"} at ${width}px (${pass}) ${problems ? "is a problem" : "is expected"}`, ok: (r ? 1 : 0) === problems, detail: r || "no problem" });
+    results.push({ name: `label chips: chips ${shown ? "visible" : "hidden"} at ${width}px (${pass}) ${problems ? "is a problem" : "is expected"}`, ok: (r ? 1 : 0) === problems, detail: r || "no problem" });
   }
-  results.push({ name: "49j.5: a width with no expectation reports no problem", ok: chipProblem("default", 820, true) === "", detail: chipProblem("default", 820, true) || "no problem" });
+  results.push({ name: "label chips: a width with no expectation reports no problem", ok: chipProblem("default", 820, true) === "", detail: chipProblem("default", 820, true) || "no problem" });
   resetAccepted();
   const unit = (name, fn) => {
     try {
@@ -1039,20 +1315,119 @@ async function runSelftest() {
       results.push({ name, ok: false, detail: `threw: ${String(e.message || e)}` });
     }
   };
+  unit("compare config: no snapshot and no skip is refused with both ways out named", () => {
+    const p = compareConfigProblem({ snapshot: undefined, mode: undefined, skip: false });
+    return { ok: p.includes("SCOTTY_LAYOUT_SNAPSHOT") && p.includes("SCOTTY_LAYOUT_SKIP_COMPARE=1"), detail: p.slice(0, 90) || "accepted" };
+  });
+  unit("compare config: SCOTTY_LAYOUT_SKIP_COMPARE=1 alone is accepted", () => {
+    const p = compareConfigProblem({ snapshot: undefined, mode: undefined, skip: true });
+    return { ok: p === "", detail: p || "accepted" };
+  });
+  const yes = () => true;
+  const no = () => false;
+  unit("compare config: record mode with a snapshot that does not exist yet is accepted", () => {
+    const p = compareConfigProblem({ snapshot: "/tmp/b.json", mode: "record", skip: false, exists: no });
+    return { ok: p === "", detail: p || "accepted" };
+  });
+  unit("compare config: an existing snapshot with the default compare mode is accepted", () => {
+    const p = compareConfigProblem({ snapshot: "/tmp/b.json", mode: undefined, skip: false, exists: yes });
+    return { ok: p === "", detail: p || "accepted" };
+  });
+  unit("compare config: an existing snapshot with SCOTTY_LAYOUT_MODE=compare is accepted", () => {
+    const p = compareConfigProblem({ snapshot: "/tmp/b.json", mode: "compare", skip: false, exists: yes });
+    return { ok: p === "", detail: p || "accepted" };
+  });
+  unit("compare config: compare mode with a missing snapshot file is refused before the run", () => {
+    const p = compareConfigProblem({ snapshot: "/tmp/b.json", mode: undefined, skip: false, exists: no });
+    return { ok: p.includes("/tmp/b.json") && p.includes("does not exist"), detail: p.slice(0, 90) || "accepted" };
+  });
+  unit("compare config: explicit compare mode with a missing snapshot file is refused", () => {
+    const p = compareConfigProblem({ snapshot: "/tmp/b.json", mode: "compare", skip: false, exists: no });
+    return { ok: p.includes("does not exist"), detail: p.slice(0, 90) || "accepted" };
+  });
+  unit("compare config: a mode typo (recrod) is refused, not run as compare", () => {
+    const p = compareConfigProblem({ snapshot: "/tmp/b.json", mode: "recrod", skip: false, exists: yes });
+    return { ok: p.includes("recrod") && p.includes("record or compare"), detail: p.slice(0, 90) || "accepted" };
+  });
+  unit("compare config: a mode typo is refused even without a snapshot", () => {
+    const p = compareConfigProblem({ snapshot: undefined, mode: "Record", skip: false, exists: yes });
+    return { ok: p.includes("Record") && p.includes("record or compare"), detail: p.slice(0, 90) || "accepted" };
+  });
+  unit("compare config: the real file check sees a file that exists", () => {
+    const p = compareConfigProblem({ snapshot: fileURLToPath(import.meta.url), mode: "compare", skip: false });
+    return { ok: p === "", detail: p || "accepted" };
+  });
+  unit("compare config: SCOTTY_LAYOUT_MODE without a snapshot is refused, even with the skip", () => {
+    const p = compareConfigProblem({ snapshot: undefined, mode: "record", skip: true });
+    return { ok: p.includes("SCOTTY_LAYOUT_MODE is set"), detail: p.slice(0, 90) || "accepted" };
+  });
+  unit("compare config: a snapshot together with the skip is refused", () => {
+    const p = compareConfigProblem({ snapshot: "/tmp/b.json", mode: undefined, skip: true });
+    return { ok: p.includes("both set"), detail: p.slice(0, 90) || "accepted" };
+  });
+
+  // Build identity: a fake checkout with a .next build, in a temp directory.
+  const tmpRoot = fs.existsSync("/tmp/opencode") ? "/tmp/opencode" : (process.env.TMPDIR || "/tmp");
+  const fake = fs.mkdtempSync(path.join(tmpRoot, "layout-build-"));
+  try {
+    const put = (rel, when) => {
+      const p = path.join(fake, rel);
+      fs.mkdirSync(path.dirname(p), { recursive: true });
+      fs.writeFileSync(p, "x");
+      fs.utimesSync(p, when / 1000, when / 1000);
+    };
+    const t0 = Date.now() - 3600_000;
+    put("app/page.tsx", t0);
+    put(".next/static/chunks/a1.js", t0 + 60_000);
+    put(".next/static/css/b2.css", t0 + 60_000);
+    put(".next/BUILD_ID", t0 + 60_000);
+    const line = "Build 209 · f99d76d";
+    const files = ["/_next/static/chunks/a1.js", "/_next/static/css/b2.css?dpl=1", "https://cdn.example/x.js"];
+    unit("build identity: the build of this checkout at its commit matches", () => {
+      const p = buildIdentityProblems({ line, files, sha: "f99d76d", dir: fake });
+      return { ok: p.length === 0, detail: p.join(" | ") || "matches" };
+    });
+    unit("build identity: a build of another commit fails", () => {
+      const p = buildIdentityProblems({ line, files, sha: "0123abc", dir: fake });
+      return { ok: p.length === 1 && p[0].includes("f99d76d") && p[0].includes("0123abc"), detail: p.join(" | ") || "matches" };
+    });
+    unit("build identity: a served asset that is not in .next/static (another build) fails", () => {
+      const p = buildIdentityProblems({ line, files: [...files, "/_next/static/chunks/old9.js"], sha: "f99d76d", dir: fake });
+      return { ok: p.length === 1 && p[0].includes("old9.js"), detail: p.join(" | ") || "matches" };
+    });
+    unit("build identity: a page with no /_next/static file fails", () => {
+      const p = buildIdentityProblems({ line, files: [], sha: "f99d76d", dir: fake });
+      return { ok: p.some((x) => x.includes("no /_next/static file")), detail: p.join(" | ") || "matches" };
+    });
+    unit("build identity: a source file newer than the build fails", () => {
+      put("components/new.tsx", t0 + 120_000);
+      const p = buildIdentityProblems({ line, files, sha: "f99d76d", dir: fake });
+      fs.rmSync(path.join(fake, "components"), { recursive: true });
+      return { ok: p.length === 1 && p[0].includes("components/new.tsx") && p[0].includes("heuristic") && p[0].includes("npm run build"), detail: p.join(" | ") || "matches" };
+    });
+    unit("build identity: a checkout with no .next build fails", () => {
+      fs.rmSync(path.join(fake, ".next", "BUILD_ID"));
+      const p = buildIdentityProblems({ line, files, sha: "f99d76d", dir: fake });
+      return { ok: p.some((x) => x.includes("no production build")), detail: p.join(" | ") || "matches" };
+    });
+  } finally {
+    fs.rmSync(fake, { recursive: true, force: true });
+  }
+
   const here = { name: "chromium 131.0.1", executable: "/usr/bin/google-chrome" };
-  unit("AC 13: the same browser matches", () => {
+  unit("browser record: the same browser matches", () => {
     const p = compareBrowser({ ...here }, here);
     return { ok: p === null, detail: String(p) };
   });
-  unit("AC 13: a different executable is reported with both names", () => {
+  unit("browser record: a different executable is reported with both names", () => {
     const p = compareBrowser({ ...here, executable: "playwright-bundled" }, here);
     return { ok: typeof p === "string" && p.includes("playwright-bundled") && p.includes("/usr/bin/google-chrome"), detail: String(p).slice(0, 90) };
   });
-  unit("AC 13: a different version is reported", () => {
+  unit("browser record: a different version is reported", () => {
     const p = compareBrowser({ ...here, name: "chromium 130.0.9" }, here);
     return { ok: typeof p === "string" && p.includes("chromium 130.0.9"), detail: String(p).slice(0, 90) };
   });
-  unit("AC 13: a missing browser record is reported", () => {
+  unit("browser record: a missing browser record is reported", () => {
     const p = compareBrowser(undefined, here);
     return { ok: typeof p === "string" && p.includes("no browser record"), detail: String(p).slice(0, 90) };
   });
@@ -1097,6 +1472,15 @@ try {
     await browser.close();
     process.exit(1);
   }
+  // A stale or foreign build would make the audit measure UI that is not in this checkout.
+  const identity = buildIdentityProblems({ line, files, sha: checkoutSha(checkoutDir), dir: checkoutDir });
+  if (identity.length) {
+    console.error(`the server does not serve the build of this checkout (${checkoutDir}):`);
+    for (const p of identity) console.error(`    ${p}`);
+    await browser.close();
+    process.exit(1);
+  }
+  console.log(`build check: the served build matches this checkout's .next build and commit`);
   console.log(`browser: ${currentBrowser.name} (${currentBrowser.executable})`);
 } catch (e) {
   await browser.close();
@@ -1259,7 +1643,8 @@ if (snapshotFile) {
         (acceptedDesktop ? `; ${acceptedDesktop} accepted change(s): ${[...new Set(ACCEPTED_DESKTOP.map((e) => e.why))].join("; ")}` : ""));
   }
 } else {
-  console.log("compare skipped: SCOTTY_LAYOUT_SNAPSHOT not set");
+  // Only reached with SCOTTY_LAYOUT_SKIP_COMPARE=1; without it the script exited 2 at the start.
+  console.log("compare skipped: SCOTTY_LAYOUT_SKIP_COMPARE=1 is set, so the 1280px desktop control sizes were NOT compared");
 }
 
 reportBlockedWrites();
