@@ -37,12 +37,15 @@ export interface BeadsStore {
   createGate(blocks: string, reason: string | undefined, actor: string): Promise<Bead>;
   removeLabel(id: string, label: string, actor: string): Promise<Bead>;
   /**
-   * `bd human respond`: a "Response: …" comment, then close with reason
-   * "Responded". The `human` label stays, as the CLI leaves it.
+   * For a `human-question` bead, `bd human respond`: a "Response: …" comment,
+   * then close with reason "Responded"; the `human` label stays, as the CLI
+   * leaves it. The label is read in the same serialized step as the write.
+   * Returns null when the bead has no such label (the caller keeps today's
+   * behaviour), and the bead unchanged when it is already closed (a retry).
    */
-  respondHuman(id: string, text: string, actor: string): Promise<Bead>;
-  /** `bd human dismiss`: close with reason "Dismissed"; the `human` label stays. */
-  dismissHuman(id: string, actor: string): Promise<Bead>;
+  respondHuman(id: string, text: string, actor: string): Promise<Bead | null>;
+  /** The same for `bd human dismiss`: close with reason "Dismissed". */
+  dismissHuman(id: string, actor: string): Promise<Bead | null>;
   archive(id: string, actor: string): Promise<Bead>;
   doctor(): Promise<DoctorInfo>;
 }

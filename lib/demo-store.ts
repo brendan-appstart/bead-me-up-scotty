@@ -2,6 +2,7 @@ import "server-only";
 import { beadSchema, type Bead, type CreateInput, type UpdateInput, type DepType, type Dependency } from "./schema";
 import type { BeadsStore, DoctorInfo } from "./store";
 import { demoBeads } from "./demo-data";
+import { isHumanQuestion } from "./beads-view";
 
 /**
  * In-memory store backed by the demo dataset in `lib/demo-data.ts`. Used when bd
@@ -142,11 +143,17 @@ export const demoStore: BeadsStore = {
     return { ...b };
   },
   async respondHuman(id, text, actor) {
+    const b = find(id);
+    if (!isHumanQuestion(b)) return null;
+    if (b.status === "closed") return { ...b };
     // Mirror `bd human respond`: a "Response: …" comment, then close as "Responded".
     await demoStore.addComment(id, `Response: ${text}`, actor);
     return demoStore.setStatus(id, "closed", actor, "Responded");
   },
   async dismissHuman(id, actor) {
+    const b = find(id);
+    if (!isHumanQuestion(b)) return null;
+    if (b.status === "closed") return { ...b };
     // Mirror `bd human dismiss`: close as "Dismissed", no comment.
     return demoStore.setStatus(id, "closed", actor, "Dismissed");
   },

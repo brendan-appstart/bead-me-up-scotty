@@ -86,8 +86,9 @@ npm, Docker) are below.
   By default the bead stays open, so an agent can keep working on it. A bead that
   also carries the `human-question` label exists only for the answer: **Respond &
   close** and **Dismiss & close** close it as `bd human respond` and `bd human
-  dismiss` do, so the beads that wait on it become ready. Each card says how many
-  open beads wait on its answer.
+  dismiss` do, so it no longer blocks the beads that wait on it (each one becomes
+  ready once nothing else blocks it). A second click on an answered bead changes
+  nothing. Each card says how many active beads wait on its answer.
 - **Bead links** — open a bead directly with `/p/<project>?bead=<id>`. The address
   bar follows the open drawer; its **Copy link** button copies a shareable link,
   including in read-only mode. Drawer navigation keeps its own Back trail.

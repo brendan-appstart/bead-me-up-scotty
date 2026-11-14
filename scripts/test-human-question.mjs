@@ -54,14 +54,17 @@ const all = [
   bead("w-conditional", { dependencies: [on("conditional-blocks", "q")] }),
   bead("w-waits", { dependencies: [on("waits-for", "q")] }),
   bead("w-done", { status: "closed", dependencies: [on("blocks", "q")] }),
+  bead("w-deferred", { status: "deferred", dependencies: [on("blocks", "q")] }),
+  bead("w-pinned", { status: "pinned", dependencies: [on("blocks", "q")] }),
+  bead("w-busy", { status: "in_progress", dependencies: [on("blocks", "q")] }),
   bead("w-related", { dependencies: [on("related", "q")] }),
   bead("w-child", { dependencies: [on("parent-child", "q")] }),
   bead("w-other", { dependencies: [on("blocks", "other")] }),
 ];
 assert.deepEqual(
   waitingOnAnswer("q", all).map((b) => b.id),
-  ["w-blocks", "w-conditional", "w-waits"],
-  "only open beads with a blocking dependency wait on the answer",
+  ["w-blocks", "w-conditional", "w-waits", "w-busy"],
+  "only active beads with a blocking dependency wait on the answer: not closed, deferred or pinned",
 );
 assert.deepEqual(waitingOnAnswer("nobody-waits", all), []);
 console.log("PASS human-question: the label rule and the waiting count");
@@ -82,6 +85,7 @@ const fixtures = [
   bead("hq-w1", { title: "Build sign-in", dependencies: [on("blocks", "hq-1")] }),
   bead("hq-w2", { title: "Write sign-in docs", dependencies: [on("blocks", "hq-1")] }),
   bead("hq-w3", { title: "Shipped already", status: "closed", dependencies: [on("blocks", "hq-1")] }),
+  bead("hq-w5", { title: "Set aside", status: "deferred", dependencies: [on("blocks", "hq-1")] }),
   bead("hq-w4", { title: "Waits on the plain one", dependencies: [on("blocks", "hq-plain")] }),
 ];
 const writes = [];
@@ -229,12 +233,19 @@ if (!haveBd) {
     assert.deepEqual([...b.labels].sort(), ["human", "human-question"], "the human label stays");
     assert.deepEqual(comments(q), ["Response: Use OAuth"], "the same comment as bd human respond");
     assert.ok(ready().includes(work), "the work bead becomes ready, as after the CLI");
+  // A second click (a retry) on the answered bead adds no second answer.
+  await post(projectId, q, { action: "respond", text: "Use OAuth" });
+  assert.deepEqual(comments(q), ["Response: Use OAuth"], "a retry adds nothing");
+  assert.equal(shown(q).close_reason, "Responded");
 
     await post(projectId, dismissQ, { action: "dismiss" });
     b = shown(dismissQ);
     assert.equal(b.status, "closed");
     assert.equal(b.close_reason, "Dismissed");
     assert.deepEqual(comments(dismissQ), [], "dismiss adds no comment, as the CLI");
+  await post(projectId, dismissQ, { action: "respond", text: "Too late" });
+  assert.deepEqual(comments(dismissQ), [], "an answer after a dismiss adds nothing");
+  assert.equal(shown(dismissQ).close_reason, "Dismissed");
 
     // bd human respond closes a question that the asking agent claimed; so does Scotty.
     await post(projectId, claimedQ, { action: "respond", text: "Yes" });
@@ -271,6 +282,8 @@ if (!haveBd) {
   assert.equal(a.close_reason, "Responded");
   assert.deepEqual(a.labels, ["human", "human-question"], "the human label stays, as bd leaves it");
   assert.equal(a.comments.at(-1).text, "Response: Use OAuth", "the comment reads as bd's");
+  await post("demo", answered, { action: "respond", text: "Use OAuth" });
+  assert.equal((await getDemo(answered)).comments.length, a.comments.length, "a retry adds nothing");
   const d = await getDemo(dismissed);
   assert.equal(d.status, "closed");
   assert.equal(d.close_reason, "Dismissed");
