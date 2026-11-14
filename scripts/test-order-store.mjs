@@ -87,10 +87,29 @@ const apply = (ranks, writes) => new Map([...ranks, ...writes]);
     assert.deepEqual(shown(["a", "b", "c"], apply(ranks, w), fb(["c"])), ["a", "c", "b"], "no integer fits: renumber");
   }
 
+  // Ranks so far from zero that a step rounds back onto a neighbour: the column
+  // is renumbered instead of getting a duplicate rank.
+  for (const [target, ranks] of [
+    [["b", "a"], new Map([["a", 2 ** 70]])],
+    [["a", "c", "b"], new Map([["a", 2 ** 70], ["c", 2 ** 71], ["b", 0]])],
+    [["a", "c", "b"], new Map([["a", 2 ** 60], ["b", 2 ** 60 + 256]])],
+  ]) {
+    const after = apply(ranks, plan(target, ranks, fb([])));
+    const r = target.map((id) => after.get(id));
+    assert.ok(r.every((x, k) => k === 0 || x > r[k - 1]), `${target}: strictly increasing ranks ${r}`);
+  }
+
   // Random columns and moves: the planned writes always give the requested order,
-  // and an unchanged order with distinct ranks writes nothing.
+  // and an unchanged order with distinct ranks writes nothing. The generator
+  // (mulberry32) is exact in 32-bit integer arithmetic, so it stays random.
   let seed = 7;
-  const rnd = (n) => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed % n; };
+  const rnd = (n) => {
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return Math.floor((((t ^ (t >>> 14)) >>> 0) / 4294967296) * n);
+  };
+  let spliced = 0;
   for (let trial = 0; trial < 2000; trial++) {
     const n = 1 + rnd(12);
     const ids = Array.from({ length: n }, (_, i) => `b${i}`);
@@ -100,7 +119,7 @@ const apply = (ranks, writes) => new Map([...ranks, ...writes]);
     for (const id of ids) if (rnd(3)) ranks.set(id, rnd(4) ? rnd(50) * 16 : rnd(5) + rnd(2) / 2);
     const current = shown(ids, ranks, fallback);
     const target = [...current];
-    if (rnd(2)) { const [x] = target.splice(rnd(n), 1); target.splice(rnd(n), 0, x); }
+    if (rnd(2)) { spliced++; const [x] = target.splice(rnd(n), 1); target.splice(rnd(n), 0, x); }
     else target.sort(() => rnd(3) - 1);
     const w = plan(target, ranks, fallback);
     assert.deepEqual(shown(ids, apply(ranks, w), fallback), target, `trial ${trial}`);
@@ -109,6 +128,7 @@ const apply = (ranks, writes) => new Map([...ranks, ...writes]);
       assert.equal(plan(current, ranks, fallback).size, 0, `trial ${trial}: unchanged order`);
     }
   }
+  assert.ok(spliced > 800 && spliced < 1200, `both kinds of move are tried (${spliced} of 2000 single moves)`);
   console.log("PASS: rank planner (sparse ranks, one write per drag, renumber only when a gap runs out)");
 }
 
@@ -214,9 +234,14 @@ function api(root) {
     assert.deepEqual(await written(pid, before), [], `${what}: nothing written`);
   }
 
-  // Overlapping reorders: the result is exactly one of the requested orders.
+  // Overlapping reorders: the result is exactly one of the requested orders. Each
+  // round starts from an order that is none of them, so a dropped write shows.
   const orders = [moved, other, [...moved].reverse(), [x0, x2, x1, ...moved.slice(3)]];
+  const startOrder = [...moved.slice(1), moved[0]];
+  assert.ok(!orders.some((ids) => JSON.stringify(ids) === JSON.stringify(startOrder)));
   for (let round = 0; round < 3; round++) {
+    await putOrder(pid, "ready", startOrder);
+    assert.deepEqual(await shownOf(pid, "ready", ready), startOrder);
     await Promise.all(orders.map((ids) => putOrder(pid, "ready", ids)));
     const final = await shownOf(pid, "ready", ready);
     assert.ok(orders.some((ids) => JSON.stringify(ids) === JSON.stringify(final)), `overlapping PUTs left a mixed order: ${final}`);
@@ -388,9 +413,49 @@ if (!hasBd) {
     server = await serve();
     s = api(server.url);
     assert.deepEqual(await s.shownOf(pid, "ready", ids), target, "a fresh server returns the same order");
+
+    // A copy cut short by a failed write (here: only the first saved card got its
+    // rank) is finished by the next copy, instead of leaving the column half ranked.
+    const bd = (...args) => execFileSync("bd", args, { cwd: repo, stdio: "ignore" });
+    for (const id of ids) bd("update", id, "--unset-metadata", RANK);
+    await s.setStore("local");
+    const unranked = await s.shownOf(pid, "ready", ids);
+    const savedOrder = [...unranked].reverse();
+    await s.putOrder(pid, "ready", savedOrder);
+    bd("update", savedOrder[0], "--set-metadata", `${RANK}=0`);
+    await s.setStore("beads");
+    assert.deepEqual(await s.shownOf(pid, "ready", ids), savedOrder, "the next copy finishes a partial one");
+    const ranks = JSON.parse(execFileSync("bd", ["list", "--json"], { cwd: repo, encoding: "utf8" }));
+    assert.deepEqual(savedOrder.map((id) => ranks.find((b) => b.id === id)?.metadata?.[RANK]), [0, RANK_STEP, 2 * RANK_STEP]);
+
+    // A rank changed by another bd client reaches an open Board without a reload.
+    const browser = await chromium.launch();
+    try {
+      const context = await browser.newContext({ viewport: { width: 1600, height: 1100 } });
+      await context.addInitScript(() => localStorage.setItem("bmus.board", JSON.stringify({ sortMode: "manual" })));
+      const page = await context.newPage();
+      page.setDefaultTimeout(10000);
+      const readyIds = () => page.getByText("Ready", { exact: true }).locator("xpath=ancestor::section[1]")
+        .locator("article").evaluateAll((cards) => cards.map((c) => c.dataset.keyboardBeadId));
+      const streamOpen = page.waitForResponse((r) => r.url().endsWith("/beads/stream"));
+      await page.goto(`${server.url}/p/${pid}`);
+      await streamOpen;
+      for (const end = Date.now() + 10000; JSON.stringify(await readyIds()) !== JSON.stringify(savedOrder);) {
+        assert.ok(Date.now() < end, `the Board shows the order: ${await readyIds()}`);
+        await page.waitForTimeout(100);
+      }
+      bd("update", savedOrder[2], "--set-metadata", `${RANK}=-${RANK_STEP}`);
+      const expected = [savedOrder[2], savedOrder[0], savedOrder[1]];
+      for (const end = Date.now() + 10000; JSON.stringify(await readyIds()) !== JSON.stringify(expected);) {
+        assert.ok(Date.now() < end, `the Board follows a rank set by bd: ${await readyIds()}`);
+        await page.waitForTimeout(100);
+      }
+    } finally {
+      await browser.close();
+    }
   } finally {
     if (server) await server.stop();
     fs.rmSync(tmp, { recursive: true, force: true });
   }
-  console.log("PASS: real bd repo (bd list --json sees the order, and it survives a server restart)");
+  console.log("PASS: real bd repo (bd list --json sees the order, it survives a restart, a partial copy is finished, the Board follows bd)");
 }

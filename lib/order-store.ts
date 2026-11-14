@@ -93,26 +93,32 @@ async function writeRanks(store: BeadsStore, ranks: Map<string, number>, actor: 
 
 /**
  * Copy the order saved in this app into beads, for each column that holds no
- * rank yet. A column that already holds one keeps it, so the copy never
- * overwrites a rank and runs at most once per column. config.json is left as it
- * is, so switching back to local returns to that order. Call with the project
- * lock held; returns the beads as they are afterwards.
+ * rank yet. Each bead takes the rank of its saved position. A column that holds
+ * any other rank keeps it, so the copy never overwrites a rank. A copy cut short
+ * by a failed write leaves only ranks of its own, so the next copy finishes it;
+ * after that it writes nothing. config.json is left as it is, so switching back
+ * to local returns to that order. Call with the project lock held; returns the
+ * beads as they are afterwards.
  */
 async function copyLocalOrder(projectId: string, store: BeadsStore, actor: string): Promise<Bead[]> {
   const beads = await store.list();
   const local = getLocalOrders(projectId);
   if (!Object.keys(local).length) return beads;
-  const ranked = deriveOrders(beads);
   const index = new Map(beads.map((b) => [b.id, b]));
+  const columnOf = new Map(beads.map((b) => [b.id, colOf(b, index)]));
   const ranks = new Map<string, number>();
   for (const [col, ids] of Object.entries(local)) {
-    if (ranked[col]) continue;
     // Only the beads that are still in that column; a moved bead takes no rank from it.
-    const present = ids.filter((id) => {
-      const bead = index.get(id);
-      return bead !== undefined && colOf(bead, index) === col;
+    const planned = new Map<string, number>();
+    ids.forEach((id, i) => {
+      if (columnOf.get(id) === col) planned.set(id, i * RANK_STEP);
     });
-    present.forEach((id, i) => ranks.set(id, i * RANK_STEP));
+    const ownRanksOnly = beads.every((b) => {
+      const r = rankOf(b);
+      return columnOf.get(b.id) !== col || r === null || r === planned.get(b.id);
+    });
+    if (!ownRanksOnly) continue;
+    for (const [id, rank] of planned) if (rankOf(index.get(id)) === null) ranks.set(id, rank);
   }
   if (!ranks.size) return beads;
   await writeRanks(store, ranks, actor);
@@ -130,7 +136,10 @@ export async function copyAllLocalOrders(
   for (const p of projects) {
     try {
       const store = await p.store();
-      await withProjectLock(p.id, () => copyLocalOrder(p.id, store, actor));
+      await withProjectLock(p.id, async () => {
+        // The setting may have been switched off again while this waited.
+        if (orderStoreOf(getConfig()) === "beads") await copyLocalOrder(p.id, store, actor);
+      });
     } catch {
       /* copied on the next order write */
     }
@@ -163,6 +172,9 @@ export async function setColumnOrder(
   if (orderStoreOf(getConfig()) !== "beads") return setLocalOrder(projectId, columnId, ids);
   const store = await openStore();
   return withProjectLock(projectId, async () => {
+    // The setting may have been switched to local while this request waited for
+    // the store or the lock; the order then goes where the setting says now.
+    if (orderStoreOf(getConfig()) !== "beads") return setLocalOrder(projectId, columnId, ids);
     // Read the beads only now that the lock is held, so the plan is current.
     const beads = await copyLocalOrder(projectId, store, actor);
     const index = new Map(beads.map((b) => [b.id, b]));

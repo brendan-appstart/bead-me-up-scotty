@@ -72,6 +72,18 @@ function longestIncreasing(ranks: (number | null)[]): Set<number> {
 
 /** `count` increasing integers strictly between lo and hi (null: open end), or null if they don't fit. */
 function between(lo: number | null, hi: number | null, count: number): number[] | null {
+  const slots = spread(lo, hi, count);
+  // Far from zero (past 2^53) a step can round back onto a neighbour, so a slot
+  // is usable only if it is strictly inside the gap and above the one before it.
+  let prev = lo ?? Number.NEGATIVE_INFINITY;
+  for (const s of slots ?? []) {
+    if (!(s > prev)) return null;
+    prev = s;
+  }
+  return slots && prev < (hi ?? Number.POSITIVE_INFINITY) ? slots : null;
+}
+
+function spread(lo: number | null, hi: number | null, count: number): number[] | null {
   if (lo === null && hi === null) return Array.from({ length: count }, (_, k) => k * RANK_STEP);
   if (lo === null) return Array.from({ length: count }, (_, k) => Math.floor(hi as number) - (count - k) * RANK_STEP);
   if (hi === null) return Array.from({ length: count }, (_, k) => Math.ceil(lo) + (k + 1) * RANK_STEP);

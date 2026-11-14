@@ -2,6 +2,7 @@
 import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { beadsKey, activityKey } from "@/hooks/use-beads";
+import { orderKey } from "@/hooks/use-order";
 
 /**
  * Subscribe to the server's SSE change stream for a project and refetch the
@@ -26,6 +27,9 @@ export function useBeadsStream(projectId: string): { live: boolean } {
     es.addEventListener("change", () => {
       qc.invalidateQueries({ queryKey: beadsKey(projectId) });
       qc.invalidateQueries({ queryKey: activityKey(projectId) });
+      // With the order stored in beads, a write by an agent or another bd client
+      // can change a card's rank, so the manual order is refetched too.
+      qc.invalidateQueries({ queryKey: orderKey(projectId) });
     });
 
     return () => {
