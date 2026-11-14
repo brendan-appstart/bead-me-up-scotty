@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { apiUrl } from "@/lib/api-client";
 import { beadsKey, activityKey } from "@/hooks/use-beads";
 
 /**
@@ -19,7 +20,7 @@ export function useBeadsStream(projectId: string): { live: boolean } {
     if (projectId === "demo") return; // demo has no .beads to watch
 
     const es = new EventSource(
-      `/api/p/${encodeURIComponent(projectId)}/beads/stream`,
+      apiUrl(`/api/p/${encodeURIComponent(projectId)}/beads/stream`),
     );
     es.addEventListener("open", () => setLive(true));
     es.addEventListener("error", () => setLive(false)); // EventSource auto-reconnects

@@ -1,7 +1,7 @@
 "use client";
 import { useApp } from "@/components/app-context";
 import { Icon } from "@/components/icons";
-import { api } from "@/lib/api-client";
+import { api, apiUrl } from "@/lib/api-client";
 
 /**
  * Chips for the links and attachments found across a bead's text (see
@@ -16,7 +16,7 @@ export function ReviewLinkChips({ links }: { links: string[] }) {
     <div data-review-links className="flex flex-wrap gap-[6px]">
       {links.map(link => {
         const attachment = link.startsWith("attachment://");
-        const href = attachment ? api.attachments.urlFor(projectId, link) : link;
+        const href = attachment ? api.attachments.urlFor(projectId, link) : link.startsWith("/") ? apiUrl(link) : link;
         const label = attachment || link.startsWith("/api/p/")
           ? `Attachment: ${link.split("/").at(-1)}` : link.replace(/^https?:\/\//i, "");
         return (

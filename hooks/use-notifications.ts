@@ -3,6 +3,7 @@ import * as React from "react";
 import { toast } from "sonner";
 import { useActivity } from "@/hooks/use-beads";
 import { useApp } from "@/components/app-context";
+import { stripBasePath, withBasePath } from "@/lib/base-path";
 import { needsHuman } from "@/lib/beads-view";
 
 /**
@@ -66,7 +67,7 @@ export function useNotificationPrefs() {
 
 function currentProjectId(): string | null {
   if (typeof window === "undefined") return null;
-  const match = /^\/p\/([^/]+)\/?$/.exec(window.location.pathname);
+  const match = /^\/p\/([^/]+)\/?$/.exec(stripBasePath(window.location.pathname));
   if (!match) return null;
   try {
     return decodeURIComponent(match[1]);
@@ -88,7 +89,7 @@ export function activateNotification(projectId: string, beadId: string) {
     // mounted. In that narrow window, fall through to the URL landing route.
     if (!window.dispatchEvent(event)) return;
   }
-  window.location.assign(`/p/${encodeURIComponent(projectId)}?bead=${encodeURIComponent(beadId)}`);
+  window.location.assign(withBasePath(`/p/${encodeURIComponent(projectId)}?bead=${encodeURIComponent(beadId)}`));
 }
 
 /** Registers the current AppShell as the live, project-scoped notification

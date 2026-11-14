@@ -36,6 +36,11 @@ COPY . .
 ARG BUILD_NUMBER=""
 ARG BUILD_SHA=""
 
+# Serve under a sub-path (see README, "Serving Scotty under a sub-path"). Next
+# fixes the base path at build time and the standalone server keeps it, so it
+# is a build argument: --build-arg SCOTTY_BASE_PATH=/board. Empty: the root.
+ARG SCOTTY_BASE_PATH=""
+
 # Standalone output is opt-in (see next.config.ts) so local `next start` flows
 # keep the default output.
 ENV NEXT_STANDALONE=1

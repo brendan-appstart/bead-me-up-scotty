@@ -2,6 +2,7 @@
 import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { apiUrl } from "@/lib/api-client";
 
 type Settings = { enabled: boolean; configured: boolean };
 
@@ -12,7 +13,7 @@ export function UsageActivity() {
     function ping() {
       if (document.visibilityState !== "visible" || Date.now() - lastPing < 60_000) return;
       lastPing = Date.now();
-      void fetch("/api/telemetry", { method: "POST" }).catch(() => {});
+      void fetch(apiUrl("/api/telemetry"), { method: "POST" }).catch(() => {});
     }
     ping();
     document.addEventListener("visibilitychange", ping);
@@ -32,14 +33,14 @@ export function UsageStatisticsSetting() {
   const query = useQuery<Settings>({
     queryKey: ["usage-statistics"],
     queryFn: async () => {
-      const res = await fetch("/api/telemetry");
+      const res = await fetch(apiUrl("/api/telemetry"));
       if (!res.ok) throw new Error("Could not load usage preference.");
       return res.json();
     },
   });
   const save = useMutation({
     mutationFn: async (enabled: boolean): Promise<Settings> => {
-      const res = await fetch("/api/telemetry", {
+      const res = await fetch(apiUrl("/api/telemetry"), {
         method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled }),
       });
       if (!res.ok) throw new Error("Could not save usage preference. Please try again.");

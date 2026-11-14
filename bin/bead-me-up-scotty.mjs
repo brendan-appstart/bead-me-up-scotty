@@ -7,6 +7,9 @@
  * it's ready, then opens the browser. If you run it from a directory that
  * contains a `.beads` repo, it opens straight to that project's board.
  *
+ * With SCOTTY_BASE_PATH set (see next.config.ts), the server, the readiness
+ * probe, the project registration and the opened URL all sit under that path.
+ *
  * Zero dependencies — Node stdlib only. Works regardless of the directory it's
  * launched from (resolves the package root from this file's location, not cwd).
  */
@@ -27,6 +30,16 @@ const ROOT = path.resolve(here, "..");
 
 const require = createRequire(import.meta.url);
 
+// The sub-path to serve under, normalised exactly as next.config.ts does
+// ("board/" -> "/board", "/" -> ""). Empty (the default) serves at the root.
+const BASE_PATH = (process.env.SCOTTY_BASE_PATH || "").replace(/^\/*/, "/").replace(/\/+$/, "");
+
+/** A root-absolute app path ("/", "/api/...") under the base path. */
+function appPath(p) {
+  if (!BASE_PATH) return p;
+  return p === "/" ? BASE_PATH : `${BASE_PATH}${p}`;
+}
+
 function printHelp() {
   console.log(`
 Bead Me Up, Scotty — local web UI for the beads (bd) tracker.
@@ -45,6 +58,10 @@ Options:
       --host <h>   Host to bind (default from Next; or $HOST).
       --no-open    Don't open a browser, just print the URL.
   -h, --help       Show this help.
+
+Environment:
+  SCOTTY_BASE_PATH  Serve under a sub-path, e.g. /board. The build must have
+                    been made with the same value.
 `);
 }
 
@@ -123,12 +140,25 @@ function resolveNextBin() {
   }
 }
 
+/**
+ * The base path the production build was made with ("" for the root), from the
+ * routes manifest Next writes next to BUILD_ID. null if it can't be read.
+ */
+function readBuiltBasePath() {
+  try {
+    const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, ".next", "routes-manifest.json"), "utf8"));
+    return typeof manifest.basePath === "string" ? manifest.basePath : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Poll the server until it responds, then resolve. */
 function waitForReady(host, port, timeoutMs = 30000) {
   const deadline = Date.now() + timeoutMs;
   return new Promise((resolve, reject) => {
     const tick = () => {
-      const req = http.get({ host, port, path: "/", timeout: 2000 }, (res) => {
+      const req = http.get({ host, port, path: appPath("/"), timeout: 2000 }, (res) => {
         res.resume();
         resolve();
       });
@@ -180,7 +210,7 @@ async function targetPath(host, port) {
         {
           host,
           port,
-          path: "/api/projects",
+          path: appPath("/api/projects"),
           method: "POST",
           headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) },
         },
@@ -224,6 +254,19 @@ async function main() {
       "No production build found.\n" +
         "Run `npm run build` in the project directory, then reinstall " +
         "(`npm link` or `npm install -g .`).",
+    );
+    process.exit(1);
+  }
+
+  // Next inlines the base path into the client bundle at build time, so a
+  // server started with another value serves pages whose scripts and API calls
+  // all 404. Refuse to start instead of opening a broken page.
+  const builtBasePath = readBuiltBasePath();
+  if (builtBasePath !== null && builtBasePath !== BASE_PATH) {
+    const shown = (v) => (v ? `SCOTTY_BASE_PATH=${v}` : "no SCOTTY_BASE_PATH");
+    console.error(
+      `This build was made with ${shown(builtBasePath)}, but scotty was started with ${shown(BASE_PATH)}.\n` +
+        "Start it with the value the build used, or rebuild with the one you want.",
     );
     process.exit(1);
   }
@@ -295,7 +338,7 @@ async function main() {
   const target = opts.open ? await targetPath(host, port) : "/";
   // Canonicalize through the URL parser — throws on anything that isn't a
   // well-formed http origin, so no raw user input reaches openBrowser().
-  const fullUrl = new URL(target, `http://${host}:${port}`).href;
+  const fullUrl = new URL(appPath(target), `http://${host}:${port}`).href;
   console.log(`\n  Bead Me Up, Scotty → ${fullUrl}\n  (Ctrl+C to stop)\n`);
   if (opts.open) openBrowser(fullUrl);
 }
