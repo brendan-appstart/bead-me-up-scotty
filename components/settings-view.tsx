@@ -8,7 +8,7 @@ import { THEMES } from "@/lib/themes";
 import { useApp } from "@/components/app-context";
 import { api, type DoctorResponse } from "@/lib/api-client";
 import { useNotificationPrefs, type NotifPrefs } from "@/hooks/use-notifications";
-import { useBoardPrefs } from "@/hooks/use-board-prefs";
+import { useBoardPrefs, useColumnLayout } from "@/hooks/use-board-prefs";
 import { useDefaultFocus } from "@/hooks/use-default-view";
 import { ViewerModeSetting } from "@/components/read-only-banner";
 import { KEYBOARD_SHORTCUT_GROUPS, isSubmitKey } from "@/lib/keyboard-shortcuts";
@@ -335,6 +335,7 @@ function KeyboardShortcutsCard() {
 
 function BoardCard() {
   const { prefs, setPrefs } = useBoardPrefs();
+  const waiting = useColumnLayout() === "waiting";
   const opts: { value: "auto" | "always"; label: string }[] = [
     { value: "auto", label: "Only when it has beads" },
     { value: "always", label: "Always show" },
@@ -366,6 +367,26 @@ function BoardCard() {
             );
           })}
         </div>
+      </div>
+      <div className="mt-4 flex items-center justify-between gap-4">
+        <div>
+          <div className="text-[13px]">Waiting column</div>
+          <div className="text-[11.5px] text-[var(--text-3)]">
+            Put work that has not started on the left: Waiting holds deferred beads and beads
+            that wait on other work, and Blocked holds only what waits on a person. Off keeps
+            the standard columns. This choice applies to this browser.
+          </div>
+        </div>
+        <button
+          role="switch"
+          aria-label="Waiting column"
+          aria-checked={waiting}
+          onClick={() => setPrefs({ ...prefs, columnLayout: waiting ? "standard" : "waiting" })}
+          className="flex h-[34px] flex-shrink-0 items-center gap-[7px] rounded-[9px] border border-border bg-[var(--surface-2)] px-[13px] text-[12.5px] hover:bg-[var(--surface-3)]"
+        >
+          <Icon name={waiting ? "check" : "x"} size={14} />
+          <span>{waiting ? "Enabled" : "Disabled"}</span>
+        </button>
       </div>
     </Card>
   );

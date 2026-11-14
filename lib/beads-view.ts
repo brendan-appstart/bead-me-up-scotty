@@ -26,6 +26,20 @@ export function isHumanGate(b: Bead): boolean {
 }
 
 /**
+ * An item a person can act on now, by the rules of Needs You: a needsHuman()
+ * bead (the `human` label, which `bd human` sets) that is not itself blocked,
+ * or a readyHumanGate() that is not deferred. Work that depends on one waits on
+ * that person (see blockKind). A person item that is deferred, closed or still
+ * blocked counts as other work, so its dependents wait on work until the
+ * person can act.
+ */
+export function waitsOnPerson(b: Bead, index: Map<string, Bead>): boolean {
+  if (needsHuman(b)) return !isBlocked(b, index);
+  // needsHuman() leaves out deferred beads; readyHumanGate() does not.
+  return b.status !== "deferred" && readyHumanGate(b, index);
+}
+
+/**
  * A human-approval gate that is unresolved and not itself blocked — its own
  * blockers (if any) are all closed, so a person can approve/resolve it now.
  * These belong on the "Needs You" inbox alongside `needsHuman()` beads
@@ -189,6 +203,25 @@ export function blockingDeps(b: Bead, index: Map<string, Bead>): string[] {
         (index.get(d.depends_on_id)?.status ?? "open") !== "closed",
     )
     .map((d) => d.depends_on_id);
+}
+
+export type BlockKind = "none" | "work" | "gate";
+
+/**
+ * What holds a bead up, from its blockingDeps(): "gate" when at least one of
+ * them is an item a person can act on now (waitsOnPerson), "work" when all of
+ * them are other work, "none" when nothing does. The board's Waiting layout
+ * uses it to split not-started beads between Waiting (work) and Blocked
+ * (gate); isBlocked() still decides whether a bead is blocked at all.
+ */
+export function blockKind(b: Bead, index: Map<string, Bead>): BlockKind {
+  const deps = blockingDeps(b, index);
+  if (deps.length === 0) return "none";
+  const onPerson = deps.some((id) => {
+    const dep = index.get(id);
+    return dep !== undefined && waitsOnPerson(dep, index);
+  });
+  return onPerson ? "gate" : "work";
 }
 
 /**

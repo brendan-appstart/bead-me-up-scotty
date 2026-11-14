@@ -2,7 +2,7 @@ import "server-only";
 import type { Bead } from "./schema";
 import { originOf, type Origin } from "./attribution";
 import type { RawInteraction } from "./interactions";
-import { BOARD_COLUMNS, colOf } from "./board-columns";
+import { boardColumns, colOf, type ColumnLayout } from "./board-columns";
 import { makeIndex } from "./beads-view";
 
 /**
@@ -75,6 +75,7 @@ export function computeInsights(
   humanAllowlist: string[],
   days: number,
   now: number,
+  layout: ColumnLayout = "standard",
 ): InsightsData {
   const start = now - days * DAY;
   const index = makeIndex(beads);
@@ -168,12 +169,13 @@ export function computeInsights(
   aging.sort((a, b) => b.days - a.days);
 
   // Column counts (current snapshot) for WIP limits.
-  const counts = new Map(BOARD_COLUMNS.map((c) => [c.id, 0]));
+  const columnDefs = boardColumns(layout);
+  const counts = new Map(columnDefs.map((c) => [c.id, 0]));
   for (const b of beads) {
-    const col = colOf(b, index);
+    const col = colOf(b, index, layout);
     if (col) counts.set(col, (counts.get(col) ?? 0) + 1);
   }
-  const columns = BOARD_COLUMNS.map((c) => ({
+  const columns = columnDefs.map((c) => ({
     id: c.id,
     name: c.name,
     color: c.color,

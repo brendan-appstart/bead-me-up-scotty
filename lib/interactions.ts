@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Bead } from "./schema";
 import { originOf, type Origin } from "./attribution";
+import { boardColumns, type ColumnLayout } from "./board-columns";
 
 /**
  * Reader for beads' append-only interaction log
@@ -60,7 +61,7 @@ export function readInteractions(repoPath: string): RawInteraction[] {
 
 const PRIORITY_LABELS = ["Critical", "High", "Medium", "Low", "Backlog"];
 
-function statusAction(v?: string): string {
+function statusAction(v: string | undefined, layout: ColumnLayout): string {
   switch (v) {
     case "in_progress":
       return "claimed · In Progress";
@@ -69,7 +70,8 @@ function statusAction(v?: string): string {
     case "blocked":
       return "marked Blocked";
     case "deferred":
-      return "moved to Backlog";
+      // The name of the column that holds deferred beads: Backlog, or Waiting.
+      return `moved to ${boardColumns(layout).find((c) => c.status === "deferred")?.name ?? "Backlog"}`;
     case "open":
       return "moved to Ready";
     default:
@@ -77,12 +79,12 @@ function statusAction(v?: string): string {
   }
 }
 
-function mapFieldChange(ev: RawInteraction, title: string, origin: Origin): ActivityItem | null {
+function mapFieldChange(ev: RawInteraction, title: string, origin: Origin, layout: ColumnLayout): ActivityItem | null {
   const field = ev.extra?.field;
   let action: string;
   let detail: string | undefined;
   if (field === "status") {
-    action = statusAction(ev.extra?.new_value);
+    action = statusAction(ev.extra?.new_value, layout);
   } else if (field === "priority") {
     const p = Number(ev.extra?.new_value);
     action = `changed priority → P${Number.isFinite(p) ? p : "?"}`;
@@ -115,6 +117,7 @@ export function buildActivity(
   beads: Bead[],
   events: RawInteraction[],
   humanAllowlist: string[],
+  layout: ColumnLayout = "standard",
 ): ActivityItem[] {
   const byId = new Map(beads.map((b) => [b.id, b]));
   const items: ActivityItem[] = [];
@@ -123,7 +126,7 @@ export function buildActivity(
   for (const ev of events) {
     if (ev.kind !== "field_change" || !ev.issue_id) continue;
     const b = byId.get(ev.issue_id);
-    const item = mapFieldChange(ev, b?.title ?? ev.issue_id, originOf(ev.actor, humanAllowlist));
+    const item = mapFieldChange(ev, b?.title ?? ev.issue_id, originOf(ev.actor, humanAllowlist), layout);
     if (item) items.push(item);
   }
   const hasEvents = items.length > 0;

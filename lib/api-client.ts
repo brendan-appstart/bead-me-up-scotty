@@ -1,5 +1,6 @@
 import type { Bead, CreateInput, UpdateInput, DepType } from "./schema";
 import type { UpdateStatus, UpdateResult, UpdateChannel, UpdateTarget } from "./update-types";
+import type { ColumnLayout } from "./board-columns";
 
 export interface Meta {
   kind: "bd" | "demo";
@@ -11,6 +12,8 @@ export interface Meta {
   readOnly?: boolean;
   /** Label prefix (SCOTTY_LANE_PREFIX) that partitions work into Focus-view lane chips. */
   lanePrefix?: string | null;
+  /** The board's column layout where a browser has not chosen one (SCOTTY_WAITING_COLUMN). */
+  columnLayout?: ColumnLayout;
 }
 export interface BeadsResponse {
   beads: Bead[];
@@ -199,10 +202,11 @@ export const api = {
     request<Bead>(`${base(projectId)}/beads/${enc(id)}/archive`, { method: "POST" }),
   doctor: (projectId: string) => request<DoctorResponse>(`${base(projectId)}/doctor`),
 
-  activity: (projectId: string) => request<ActivityResponse>(`${base(projectId)}/activity`),
+  activity: (projectId: string, layout: ColumnLayout) =>
+    request<ActivityResponse>(`${base(projectId)}/activity?layout=${layout}`),
 
-  insights: (projectId: string, days: number) =>
-    request<InsightsData>(`${base(projectId)}/insights?days=${days}`),
+  insights: (projectId: string, days: number, layout: ColumnLayout) =>
+    request<InsightsData>(`${base(projectId)}/insights?days=${days}&layout=${layout}`),
 
   gamification: (projectId: string) =>
     request<GamificationData>(`${base(projectId)}/gamification`),
