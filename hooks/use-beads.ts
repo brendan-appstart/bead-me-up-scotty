@@ -113,17 +113,53 @@ export function useCreateBead() {
   );
 }
 
+/**
+ * Patch a bead. The cache is updated optimistically so a second edit made before
+ * the first one returns (two quick task-checkbox toggles, for example) builds on
+ * the first instead of on the stale server copy. Updates in a project share one
+ * mutation scope, so they reach the server in the order they were made, and the
+ * refetch waits until the last queued update settles so it cannot flash an
+ * older state. A failed update restores the fields it changed.
+ */
 export function useUpdateBead() {
   const { projectId } = useApp();
   const qc = useQueryClient();
-  return useMutation(
-    mutationToast<{ id: string; patch: UpdateInput }, Bead>(
-      ({ id, patch }) => api.update(projectId, id, patch),
-      () => "Updated · bd update",
-      qc,
-      beadsKey(projectId),
-    ),
-  );
+  const KEY = beadsKey(projectId);
+  const mutationKey = ["update-bead", projectId] as const;
+  return useMutation({
+    mutationKey,
+    scope: { id: `update-bead:${projectId}` },
+    mutationFn: ({ id, patch }: { id: string; patch: UpdateInput }) =>
+      api.update(projectId, id, patch),
+    onMutate: async ({ id, patch }) => {
+      await qc.cancelQueries({ queryKey: KEY });
+      const before = qc.getQueryData<BeadsResponse>(KEY)?.beads.find((b) => b.id === id);
+      // Only the patched fields are saved, so a rollback leaves other updates alone.
+      const restore: Partial<Bead> | undefined = before
+        ? Object.fromEntries(
+            Object.keys(patch).map((k) => [k, before[k as keyof Bead]]),
+          )
+        : undefined;
+      qc.setQueryData<BeadsResponse>(KEY, (p) => patchCache(p, id, patch as Partial<Bead>));
+      return { restore };
+    },
+    onSuccess: () => {
+      toast.success("Updated · bd update");
+    },
+    onError: (err, { id }, ctx) => {
+      // Known limit with queued updates. Each update's `restore` was taken after
+      // the earlier optimistic patches, so when A and then B both fail, B puts
+      // back A's text, and the cache shows A's failed change until the refetch
+      // after the last update corrects it. Also, B's patch was built on A's, so
+      // if only A fails its change can still reach the server through B.
+      if (ctx?.restore) qc.setQueryData<BeadsResponse>(KEY, (p) => patchCache(p, id, ctx.restore!));
+      toastError(err);
+    },
+    onSettled: () => {
+      // isMutating still counts the mutation that is settling now.
+      if (qc.isMutating({ mutationKey }) <= 1) qc.invalidateQueries({ queryKey: KEY });
+    },
+  });
 }
 
 export function useDeleteBead() {

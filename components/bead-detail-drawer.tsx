@@ -321,10 +321,33 @@ function DrawerBody({
     if (readOnly) return;
     const t = titleDraft.trim();
     if (!t) return;
+    // The saved text replaces any toggle still in flight, so later toggles must
+    // build on it. useUpdateBead patches the cache, so bead.description has it.
+    pendingDescRef.current = null;
     update.mutate(
       { id: bead.id, patch: { title: t, description: descDraft } },
       { onSuccess: () => setEditing(false) },
     );
+  };
+  // Each task toggle sends the whole description. Two quick toggles must not both
+  // start from the same copy, or the second write undoes the first. The ref holds
+  // the description the last unfinished toggle wrote, and the next toggle builds
+  // on it. useUpdateBead also patches the cache at once and runs updates in order.
+  // The ref is cleared from the mutateAsync promise, not a per-call onSettled:
+  // TanStack drops per-call callbacks when a later mutate() runs on the same hook
+  // (priority, labels, saveEdit), which would leave the ref stuck on old text.
+  const pendingDescRef = React.useRef<string | null>(null);
+  const toggleTaskAt = (idx: number) => {
+    if (readOnly) return;
+    const next = toggleTask(pendingDescRef.current ?? bead.description ?? "", idx);
+    pendingDescRef.current = next;
+    update
+      .mutateAsync({ id: bead.id, patch: { description: next } })
+      // useUpdateBead's own onError already shows the toast and rolls back.
+      .catch(() => {})
+      .finally(() => {
+        if (pendingDescRef.current === next) pendingDescRef.current = null;
+      });
   };
   const canComment = !readOnly && !!draft.trim() && !addComment.isPending;
   const postComment = () => {
@@ -737,12 +760,7 @@ function DrawerBody({
             <DescriptionContent
               text={bead.description}
               projectId={projectId}
-              onToggleTask={readOnly ? undefined : (idx) =>
-                update.mutate({
-                  id: bead.id,
-                  patch: { description: toggleTask(bead.description ?? "", idx) },
-                })
-              }
+              onToggleTask={readOnly ? undefined : toggleTaskAt}
               className={detailContentClass}
             />
           ) : (
