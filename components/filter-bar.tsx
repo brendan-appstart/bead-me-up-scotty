@@ -54,7 +54,8 @@ export function FilterBar({
 
   return (
     <>
-      <div className="relative h-9 min-w-9 max-w-[280px] flex-1">
+      {/* data-search-box: globals.css makes this box tall enough for a 44px input on a phone. */}
+      <div data-search-box className="relative h-9 min-w-9 max-w-[280px] flex-1">
         <label className="absolute inset-y-0 left-0 z-10 flex w-full cursor-text items-center gap-[7px] overflow-hidden rounded-[9px] border border-border bg-[var(--surface-2)] px-[11px] transition-[width] duration-150 focus-within:z-30 focus-within:w-[280px] focus-within:shadow-lg">
           <Icon
             name="search"

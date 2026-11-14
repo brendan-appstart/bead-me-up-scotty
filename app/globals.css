@@ -367,7 +367,9 @@ html[data-theme="rose-pine"] {
   border-left: 3px solid var(--border-strong);
   color: var(--text-3);
 }
-.bd-md-scroll { overflow-x: auto; max-width: 100%; margin: 0.6em 0; }
+/* A wide table scrolls sideways inside its wrapper (DescriptionContent) so it
+   cannot widen a phone-sized page. */
+.bd-md-table-scroll { max-width: 100%; margin: 0.6em 0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .bd-md table { border-collapse: collapse; margin: 0; font-size: 0.95em; }
 .bd-md th, .bd-md td { border: 1px solid var(--border); padding: 4px 8px; text-align: left; }
 .bd-md hr { margin: 0.9em 0; border: none; border-top: 1px solid var(--border); }
@@ -444,7 +446,7 @@ html[data-theme="rose-pine"] {
   fill: currentColor;
 }
 
-/* Phones and small tablets (self-oof). 48rem is the width at which the shell
+/* Phones and small tablets. 48rem is the width at which the shell
    switches to the desktop sidebar, so this range includes 768px. Rules here are
    not in a cascade layer, so they beat the Tailwind utilities without !important. */
 @media (max-width: 48rem) {
@@ -506,9 +508,48 @@ html[data-theme="rose-pine"] {
   .bd-md pre code {
     font-size: max(12px, 0.86em);
   }
+  /* A standalone link, also when it sits inside bold or italic text (`**[x](y)**`).
+     The descendant selector reaches an anchor nested in those wrappers. */
   .bd-md-solo-link a {
     display: inline-flex;
     align-items: center;
     min-height: 44px;
+  }
+  /* The Board and List search box (FilterBar). Its label is absolutely placed and
+     clips its content, so the box must hold the 44px input plus the label's 1px
+     top and bottom border. Without this the fixed 36px box hides part of the input. */
+  [data-search-box] {
+    height: calc(44px + 2px);
+  }
+}
+
+/* Epic rows below the lg breakpoint (Tailwind's max-lg). The rules sit here, not
+   in the JSX, so they cover every epic row, nested ones included. The progress
+   block (third child) moves to a full-width line of its own. */
+@media (width < 64rem) {
+  [data-epic-id] > div[aria-expanded] {
+    flex-wrap: wrap;
+  }
+  [data-epic-id] > div[aria-expanded] > div:nth-child(2) {
+    min-width: 9rem;
+  }
+  [data-epic-id] > div[aria-expanded] > div:nth-child(3) {
+    order: 9999;
+    width: 100%;
+  }
+  /* Child rows in an open epic. The panel is the epic's other direct child, so
+     the epic's own row (div[aria-expanded]), a nested epic (a section inside a
+     wrapper div) and the "Add child" button (a button) never match. The id and
+     chips keep the first line; the title moves to a full-width line below them
+     and wraps instead of being cut to a sliver, as list rows do. */
+  [data-epic-id] > div:not([aria-expanded]) > div[role="button"] {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+  [data-epic-id] > div:not([aria-expanded]) > div[role="button"] > span.flex-1 {
+    order: 1;
+    flex-basis: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 }
