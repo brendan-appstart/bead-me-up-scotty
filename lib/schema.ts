@@ -157,7 +157,7 @@ export const createInputSchema = z.object({
   assignee: z.string().optional().default(""),
   labels: z.array(z.string()).optional().default([]),
   parent: z.string().optional().default(""),
-  /** When true, the bead starts in the Waiting column (deferred) instead of Ready. */
+  /** When true, the bead starts in the Backlog (deferred) instead of Ready. */
   backlog: z.boolean().optional().default(false),
 });
 export type CreateInput = z.infer<typeof createInputSchema>;

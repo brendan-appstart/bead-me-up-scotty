@@ -11,11 +11,13 @@ import { toast } from "sonner";
 import { Icon } from "@/components/icons";
 import { useApp } from "@/components/app-context";
 import { useCreateBead, beadsKey } from "@/hooks/use-beads";
+import { useColumnLayout } from "@/hooks/use-board-prefs";
 import { useImageDrop } from "@/hooks/use-image-drop";
 import { useResizableWidth } from "@/hooks/use-resizable-width";
 import { DescriptionContent, hasImageRef } from "@/components/description-content";
 import { api } from "@/lib/api-client";
 import { typeLabel } from "@/lib/beads-view";
+import { boardColumns } from "@/lib/board-columns";
 import { isSubmitKey } from "@/lib/keyboard-shortcuts";
 import { BEAD_TYPES, type BeadType } from "@/lib/schema";
 
@@ -106,6 +108,8 @@ function CreateForm({
   onClose: () => void;
 }) {
   const { beads, meta, projectId } = useApp();
+  // The column that holds deferred beads: Backlog, or Waiting in the Waiting layout.
+  const deferredColumn = boardColumns(useColumnLayout()).find((c) => c.status === "deferred")?.name ?? "Backlog";
   const create = useCreateBead();
   const qc = useQueryClient();
   const actor = meta?.humanActor ?? "you";
@@ -441,7 +445,7 @@ function CreateForm({
             style={{ accentColor: "var(--brand)" }}
           />
           <span className="text-[13px] text-[var(--text-2)]">
-            Start in Waiting (<span className="font-mono">deferred</span>) instead of Ready
+            Start in {deferredColumn} (<span className="font-mono">deferred</span>) instead of Ready
           </span>
         </label>
       </div>

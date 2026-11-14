@@ -69,12 +69,14 @@ npm, Docker) are below.
 
 ## Features
 
-- **Board** — a five-column view (Waiting · Ready · Blocked · In Progress · Done)
+- **Board** — a five-column view (Backlog · Ready · In Progress · Blocked · Done)
   with dense cards showing id, type, priority, assignee, dep/comment counts, and an
   origin badge. Filter by type / priority / origin, full-text search, and a
-  show/hide-archived toggle. Keyboard: `n` new, `/` search, `Esc` close.
-- **Waiting ↔ Ready drag-and-drop** — drag cards between columns to change status
-  (Waiting = `deferred`, Done = `bd close`); updates are optimistic.
+  show/hide-archived toggle. Keyboard: `n` new, `/` search, `Esc` close. An
+  opt-in [Waiting column](#waiting-column-opt-in) puts work that has not
+  started on the left.
+- **Backlog ↔ Ready drag-and-drop** — drag cards between columns to change status
+  (Backlog = `deferred`, Done = `bd close`); updates are optimistic.
 - **Create / edit** — add tasks and epics (type, priority, description, assignee,
   labels, parent epic, start-in-backlog) and edit status/priority inline.
 - **Epics & progress** — epics with live `closed ÷ children` progress bars and
@@ -91,6 +93,40 @@ npm, Docker) are below.
   (agent), derived from a configurable human allowlist.
 - **Settings** — repo path, human actor + allowlist, poll interval, and light/dark
   theme. Live polling keeps the board fresh when agents change data underneath you.
+
+### Waiting column (opt-in)
+
+On a board that agents fill, most open beads with an open blocker are the later
+steps of a plan: nobody needs to act on them, and they move on by themselves.
+The standard layout puts them in **Blocked**, next to the beads that wait on a
+person. Turn on **Waiting column** in Settings → Board to split the two:
+
+| Column | Holds |
+| --- | --- |
+| **Waiting** (Backlog's place) | `deferred` beads, and open beads that wait only on other open work |
+| **Ready** | unchanged |
+| **Blocked** | status `blocked`, and open beads that wait on something a person can act on now |
+| **In Progress** | unchanged: started work stays here, even when it gains a blocker |
+| **Done** | unchanged |
+
+"Waits on a person" uses the rules of **Needs You**: a blocking dependency with
+the `human` label (`bd human` sets it) that is not itself blocked, or a human
+gate that is ready to approve and not deferred. The `human` label decides; labels
+such as `question`, `assumption` or `blocker` only describe the item. A person
+item that is deferred, closed or still blocked counts as other work, so its
+dependents sit in Waiting until the person can act.
+
+A drop still sets the column's status (Waiting = `deferred`). When the card then
+sits in another column than the one it was dropped on, a toast says where it went
+and why. For example, a deferred card that waits on other work, dropped on Ready,
+becomes `open` and stays in Waiting.
+List, Insights and Activity use the same layout. Waiting keeps Backlog's id, so
+saved orders carry over when you switch.
+
+The choice applies to the current browser. Set `SCOTTY_WAITING_COLUMN=1` (or
+`true`) when launching Scotty to make the Waiting layout the default for browsers
+that have not chosen, for example when one server shows a team's board in several
+browsers.
 
 ### Focus: compare assignees and recent completions
 
@@ -122,14 +158,9 @@ detail links, and read-only protections also work in the grouped layout.
   Next.js + shadcn/Tailwind. The original export and a screen/token map live in
   [`design/ui-export/`](design/ui-export/).
 
-### Columns & attribution (design decisions)
-- Work that has not started sits on the left. **Waiting** holds beads with
-  beads' built-in `deferred` status, and open beads that wait on other open
-  work (an agent's later plan steps). **Ready** = open & unblocked.
-  **Blocked** holds status `blocked`, and open beads that wait on a person: a
-  blocking dependency labelled `human`, `question`, `assumption` or `blocker`,
-  or a human gate. **In Progress** keeps started work, even when it gains a
-  blocker. Dragging between columns runs `bd update --status` / `bd close`.
+### Backlog & attribution (design decisions)
+- **Backlog** maps to beads' built-in `deferred` status; **Ready** = open &
+  unblocked. Dragging between columns runs `bd update --status` / `bd close`.
 - beads has no human-vs-agent flag, so the UI stamps its own writes with a
   configured **human actor** (`BEADS_ACTOR`); anyone in the human allowlist renders
   as 👤, everyone else as 🤖. **Archive** = `bd close` + an `archived` label

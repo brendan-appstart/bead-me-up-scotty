@@ -14,6 +14,7 @@ import {
 } from "recharts";
 import { useApp } from "@/components/app-context";
 import { useInsights } from "@/hooks/use-beads";
+import { useColumnLayout } from "@/hooks/use-board-prefs";
 import type { InsightsData } from "@/lib/api-client";
 
 const HUMAN = "#3b82f6";
@@ -39,7 +40,8 @@ export function InsightsView() {
   const { projectId } = useApp();
   const [days, setDays] = React.useState(30);
   const [split, setSplit] = React.useState(true);
-  const { data, isLoading } = useInsights(projectId, days);
+  const layout = useColumnLayout();
+  const { data, isLoading } = useInsights(projectId, days, layout);
 
   return (
     <div className="flex h-full flex-col">

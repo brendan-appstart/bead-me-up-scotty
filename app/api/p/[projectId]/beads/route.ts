@@ -1,5 +1,5 @@
 import { getStore } from "@/lib/store";
-import { getConfig, isReadOnly, lanePrefix } from "@/lib/config";
+import { getConfig, isReadOnly, lanePrefix, defaultColumnLayout } from "@/lib/config";
 import { createInputSchema } from "@/lib/schema";
 import { ok, fail } from "@/lib/api";
 
@@ -23,6 +23,7 @@ export async function GET(_req: Request, { params }: Ctx) {
         gamification: cfg.gamification,
         readOnly: isReadOnly(_req),
         lanePrefix: lanePrefix(),
+        columnLayout: defaultColumnLayout(),
       },
     });
   } catch (e) {

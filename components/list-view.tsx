@@ -15,6 +15,7 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { toast } from "sonner";
 import { Icon, typeIconName } from "@/components/icons";
 import { useApp } from "@/components/app-context";
 import { PriorityChip, OriginBadge } from "@/components/board/bead-card";
@@ -22,9 +23,10 @@ import { CopyableId } from "@/components/copyable-id";
 import { FilterBar } from "@/components/filter-bar";
 import { useOrder, useSetOrder } from "@/hooks/use-order";
 import { useSetStatus } from "@/hooks/use-beads";
+import { useColumnLayout } from "@/hooks/use-board-prefs";
 import { useUrlFilters } from "@/hooks/use-url-filters";
 import { matchesFilters, labelOptionsFrom, assigneeOptionsFrom } from "@/lib/filters";
-import { BOARD_COLUMNS, COLUMN_ORDER, colOf } from "@/lib/board-columns";
+import { boardColumns, colOf, dropNotice } from "@/lib/board-columns";
 import { beadOrigin, originTitle } from "@/lib/attribution";
 import {
   catColor,
@@ -73,14 +75,17 @@ export function ListView() {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   // Which board column each bead belongs to (shared with the Board view).
+  const layout = useColumnLayout();
+  const BOARD_COLUMNS = React.useMemo(() => boardColumns(layout), [layout]);
+  const COLUMN_ORDER = React.useMemo(() => BOARD_COLUMNS.map((c) => c.id), [BOARD_COLUMNS]);
   const colById = React.useMemo(() => {
     const m = new Map<string, string>();
     for (const b of beads) {
-      const c = colOf(b, index);
+      const c = colOf(b, index, layout);
       if (c) m.set(b.id, c);
     }
     return m;
-  }, [beads, index]);
+  }, [beads, index, layout]);
 
   // Sort: by board column order, then the column's shared manual rank, then priority.
   const rows = React.useMemo(() => {
@@ -108,7 +113,7 @@ export function ListView() {
         if (ea !== eb) return ea - eb;
         return (b.updated_at ?? "").localeCompare(a.updated_at ?? "");
       });
-  }, [beads, filters, showArchived, humanAllowlist, colById, orders, index]);
+  }, [beads, filters, showArchived, humanAllowlist, colById, COLUMN_ORDER, orders, index]);
 
   // Per-column counts for the group headers. Derived from `rows` (not `beads`)
   // so the count always matches what is rendered beneath the header once the
@@ -145,6 +150,8 @@ export function ListView() {
       const bead = index.get(activeId);
       if (!bead || bead.status === target.status) return;
       setStatus.mutate({ id: activeId, status: target.status });
+      const notice = dropNotice(bead, target.id, index, layout);
+      if (notice) toast(notice.title, { description: notice.description });
     }
   }
 

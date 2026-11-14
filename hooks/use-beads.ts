@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { toastError } from "@/components/error-toast";
 import { api, type BeadsResponse } from "@/lib/api-client";
 import type { Bead, CreateInput, UpdateInput, DepType } from "@/lib/schema";
+import type { ColumnLayout } from "@/lib/board-columns";
 import { useApp } from "@/components/app-context";
 
 /** Query key is scoped per project so tabs on different projects never collide. */
@@ -24,19 +25,20 @@ export function useBeads(projectId: string) {
 
 /** Recent activity feed for a project. Invalidated by the SSE stream on change;
  *  the interval is just a fallback. */
-export function useActivity(projectId: string) {
+export function useActivity(projectId: string, layout: ColumnLayout) {
   return useQuery({
-    queryKey: activityKey(projectId),
-    queryFn: () => api.activity(projectId),
+    // activityKey() stays the prefix, so invalidating it still refreshes every layout.
+    queryKey: [...activityKey(projectId), layout],
+    queryFn: () => api.activity(projectId, layout),
     refetchInterval: 20000,
   });
 }
 
 /** Flow-metrics for the Insights dashboard over a rolling window of `days`. */
-export function useInsights(projectId: string, days: number) {
+export function useInsights(projectId: string, days: number, layout: ColumnLayout) {
   return useQuery({
-    queryKey: ["insights", projectId, days],
-    queryFn: () => api.insights(projectId, days),
+    queryKey: ["insights", projectId, days, layout],
+    queryFn: () => api.insights(projectId, days, layout),
     refetchInterval: 30000,
   });
 }

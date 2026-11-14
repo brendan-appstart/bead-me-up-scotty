@@ -2,6 +2,7 @@
 import * as React from "react";
 import { useApp } from "@/components/app-context";
 import { useActivity } from "@/hooks/use-beads";
+import { useColumnLayout } from "@/hooks/use-board-prefs";
 import { OriginBadge } from "@/components/board/bead-card";
 import { Icon } from "@/components/icons";
 import { avatarColor, initials, relTime, fmtDateTime } from "@/lib/beads-view";
@@ -14,7 +15,8 @@ import { avatarColor, initials, relTime, fmtDateTime } from "@/lib/beads-view";
  */
 export function ActivityView() {
   const { projectId, openDetail, selectedBeadId, selectBead } = useApp();
-  const { data, isLoading } = useActivity(projectId);
+  const layout = useColumnLayout();
+  const { data, isLoading } = useActivity(projectId, layout);
   const items = data?.items ?? [];
 
   return (

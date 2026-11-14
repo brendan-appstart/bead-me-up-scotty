@@ -26,13 +26,17 @@ export function isHumanGate(b: Bead): boolean {
 }
 
 /**
- * A bead that waits on a person, by the same rules as Needs You: the `human`
- * label that `needsHuman()` reads (`bd human` sets it), or a human-approval
- * gate (`readyHumanGate()`). Work that depends on one waits on a person, not on
- * other work (see blockKind).
+ * An item a person can act on now, by the rules of Needs You: a needsHuman()
+ * bead (the `human` label, which `bd human` sets) that is not itself blocked,
+ * or a readyHumanGate() that is not deferred. Work that depends on one waits on
+ * that person (see blockKind). A person item that is deferred, closed or still
+ * blocked counts as other work, so its dependents wait on work until the
+ * person can act.
  */
-export function waitsOnPerson(b: Bead): boolean {
-  return isHumanGate(b) || (b.labels ?? []).includes("human");
+export function waitsOnPerson(b: Bead, index: Map<string, Bead>): boolean {
+  if (needsHuman(b)) return !isBlocked(b, index);
+  // needsHuman() leaves out deferred beads; readyHumanGate() does not.
+  return b.status !== "deferred" && readyHumanGate(b, index);
 }
 
 /**
@@ -205,17 +209,17 @@ export type BlockKind = "none" | "work" | "gate";
 
 /**
  * What holds a bead up, from its blockingDeps(): "gate" when at least one of
- * them waits on a person, "work" when all of them are other work, "none" when
- * nothing does. The board uses it to split not-started beads between Waiting
- * (work) and Blocked (gate); isBlocked() still decides whether a bead is
- * blocked at all.
+ * them is an item a person can act on now (waitsOnPerson), "work" when all of
+ * them are other work, "none" when nothing does. The board's Waiting layout
+ * uses it to split not-started beads between Waiting (work) and Blocked
+ * (gate); isBlocked() still decides whether a bead is blocked at all.
  */
 export function blockKind(b: Bead, index: Map<string, Bead>): BlockKind {
   const deps = blockingDeps(b, index);
   if (deps.length === 0) return "none";
   const onPerson = deps.some((id) => {
     const dep = index.get(id);
-    return dep !== undefined && waitsOnPerson(dep);
+    return dep !== undefined && waitsOnPerson(dep, index);
   });
   return onPerson ? "gate" : "work";
 }

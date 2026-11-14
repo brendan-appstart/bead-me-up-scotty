@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
-import type { BoardSortMode } from "@/lib/board-columns";
+import { useApp } from "@/components/app-context";
+import { parseColumnLayout, type BoardSortMode, type ColumnLayout } from "@/lib/board-columns";
 import type { UpdateChannel } from "@/lib/update-types";
 const PREFS_KEY = "bmus.board";
 const EVENT = "bmus.board.changed";
@@ -10,6 +11,8 @@ export interface BoardPrefs {
   sortMode: BoardSortMode;
   checkUpdates: boolean;
   updateChannel: UpdateChannel;
+  /** The board's column layout; unset = the server's launch default (see useColumnLayout). */
+  columnLayout?: ColumnLayout;
 }
 const DEFAULTS: BoardPrefs = { blockedColumn: "auto", sortMode: "manual", checkUpdates: true, updateChannel: "stable" };
 function snapshot() {
@@ -21,7 +24,8 @@ function parse(raw: string): BoardPrefs {
     return { blockedColumn: stored?.blockedColumn === "always" ? "always" : "auto",
       sortMode: ["priority", "updated", "manual"].includes(stored?.sortMode) ? stored.sortMode : "manual",
       checkUpdates: typeof stored?.checkUpdates === "boolean" ? stored.checkUpdates : true,
-      updateChannel: stored?.updateChannel === "development" ? "development" : "stable" };
+      updateChannel: stored?.updateChannel === "development" ? "development" : "stable",
+      columnLayout: parseColumnLayout(stored?.columnLayout) };
   } catch { return DEFAULTS; }
 }
 export function loadBoardPrefs(): BoardPrefs { return parse(snapshot()); }
@@ -43,4 +47,15 @@ export function useBoardPrefs() {
     window.dispatchEvent(new Event(EVENT));
   }, []);
   return { prefs, setPrefs, ready: raw !== null };
+}
+
+/**
+ * The column layout the Board, List, Insights and Activity use: this browser's
+ * choice in Settings, else the server's launch default (SCOTTY_WAITING_COLUMN),
+ * else the standard layout.
+ */
+export function useColumnLayout(): ColumnLayout {
+  const { prefs } = useBoardPrefs();
+  const { meta } = useApp();
+  return prefs.columnLayout ?? meta?.columnLayout ?? "standard";
 }

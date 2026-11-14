@@ -2,6 +2,7 @@
 import * as React from "react";
 import { toast } from "sonner";
 import { useActivity } from "@/hooks/use-beads";
+import { useColumnLayout } from "@/hooks/use-board-prefs";
 import { useApp } from "@/components/app-context";
 import { needsHuman } from "@/lib/beads-view";
 
@@ -131,7 +132,8 @@ function fire(title: string, body: string, projectId: string, beadId: string) {
  * Settings changes apply without shared state.
  */
 export function useNotificationWatcher(projectId: string) {
-  const { data } = useActivity(projectId);
+  const layout = useColumnLayout();
+  const { data } = useActivity(projectId, layout);
   const { beads, loading, error } = useApp();
   const items = data?.items;
 

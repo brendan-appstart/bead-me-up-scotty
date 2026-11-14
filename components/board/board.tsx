@@ -14,18 +14,21 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
+import { toast } from "sonner";
 import { Icon } from "@/components/icons";
 import { useApp } from "@/components/app-context";
 import { useSetStatus } from "@/hooks/use-beads";
 import { useOrder, useSetOrder } from "@/hooks/use-order";
-import { useBoardPrefs } from "@/hooks/use-board-prefs";
+import { useBoardPrefs, useColumnLayout } from "@/hooks/use-board-prefs";
 import { useUrlFilters } from "@/hooks/use-url-filters";
 import { useUrlState } from "@/hooks/use-url-state";
-import { blockKind, childrenCountMap } from "@/lib/beads-view";
+import { childrenCountMap } from "@/lib/beads-view";
 import { FilterBar } from "@/components/filter-bar";
 import { matchesFilters, labelOptionsFrom, assigneeOptionsFrom } from "@/lib/filters";
 import {
-  BOARD_COLUMNS as COLUMNS,
+  boardColumns,
+  columnContext,
+  dropNotice,
   sortBoardCards,
   type BoardSortMode,
 } from "@/lib/board-columns";
@@ -49,6 +52,8 @@ export function Board() {
   const { data: orderData } = useOrder(projectId);
   const setOrder = useSetOrder(projectId);
   const { prefs: boardPrefs, setPrefs: setBoardPrefs } = useBoardPrefs();
+  const layout = useColumnLayout();
+  const COLUMNS = React.useMemo(() => boardColumns(layout), [layout]);
   const orders = React.useMemo(() => orderData?.orders ?? {}, [orderData]);
   const { filters, setFilters, showArchived, setShowArchived, clearFilters } =
     useUrlFilters();
@@ -96,25 +101,24 @@ export function Board() {
   );
 
   const visible = React.useMemo(() => beads.filter(matchFilters), [beads, matchFilters]);
-  const columns = React.useMemo(
-    () =>
-      COLUMNS.map((c) => {
-        let cards = visible.filter((b) => c.test(b, blockKind(b, index)));
-        // Done column: optionally keep only beads closed within the chosen window.
-        if (c.id === "done" && doneWindow !== null) {
-          const cutoff = now - doneWindow * 86_400_000;
-          cards = cards.filter((b) => {
-            const t = Date.parse(b.closed_at || b.updated_at || "");
-            return Number.isFinite(t) && t >= cutoff;
-          });
-        }
-        return {
-          col: c,
-          cards: sortBoardCards(cards, boardPrefs.sortMode, orders[c.id]),
-        };
-      }),
-    [visible, index, orders, boardPrefs.sortMode, doneWindow, now],
-  );
+  const columns = React.useMemo(() => {
+    const contexts = new Map(visible.map((b) => [b.id, columnContext(b, index)]));
+    return COLUMNS.map((c) => {
+      let cards = visible.filter((b) => c.test(b, contexts.get(b.id)!));
+      // Done column: optionally keep only beads closed within the chosen window.
+      if (c.id === "done" && doneWindow !== null) {
+        const cutoff = now - doneWindow * 86_400_000;
+        cards = cards.filter((b) => {
+          const t = Date.parse(b.closed_at || b.updated_at || "");
+          return Number.isFinite(t) && t >= cutoff;
+        });
+      }
+      return {
+        col: c,
+        cards: sortBoardCards(cards, boardPrefs.sortMode, orders[c.id]),
+      };
+    });
+  }, [COLUMNS, visible, index, orders, boardPrefs.sortMode, doneWindow, now]);
 
   // Hide the Blocked column when it's empty, unless the user pinned it to always
   // show (bead mo3). Drag logic below still uses the full `columns` set; a hidden
@@ -174,6 +178,10 @@ export function Board() {
       const bead = index.get(activeId);
       if (!bead || bead.status === target.status) return;
       setStatus.mutate({ id: activeId, status: target.status });
+      // In the Waiting layout the card can then sit in another column than the
+      // one it was dropped on; say where and why, so the drop has a result.
+      const notice = dropNotice(bead, target.id, index, layout);
+      if (notice) toast(notice.title, { description: notice.description });
       return;
     }
 

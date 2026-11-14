@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { execFileSync } from "node:child_process";
+import type { ColumnLayout } from "./board-columns";
 
 /**
  * Local app config (NOT stored in beads). Lives as a small JSON file under the
@@ -88,6 +89,17 @@ export function isReadOnly(request?: Request): boolean {
  */
 export function lanePrefix(): string | null {
   return process.env.SCOTTY_LANE_PREFIX || null;
+}
+
+/**
+ * The board's column layout for browsers that have not chosen one in Settings:
+ * SCOTTY_WAITING_COLUMN=1 (or "true") makes the opt-in Waiting layout the
+ * default, for a server that shows one team's board in several browsers.
+ * Unset → the standard layout. A browser's own choice always wins.
+ */
+export function defaultColumnLayout(): ColumnLayout {
+  const v = process.env.SCOTTY_WAITING_COLUMN;
+  return v === "1" || v === "true" ? "waiting" : "standard";
 }
 
 function configDir(): string {
