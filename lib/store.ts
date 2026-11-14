@@ -35,6 +35,15 @@ export interface BeadsStore {
   removeDep(id: string, dependsOnId: string, actor: string): Promise<Bead>;
   /** Create a human approval gate that blocks `blocks` (`bd gate create --type human`). */
   createGate(blocks: string, reason: string | undefined, actor: string): Promise<Bead>;
+  /**
+   * Set (or, with null, remove) bd metadata keys on one bead. Other keys are
+   * left alone. Used to keep the manual board order in `scotty.rank`.
+   */
+  setMetadata(
+    id: string,
+    values: Record<string, string | number | null>,
+    actor: string,
+  ): Promise<Bead>;
   removeLabel(id: string, label: string, actor: string): Promise<Bead>;
   archive(id: string, actor: string): Promise<Bead>;
   doctor(): Promise<DoctorInfo>;

@@ -285,6 +285,18 @@ export function createBdStore(repoPath: string): BeadsStore {
       });
     },
 
+    setMetadata(id, values, actor) {
+      return serializeWrite(repoPath, async () => {
+        const args = ["update", id];
+        for (const [key, value] of Object.entries(values)) {
+          if (value === null) args.push("--unset-metadata", key);
+          else args.push("--set-metadata", `${key}=${value}`);
+        }
+        if (args.length > 2) await runBdRaw(args, rw(actor));
+        return show(id);
+      });
+    },
+
     removeLabel(id, label, actor) {
       return serializeWrite(repoPath, async () => {
         await runBdRaw(["update", id, "--remove-label", label], rw(actor));
