@@ -265,7 +265,10 @@ export const api = {
       if (!res.ok) {
         throw new Error((body as { error?: string }).error || `Upload failed (${res.status})`);
       }
-      return body as { ref: string; url: string; name: string };
+      // `ref` (attachment://...) is the form to store in bead text; `url` is
+      // where to fetch the file now, so it goes under the API root like urlFor().
+      const result = body as { ref: string; url: string; name: string };
+      return { ...result, url: result.url.startsWith("/") ? apiUrl(result.url) : result.url };
     },
     finalize: (projectId: string, draftId: string, beadId: string) =>
       request<{ moved: boolean }>(`${base(projectId)}/attachments`, {

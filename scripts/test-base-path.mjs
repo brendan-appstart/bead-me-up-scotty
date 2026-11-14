@@ -23,18 +23,24 @@ import { api, apiUrl, setApiRoot } from '../lib/api-client.ts';
 {
   const realFetch = globalThis.fetch;
   const called = [];
-  globalThis.fetch = async url => { called.push(String(url)); return Response.json({}); };
+  // The upload answer is the server's: its `url` is root-relative, as the route builds it.
+  const uploaded = { ref: 'attachment://bd-1/shot.png', url: '/api/p/p/attachments/bd-1/shot.png', name: 'shot.png' };
+  globalThis.fetch = async url => { called.push(String(url)); return Response.json(uploaded); };
+  const shot = () => new File(['x'], 'shot.png', { type: 'image/png' });
   try {
     await api.projects.list();
     await api.list('p 1');
     assert.equal(api.attachments.urlFor('p', 'attachment://bd-1/shot.png'), '/api/p/p/attachments/bd-1/shot.png');
+    assert.deepEqual(await api.attachments.upload('p', 'bd-1', shot()), uploaded);
     setApiRoot('/api/tracker/');
     await api.projects.list();
     await api.list('p 1');
     await api.viewerMode();
     assert.equal(api.attachments.urlFor('p', 'attachment://bd-1/shot.png'), '/api/tracker/api/p/p/attachments/bd-1/shot.png');
     assert.equal(apiUrl('/api/p/p/beads/stream'), '/api/tracker/api/p/p/beads/stream');
-    assert.deepEqual(called, ['/api/projects', '/api/p/p%201/beads', '/api/tracker/api/projects', '/api/tracker/api/p/p%201/beads', '/api/tracker/api/viewer-mode']);
+    // The uploaded file's `url` opens under the root; `ref`, the form stored in bead text, stays as it is.
+    assert.deepEqual(await api.attachments.upload('p', 'bd-1', shot()), { ...uploaded, url: '/api/tracker/api/p/p/attachments/bd-1/shot.png' });
+    assert.deepEqual(called, ['/api/projects', '/api/p/p%201/beads', '/api/p/p/attachments', '/api/tracker/api/projects', '/api/tracker/api/p/p%201/beads', '/api/tracker/api/viewer-mode', '/api/tracker/api/p/p/attachments']);
   } finally {
     setApiRoot('');
     globalThis.fetch = realFetch;
