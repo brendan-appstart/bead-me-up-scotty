@@ -240,7 +240,10 @@ bundle has it inlined, so set it for both. The `scotty` command reads it too: it
 waits for the server, adds the current folder's project and opens the browser
 under the sub-path, and it refuses to start when the setting differs from the
 one the build was made with. A Homebrew install is built without the setting, so
-it serves at the root; for a sub-path, build Scotty yourself as below.
+it serves at the root; for a sub-path, build Scotty yourself as below. For the
+Docker image, pass it when you build:
+`docker build --build-arg SCOTTY_BASE_PATH=/board -t bead-me-up-scotty .`.
+The image's server keeps the build's base path, so `docker run -e` cannot change it.
 
 ```bash
 SCOTTY_BASE_PATH=/board npm run build
@@ -324,6 +327,8 @@ Container limitations:
   the button shows an error in the container.
 - The bundled `bd` version is pinned in the Dockerfile (`ARG BD_VERSION`);
   override with `--build-arg BD_VERSION=<version>` to match your host.
+- To serve under a sub-path, build with `--build-arg SCOTTY_BASE_PATH=/board`
+  (see [Serving Scotty under a sub-path](#serving-scotty-under-a-sub-path)).
 - Opening the container as `http://localhost:3000` or by IP works as-is; to use
   a hostname, pass `-e SCOTTY_ALLOWED_HOSTS=<name>` (see
   [Opening Scotty by a hostname](#opening-scotty-by-a-hostname)).
