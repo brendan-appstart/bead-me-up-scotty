@@ -31,6 +31,7 @@ export function FilterBar({
   onClearAllAction?: () => void;
 }) {
   const set = (patch: Partial<Filters>) => onChange({ ...filters, ...patch });
+  const searchRef = React.useRef<HTMLInputElement>(null);
 
   // Count active filters (each non-empty facet + a non-empty search + archived)
   // so we can offer a one-click reset (bead 3it).
@@ -54,7 +55,8 @@ export function FilterBar({
 
   return (
     <>
-      <div className="relative h-9 min-w-9 max-w-[280px] flex-1">
+      {/* An active search widens the collapsed chip so the clear button fits beside the magnifier. */}
+      <div className={`relative h-9 max-w-[280px] flex-1 ${filters.search ? "min-w-[68px]" : "min-w-9"}`}>
         <label className="absolute inset-y-0 left-0 z-10 flex w-full cursor-text items-center gap-[7px] overflow-hidden rounded-[9px] border border-border bg-[var(--surface-2)] px-[11px] transition-[width] duration-150 focus-within:z-30 focus-within:w-[280px] focus-within:shadow-lg">
           <Icon
             name="search"
@@ -62,12 +64,30 @@ export function FilterBar({
             className={`flex-shrink-0 ${filters.search.trim() ? "text-[var(--brand)]" : "text-[var(--text-3)]"}`}
           />
           <input
+            ref={searchRef}
             data-search
             value={filters.search}
             onChange={(e) => set({ search: e.target.value })}
             placeholder="Search beads…  (/)"
             className="w-full min-w-0 border-none bg-transparent text-[13px] text-[var(--text)] outline-none"
           />
+          {filters.search && (
+            <button
+              type="button"
+              // Keep focus where it is, so clicking doesn't collapse the box mid-click.
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={(e) => {
+                const hadFocus = e.currentTarget.parentElement?.contains(document.activeElement);
+                set({ search: "" });
+                if (hadFocus) searchRef.current?.focus();
+              }}
+              title="Clear search"
+              aria-label="Clear search"
+              className="flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-full bg-[var(--surface-3)] text-[var(--text-2)] hover:bg-[var(--brand-weak)] hover:text-[var(--brand)]"
+            >
+              <Icon name="x" size={11} />
+            </button>
+          )}
         </label>
       </div>
 
