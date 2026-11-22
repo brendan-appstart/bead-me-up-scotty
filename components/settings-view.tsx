@@ -341,7 +341,7 @@ function BoardCard() {
   ];
   return (
     <Card title="Board">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex items-center justify-between gap-4 max-md:flex-wrap">
         <div>
           <div className="text-[13px]">Blocked column</div>
           <div className="text-[11.5px] text-[var(--text-3)]">

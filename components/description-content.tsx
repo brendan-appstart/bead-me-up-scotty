@@ -22,6 +22,29 @@ function safeUrlTransform(url: string): string {
   return SAFE_URL_PATTERN.test(url) ? url : "";
 }
 
+/** The parts of a hast node the standalone-link check reads. */
+type HastLike = { type: string; tagName?: string; value?: string; children?: HastLike[] };
+
+/** Inline formatting that can wrap a link without making it part of a sentence. */
+const INLINE_WRAPPERS = new Set(["strong", "em", "b", "i", "del", "s", "u", "mark", "span", "sub", "sup"]);
+
+function meaningfulChildren(nodes: HastLike[] | undefined): HastLike[] {
+  return (nodes ?? []).filter((c) => !(c.type === "text" && !(c.value ?? "").trim()));
+}
+
+/**
+ * True when the nodes hold exactly one link and nothing else, allowing the link
+ * to sit inside inline wrappers such as `**[x](y)**` or `_~~[x](y)~~_`, where
+ * each wrapper itself has a single meaningful child.
+ */
+function isSoloLink(nodes: HastLike[] | undefined): boolean {
+  const kids = meaningfulChildren(nodes);
+  if (kids.length !== 1 || kids[0].type !== "element") return false;
+  const only = kids[0];
+  if (only.tagName === "a") return true;
+  return !!only.tagName && INLINE_WRAPPERS.has(only.tagName) && isSoloLink(only.children);
+}
+
 export function DescriptionContent({
   text,
   projectId,
@@ -55,19 +78,36 @@ export function DescriptionContent({
         />
       );
     },
+    // A wide table scrolls sideways inside its own box instead of pushing the
+    // page wider than a phone screen (see .bd-md-table-scroll in globals.css).
+    table: ({ children }) => (
+      <div className="bd-md-table-scroll">
+        <table>{children}</table>
+      </div>
+    ),
     input: ({ type, checked }) => {
       if (type !== "checkbox") return null;
       const idx = counter.i++;
       return (
-        <input
-          type="checkbox"
-          checked={!!checked}
-          disabled={!onToggleTask}
-          onChange={() => onToggleTask?.(idx)}
-          className="mr-[6px] translate-y-[2px] cursor-pointer disabled:cursor-default"
-          style={{ accentColor: "var(--brand)" }}
-        />
+        // The label is the tap target on a phone; the box keeps its drawn size.
+        <label className="mr-[6px] inline-flex cursor-pointer items-center align-middle has-[:disabled]:cursor-default">
+          <input
+            type="checkbox"
+            checked={!!checked}
+            disabled={!onToggleTask}
+            onChange={() => onToggleTask?.(idx)}
+            className="cursor-pointer disabled:cursor-default"
+            style={{ accentColor: "var(--brand)" }}
+          />
+        </label>
       );
+    },
+    // A link that is all of its paragraph stands alone on its line, so it is a 44px tap
+    // target on a phone. A link inside a sentence stays inline (WCAG 2.5.8).
+    // A link wrapped only in bold, italic, strikethrough and similar still stands alone.
+    p: ({ node, children }) => {
+      const solo = isSoloLink(node?.children);
+      return <p className={solo ? "bd-md-solo-link" : undefined}>{children}</p>;
     },
   };
 

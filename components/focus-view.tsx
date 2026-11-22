@@ -188,22 +188,22 @@ export function FocusView() {
         </div>
       )}
       {groupBy === "none" ? (
-        <div className="bd-scroll min-h-0 flex-1 overflow-x-auto overflow-y-hidden p-[18px_22px]">
-          <div className="flex h-full min-h-0 gap-4">
+        <div className="bd-scroll min-h-0 flex-1 overflow-x-auto overflow-y-hidden p-[18px_22px] max-lg:overflow-x-hidden max-lg:overflow-y-auto">
+          <div className="flex h-full min-h-0 gap-4 max-lg:h-auto max-lg:flex-col">
             {columns.map(c => <FocusColumnView key={c.id} column={c} />)}
           </div>
         </div>
       ) : (
         <div className="bd-scroll min-h-0 flex-1 overflow-auto p-[18px_22px]">
           {groups.length === 0 ? <p className="p-4 text-[13px] text-[var(--text-3)]">No matching work. Try another lane or include recently finished work.</p> : (
-            <div className="min-w-max">
-              <div className="sticky top-0 z-10 mb-2 flex gap-4 bg-[var(--bg)] py-2" aria-hidden="true">
+            <div className="lg:min-w-max">
+              <div className="sticky top-0 z-10 mb-2 flex gap-4 bg-[var(--bg)] py-2 max-lg:hidden" aria-hidden="true">
                 <div className="w-[160px] shrink-0 text-[12px] font-medium text-[var(--text-3)]">Assignee</div>
                 {columns.map(c => <div key={c.id} className="w-[280px] shrink-0 text-[13px] font-semibold">{c.title} <span className="font-normal text-[var(--text-3)]">· {c.items.length}</span></div>)}
               </div>
               {groups.map(group => (
-                <section key={group.key} aria-label={`Assignee: ${group.label}`} className="flex gap-4 border-t border-border py-4">
-                  <div className="w-[160px] shrink-0">
+                <section key={group.key} aria-label={`Assignee: ${group.label}`} className="flex gap-4 border-t border-border py-4 max-lg:flex-col">
+                  <div className="w-[160px] shrink-0 max-lg:w-full">
                     <h2 className="break-words text-[13px] font-semibold">{group.label}</h2>
                     <p className="mt-1 text-[11px] text-[var(--text-3)]">{group.key === "none" ? "Not assigned" : "Assigned work"} · {group.columns.reduce((n, c) => n + c.items.length, 0)}</p>
                   </div>
@@ -221,7 +221,8 @@ export function FocusView() {
 function FocusColumnView({ column, grouped = false }: { column: FocusColumn; grouped?: boolean }) {
   return (
     <section data-focus-column={column.id} aria-label={grouped ? column.title : undefined}
-      className={grouped ? "w-[280px] shrink-0" : "flex h-full min-h-0 w-[320px] shrink-0 flex-col"}>
+      className={grouped ? "w-[280px] shrink-0 max-lg:w-full" : "flex h-full min-h-0 w-[320px] shrink-0 flex-col max-lg:h-auto max-lg:w-full"}>
+      {grouped && <div className="mb-1 hidden items-baseline gap-2 px-1 text-[13px] font-semibold max-lg:flex">{column.title} <span className="font-normal text-[var(--text-3)]">· {column.items.length}</span></div>}
       {!grouped && <div className="mb-2 flex flex-wrap items-baseline gap-2 px-1">
         <h2 className="m-0 text-[13px] font-[650] text-[var(--text)]">{column.title}</h2>
         <span className="text-[11px] text-[var(--text-3)]">{column.items.length} · {column.hint}</span>

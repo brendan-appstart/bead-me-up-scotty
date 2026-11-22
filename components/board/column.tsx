@@ -37,7 +37,7 @@ export function Column({
   const { setNodeRef } = useDroppable({ id: col.id, disabled: !col.droppable });
 
   return (
-    <section className="flex w-[296px] min-h-0 flex-shrink-0 flex-col">
+    <section className="flex w-[296px] min-h-0 flex-shrink-0 flex-col max-lg:w-full">
       <div className="flex flex-shrink-0 items-center gap-2 px-1 pb-3">
         <span className="h-[9px] w-[9px] rounded-[3px]" style={{ background: col.color }} />
         <span className="text-[13px] font-semibold tracking-[-.005em]">{col.name}</span>
