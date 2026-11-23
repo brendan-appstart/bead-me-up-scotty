@@ -87,7 +87,20 @@ function parseExport(jsonl: string): Bead[] {
     }
     const parsed = beadSchema.safeParse(obj);
     // Skip memory/non-issue records (they lack required issue fields).
-    if (parsed.success && parsed.data.issue_type) beads.push(parsed.data);
+    if (parsed.success && parsed.data.issue_type) {
+      // bd export glues the direction spec into depends_on_id for edges created
+      // via `bd dep add <id> blocked-by:<other>` (e.g. "blocked-by:bd-x1").
+      // Strip the marker so the edge resolves to a real bead id; otherwise the
+      // target never matches the bead index, so a queued gate never releases
+      // when its predecessor closes.
+      for (const d of parsed.data.dependencies ?? []) {
+        d.depends_on_id = d.depends_on_id.replace(
+          /^(?:blocked-by|blocks|relates-to|related-to|duplicates|supersedes|replies-to|parent-child|waits-for|conditional-blocks):/,
+          "",
+        );
+      }
+      beads.push(parsed.data);
+    }
   }
   return beads;
 }
