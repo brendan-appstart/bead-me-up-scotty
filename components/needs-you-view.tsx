@@ -10,6 +10,7 @@ import {
   needsHuman,
   readyHumanGate,
   gateBlocks,
+  parentOf,
   typeColor,
   relTime,
   fmtDateTime,
@@ -29,13 +30,50 @@ import { isSubmitKey } from "@/lib/keyboard-shortcuts";
  *      resolved — approved (closed, which unblocks dependents) from here so they
  *      don't sit invisibly waiting on the board (bead 8qc / gh-6).
  */
+/** Priority first, most recently touched breaks ties. */
+const byPriorityThenRecency = (a: Bead, b: Bead) =>
+  a.priority - b.priority ||
+  new Date(b.updated_at ?? 0).getTime() - new Date(a.updated_at ?? 0).getTime();
+
 export function NeedsYouView() {
   const { beads, index } = useApp();
-  const inbox = React.useMemo(() => beads.filter(needsHuman), [beads]);
+  const inbox = React.useMemo(
+    () => beads.filter(needsHuman).sort(byPriorityThenRecency),
+    [beads],
+  );
   const gates = React.useMemo(
     () => beads.filter((b) => readyHumanGate(b, index)),
     [beads, index],
   );
+  // Ready gates grouped by the parent epic of the bead each gate blocks, so
+  // approvals read in plan order: epics ranked by their most urgent gate,
+  // gates within an epic by priority then recency. Gates whose blocked bead
+  // has no epic parent trail in an ungrouped section.
+  const gateGroups = React.useMemo(() => {
+    const groups = new Map<string, { label: string; labelId: string | null; list: Bead[] }>();
+    for (const g of gates) {
+      const blocked = gateBlocks(g.id, beads)[0];
+      const parent = blocked ? parentOf(blocked, index) : null;
+      const key = parent?.id ?? "__ungrouped__";
+      if (!groups.has(key)) {
+        groups.set(key, { label: parent ? parent.title : "Ungrouped", labelId: parent?.id ?? null, list: [] });
+      }
+      groups.get(key)!.list.push(g);
+    }
+    return [...groups.entries()]
+      .map(([key, grp]) => ({
+        key,
+        label: grp.label,
+        labelId: grp.labelId,
+        urgency: Math.min(...grp.list.map((g) => g.priority)),
+        list: [...grp.list].sort(byPriorityThenRecency),
+      }))
+      .sort(
+        (a, b) =>
+          Number(a.key === "__ungrouped__") - Number(b.key === "__ungrouped__") ||
+          a.urgency - b.urgency,
+      );
+  }, [gates, beads, index]);
   const total = inbox.length + gates.length;
 
   return (
@@ -57,8 +95,20 @@ export function NeedsYouView() {
           </div>
         ) : (
           <div className="mx-auto flex max-w-3xl flex-col gap-3">
-            {gates.map((g) => (
-              <GateCard key={g.id} gate={g} />
+            {gateGroups.map((grp) => (
+              <section key={grp.key} className="flex flex-col gap-2">
+                <div className="flex items-baseline gap-2 px-1 pt-1">
+                  <h2 className="text-[12px] font-[650] uppercase tracking-wide text-[var(--text-3)]">
+                    {grp.label}
+                  </h2>
+                  <span className="text-[11px] text-[var(--text-3)]">
+                    {grp.list.length === 1 ? "1 gate" : `${grp.list.length} gates`}
+                  </span>
+                </div>
+                {grp.list.map((g) => (
+                  <GateCard key={g.id} gate={g} />
+                ))}
+              </section>
             ))}
             {inbox.map((b) => (
               <NeedsYouCard key={b.id} bead={b} />
@@ -155,9 +205,10 @@ function GateCard({ gate }: { gate: Bead }) {
               {i > 0 && ", "}
               <button
                 onClick={() => openDetail(b.id)}
-                className="font-mono text-[var(--text)] hover:underline"
+                title={b.id}
+                className="font-medium text-[var(--text)] hover:underline"
               >
-                {b.id}
+                {b.title.length > 64 ? `${b.title.slice(0, 64)}…` : b.title}
               </button>
             </React.Fragment>
           ))}
