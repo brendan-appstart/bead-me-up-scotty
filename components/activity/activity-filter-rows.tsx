@@ -7,6 +7,7 @@ import { avatarColor, initials, relTime, fmtDateTime } from "@/lib/beads-view";
 import type { BoardColumn } from "@/lib/board-columns";
 import {
   freshness,
+  typeBreakdown,
   type AgentSummary,
   type Freshness,
   type StageSummary,
@@ -174,12 +175,7 @@ export function PipelineCard({
   dimmed: boolean;
   onToggle: () => void;
 }) {
-  const breakdown = [
-    stage.tasks > 0 ? `${stage.tasks} ${stage.tasks === 1 ? "task" : "tasks"}` : "",
-    stage.epics > 0 ? `${stage.epics} ${stage.epics === 1 ? "epic" : "epics"}` : "",
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const breakdown = typeBreakdown(stage.types);
   return (
     <button
       type="button"

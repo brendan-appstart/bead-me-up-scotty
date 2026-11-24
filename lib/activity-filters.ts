@@ -108,19 +108,44 @@ export function freshness(at: string, now: number): Freshness {
   return age < ACTIVE_MS ? "active" : "quiet";
 }
 
+/** Archived beads are hidden from the Pipeline, so they never match a stage either. */
+export function isArchived(b: Pick<Bead, "labels">): boolean {
+  return (b.labels ?? []).includes("archived");
+}
+
+export interface TypeCount {
+  type: string;
+  count: number;
+}
+
 export interface StageSummary {
   id: string;
   /** Non-archived beads in this stage, epics included. */
   count: number;
-  /** Non-epic beads (tasks, bugs, features…). */
-  tasks: number;
-  epics: number;
+  /** Count per bead type, most common first, epics always last. */
+  types: TypeCount[];
   /** Up to `maxIds` bead ids, most recently updated first. */
   ids: string[];
   more: number;
 }
 
 const updatedAt = (b: Bead) => Date.parse(b.updated_at || b.created_at || "") || 0;
+
+function typeCounts(beads: Bead[]): TypeCount[] {
+  const counts = new Map<string, number>();
+  for (const b of beads) {
+    const type = b.issue_type || "task";
+    counts.set(type, (counts.get(type) ?? 0) + 1);
+  }
+  return [...counts]
+    .map(([type, count]) => ({ type, count }))
+    .sort(
+      (a, b) =>
+        Number(a.type === "epic") - Number(b.type === "epic") ||
+        b.count - a.count ||
+        a.type.localeCompare(b.type),
+    );
+}
 
 /** Per-stage counts over every non-archived bead, epics included. */
 export function summarizePipeline(
@@ -131,14 +156,38 @@ export function summarizePipeline(
 ): StageSummary[] {
   const groups = new Map<string, Bead[]>(stageIds.map((id) => [id, []]));
   for (const b of beads) {
-    if ((b.labels ?? []).includes("archived")) continue;
+    if (isArchived(b)) continue;
     const stage = stageOf(b);
     if (stage) groups.get(stage)?.push(b);
   }
   return stageIds.map((id) => {
     const all = [...(groups.get(id) ?? [])].sort((a, b) => updatedAt(b) - updatedAt(a));
-    const epics = all.filter((b) => b.issue_type === "epic").length;
     const ids = all.slice(0, maxIds).map((b) => b.id);
-    return { id, count: all.length, tasks: all.length - epics, epics, ids, more: all.length - ids.length };
+    return { id, count: all.length, types: typeCounts(all), ids, more: all.length - ids.length };
   });
+}
+
+/** "1 task", "2 bugs", "3 stories". */
+export function pluralType(type: string, count: number): string {
+  if (count === 1) return `${count} ${type}`;
+  const plural = /[^aeiou]y$/.test(type) ? `${type.slice(0, -1)}ies` : `${type}s`;
+  return `${count} ${plural}`;
+}
+
+/**
+ * The card's one-line breakdown: up to `maxParts` non-epic types, the rest
+ * folded into "N other", then epics. "9 tasks · 2 bugs · 1 other · 2 epics".
+ */
+export function typeBreakdown(types: TypeCount[], maxParts = 2): string {
+  const epics = types.find((t) => t.type === "epic");
+  const rest = types.filter((t) => t.type !== "epic");
+  const shown = rest.length > maxParts + 1 ? rest.slice(0, maxParts) : rest;
+  const other = rest.slice(shown.length).reduce((n, t) => n + t.count, 0);
+  return [
+    ...shown.map((t) => pluralType(t.type, t.count)),
+    other > 0 ? `${other} other` : "",
+    epics ? pluralType("epic", epics.count) : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }

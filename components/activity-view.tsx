@@ -14,6 +14,7 @@ import {
   filterActivity,
   freshness,
   hasActivityFilters,
+  isArchived,
   summarizeAgents,
   summarizePipeline,
   writeActivityFilters,
@@ -90,9 +91,10 @@ export function ActivityView() {
   );
   const items = React.useMemo(
     () =>
+      // Same beads as the Pipeline counts: an archived or deleted bead has no stage.
       filterActivity(allItems, filters, (id) => {
         const b = index.get(id);
-        return b ? colOf(b, index) : null;
+        return b && !isArchived(b) ? colOf(b, index) : null;
       }),
     [allItems, filters, index],
   );
@@ -109,54 +111,58 @@ export function ActivityView() {
         </span>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {allItems.length > 0 && (
+        {(agents.length > 0 || beads.length > 0) && (
           <section aria-label="Activity filters" className="flex flex-col gap-4 border-b border-border px-6 py-4">
-            <div>
-              <RowHeader
-                label="Agents"
-                help={<AgentsHelp />}
-                aside={`${activeNow} active now`}
-              />
-              <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1 pt-[2px]">
-                {agents.map((a) => (
-                  <AgentCard
-                    key={a.actor}
-                    agent={a}
-                    now={now}
-                    selected={filters.actors.includes(a.actor)}
-                    dimmed={filters.actors.length > 0 && !filters.actors.includes(a.actor)}
-                    onToggle={() => toggleActor(a.actor)}
-                  />
-                ))}
+            {agents.length > 0 && (
+              <div>
+                <RowHeader
+                  label="Agents"
+                  help={<AgentsHelp />}
+                  aside={`${activeNow} active now`}
+                />
+                <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1 pt-[2px]">
+                  {agents.map((a) => (
+                    <AgentCard
+                      key={a.actor}
+                      agent={a}
+                      now={now}
+                      selected={filters.actors.includes(a.actor)}
+                      dimmed={filters.actors.length > 0 && !filters.actors.includes(a.actor)}
+                      onToggle={() => toggleActor(a.actor)}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-            <div>
-              <RowHeader
-                label="Pipeline"
-                help={<PipelineHelp />}
-                aside={filtering ? `${items.length} of ${allItems.length} events` : `${allItems.length} events`}
-              />
-              <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 pt-[2px]">
-                {columns.map((c, i) => {
-                  const stage = pipeline[i];
-                  return (
-                    <React.Fragment key={c.id}>
-                      {i > 0 && <StageArrow />}
-                      <PipelineCard
-                        column={c}
-                        stage={stage}
-                        selected={filters.stages.includes(c.id)}
-                        dimmed={filters.stages.length > 0 && !filters.stages.includes(c.id)}
-                        onToggle={() => toggleStage(c.id)}
-                      />
-                    </React.Fragment>
-                  );
-                })}
+            )}
+            {beads.length > 0 && (
+              <div>
+                <RowHeader
+                  label="Pipeline"
+                  help={<PipelineHelp />}
+                  aside={filtering ? `${items.length} of ${allItems.length} events` : `${allItems.length} events`}
+                />
+                <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 pt-[2px]">
+                  {columns.map((c, i) => {
+                    const stage = pipeline[i];
+                    return (
+                      <React.Fragment key={c.id}>
+                        {i > 0 && <StageArrow />}
+                        <PipelineCard
+                          column={c}
+                          stage={stage}
+                          selected={filters.stages.includes(c.id)}
+                          dimmed={filters.stages.length > 0 && !filters.stages.includes(c.id)}
+                          onToggle={() => toggleStage(c.id)}
+                        />
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
           </section>
         )}
-        {filtering && allItems.length > 0 && (
+        {filtering && !(isLoading && allItems.length === 0) && (
           <div data-activity-chips className="mx-auto flex max-w-3xl flex-wrap items-center gap-[6px] px-4 pt-3">
             <span className="text-[12px] text-[var(--text-3)]">Showing</span>
             {filters.actors.map((a) => (
@@ -175,70 +181,71 @@ export function ActivityView() {
           </div>
         )}
         <div className="px-4 py-3">
-        {isLoading && allItems.length === 0 ? (
-          <div className="p-8 text-center text-[13px] text-[var(--text-3)]">Loading activity…</div>
-        ) : allItems.length === 0 ? (
-          <div className="p-8 text-center text-[13px] text-[var(--text-3)]">No activity yet.</div>
-        ) : items.length === 0 ? (
-          <div data-activity-empty className="flex flex-col items-center gap-2 p-10 text-center">
-            <div className="text-[13.5px] font-semibold">No activity matches your filters</div>
-            <div className="text-[12.5px] text-[var(--text-3)]">
-              Remove a filter, or clear them to see every event.
+          {isLoading && allItems.length === 0 ? (
+            <div className="p-8 text-center text-[13px] text-[var(--text-3)]">Loading activity…</div>
+          ) : allItems.length === 0 ? (
+            <div className="p-8 text-center text-[13px] text-[var(--text-3)]">No activity yet.</div>
+          ) : items.length === 0 ? (
+            <div data-activity-empty className="flex flex-col items-center gap-2 p-10 text-center">
+              <div className="text-[13.5px] font-semibold">No activity matches your filters</div>
+              <div className="text-[12.5px] text-[var(--text-3)]">
+                Remove a filter, or clear them to see every event.
+              </div>
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="mt-1 flex h-8 items-center gap-[6px] rounded-[9px] border border-border bg-[var(--surface-2)] px-[11px] text-[12.5px] font-medium text-[var(--text-2)] hover:bg-[var(--surface-3)]"
+              >
+                <Icon name="x" size={14} />
+                Clear filters
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="mt-1 flex h-8 items-center gap-[6px] rounded-[9px] border border-border bg-[var(--surface-2)] px-[11px] text-[12.5px] font-medium text-[var(--text-2)] hover:bg-[var(--surface-3)]"
-            >
-              <Icon name="x" size={14} />
-              Clear filters
-            </button>
-          </div>
-        ) : (
-          <ol className="mx-auto flex max-w-3xl flex-col">
-            {items.map((it) => (
-              <li key={it.id}>
-                <button
-                  data-keyboard-bead-id={it.issueId}
-                  aria-current={selectedBeadId === it.issueId ? "true" : undefined}
-                  onFocus={() => selectBead(it.issueId)}
-                  onClick={() => {
-                    selectBead(it.issueId);
-                    openDetail(it.issueId);
-                  }}
-                  className={`flex w-full items-start gap-3 rounded-[10px] px-3 py-[10px] text-left hover:bg-[var(--surface-2)] focus-visible:outline-none ${
-                    selectedBeadId === it.issueId ? "ring-2 ring-inset ring-[var(--brand)]" : ""
-                  }`}
-                >
-                  <span
-                    className="mt-[1px] flex h-[26px] w-[26px] flex-shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white"
-                    style={{ background: avatarColor(it.actor) }}
+          ) : (
+            <ol className="mx-auto flex max-w-3xl flex-col">
+              {items.map((it) => (
+                <li key={it.id}>
+                  <button
+                    data-activity-event={it.id}
+                    data-keyboard-bead-id={it.issueId}
+                    aria-current={selectedBeadId === it.issueId ? "true" : undefined}
+                    onFocus={() => selectBead(it.issueId)}
+                    onClick={() => {
+                      selectBead(it.issueId);
+                      openDetail(it.issueId);
+                    }}
+                    className={`flex w-full items-start gap-3 rounded-[10px] px-3 py-[10px] text-left hover:bg-[var(--surface-2)] focus-visible:outline-none ${
+                      selectedBeadId === it.issueId ? "ring-2 ring-inset ring-[var(--brand)]" : ""
+                    }`}
                   >
-                    {initials(it.actor)}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-x-[6px] gap-y-1 text-[13px]">
-                      <span className="font-semibold">{it.actor}</span>
-                      <OriginBadge origin={it.origin} title={it.origin === "human" ? "Human" : "Agent"} />
-                      <span className="text-[var(--text-2)]">{it.action}</span>
-                      <span className="font-mono text-[11px] text-[var(--text-3)]">{it.issueId}</span>
+                    <span
+                      className="mt-[1px] flex h-[26px] w-[26px] flex-shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white"
+                      style={{ background: avatarColor(it.actor) }}
+                    >
+                      {initials(it.actor)}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-x-[6px] gap-y-1 text-[13px]">
+                        <span className="font-semibold">{it.actor}</span>
+                        <OriginBadge origin={it.origin} title={it.origin === "human" ? "Human" : "Agent"} />
+                        <span className="text-[var(--text-2)]">{it.action}</span>
+                        <span className="font-mono text-[11px] text-[var(--text-3)]">{it.issueId}</span>
+                      </div>
+                      <div className="truncate text-[12.5px] text-[var(--text-2)]">{it.title}</div>
+                      {it.detail && (
+                        <div className="truncate text-[12px] text-[var(--text-3)]">{it.detail}</div>
+                      )}
                     </div>
-                    <div className="truncate text-[12.5px] text-[var(--text-2)]">{it.title}</div>
-                    {it.detail && (
-                      <div className="truncate text-[12px] text-[var(--text-3)]">{it.detail}</div>
-                    )}
-                  </div>
-                  <span
-                    title={fmtDateTime(it.at)}
-                    className="flex-shrink-0 whitespace-nowrap text-[11px] text-[var(--text-3)]"
-                  >
-                    {relTime(it.at)}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ol>
-        )}
+                    <span
+                      title={fmtDateTime(it.at)}
+                      className="flex-shrink-0 whitespace-nowrap text-[11px] text-[var(--text-3)]"
+                    >
+                      {relTime(it.at)}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ol>
+          )}
         </div>
       </div>
     </div>
