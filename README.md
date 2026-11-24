@@ -87,6 +87,12 @@ npm, Docker) are below.
   including in read-only mode. Drawer navigation keeps its own Back trail.
 - **Archive & delete** — archive (reversible `bd close` + `archived` label) or
   delete (`bd delete`, behind a confirm).
+- **Activity** — a newest-first feed of what humans and agents did. Above it, an
+  **Agents** row (each actor's latest action, with a green / amber / red dot for
+  active, quiet or silent) and a **Pipeline** row (how many beads sit in each Board
+  column) double as filters: click a card to toggle it. Actors combine with OR,
+  columns with OR, and the two rows with AND. The selection is kept in the URL
+  (`?actor=…&stage=…`), so Back, reload and shared links keep it.
 - **Human-vs-agent attribution** — every bead and comment shows 👤 (human) or 🤖
   (agent), derived from a configurable human allowlist.
 - **Settings** — repo path, human actor + allowlist, poll interval, and light/dark
