@@ -1,4 +1,6 @@
-import type { Bead } from "./schema";
+import { FLOW_DEP_TYPES, type Bead } from "./schema";
+
+const flow = new Set<string>(FLOW_DEP_TYPES);
 
 /** Active blocking chains only; hierarchy and related links remain visible context. */
 export function graphNeighborhood(beads: Bead[], visibleIds: Set<string>, focusId: string) {
@@ -14,7 +16,7 @@ export function graphNeighborhood(beads: Bead[], visibleIds: Set<string>, focusI
   for (const bead of present.values()) {
     if (bead.status === "closed") continue;
     for (const dep of bead.dependencies ?? []) {
-      if (!["blocks", "waits-for", "conditional-blocks"].includes(dep.type)) continue;
+      if (!flow.has(dep.type)) continue;
       const target = present.get(dep.depends_on_id);
       if (!target || target.status === "closed") continue;
       link(upstream, bead.id, target.id);

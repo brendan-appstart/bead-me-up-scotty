@@ -19,7 +19,7 @@ import { useAddDep } from "@/hooks/use-beads";
 import { catColor, typeColor, childrenOf } from "@/lib/beads-view";
 import { buildEpicGraphScope, graphDependencyLayers } from "@/lib/graph-epic";
 import { graphNeighborhood } from "@/lib/graph-neighborhood";
-import type { Bead } from "@/lib/schema";
+import { FLOW_DEP_TYPES, type Bead } from "@/lib/schema";
 
 type BeadNodeData = {
   bead: Bead;
@@ -87,7 +87,7 @@ function BeadNode({ data }: NodeProps) {
 
 const nodeTypes = { bead: BeadNode };
 
-const FLOW_BLOCKING = new Set(["blocks", "conditional-blocks", "waits-for"]);
+const FLOW_BLOCKING = new Set<string>(FLOW_DEP_TYPES);
 
 function nodeSpan(bead: Bead, outsideEpic = false): number {
   const title = bead.title.replace(/\s*\([^)]*\)\s*/, "");
