@@ -9,6 +9,9 @@ import {
   summarizePipeline,
   freshness,
   hasActivityFilters,
+  isArchived,
+  pluralType,
+  typeBreakdown,
 } from "../lib/activity-filters.ts";
 
 const STAGES = ["backlog", "ready", "in_progress", "blocked", "done"];
@@ -60,6 +63,7 @@ const bead = (id, stage, extra = {}) => ({ id, stage, issue_type: "task", labels
 const beads = [
   bead("R-1", "ready", { updated_at: "2026-11-24T08:00:00Z" }),
   bead("R-2", "ready"),
+  bead("R-B", "ready", { issue_type: "bug", updated_at: "2026-11-24T07:00:00Z" }),
   bead("R-E", "ready", { issue_type: "epic", updated_at: "2026-11-24T09:00:00Z" }),
   bead("R-A", "ready", { labels: ["archived"] }),
   ...Array.from({ length: 6 }, (_, i) => bead(`D-${i}`, "done", { updated_at: `2026-11-2${i}T00:00:00Z` })),
@@ -67,10 +71,42 @@ const beads = [
 const pipe = summarizePipeline(beads, STAGES, (b) => b.stage);
 const by = Object.fromEntries(pipe.map((s) => [s.id, s]));
 assert.deepEqual(pipe.map((s) => s.id), STAGES, "one entry per stage, in order");
-assert.deepEqual(by.ready, { id: "ready", count: 3, tasks: 2, epics: 1, ids: ["R-2", "R-E", "R-1"], more: 0 }, "archived skipped, newest first");
+assert.deepEqual(
+  by.ready,
+  {
+    id: "ready",
+    count: 4,
+    types: [{ type: "task", count: 2 }, { type: "bug", count: 1 }, { type: "epic", count: 1 }],
+    ids: ["R-2", "R-E", "R-1", "R-B"],
+    more: 0,
+  },
+  "archived skipped, counted per type with epics last, newest first",
+);
 assert.equal(by.done.count, 6);
 assert.deepEqual(by.done.ids, ["D-5", "D-4", "D-3", "D-2"]);
 assert.equal(by.done.more, 2);
-assert.deepEqual(by.in_progress, { id: "in_progress", count: 0, tasks: 0, epics: 0, ids: [], more: 0 });
+assert.deepEqual(by.in_progress, { id: "in_progress", count: 0, types: [], ids: [], more: 0 });
+assert.equal(isArchived({ labels: ["x", "archived"] }), true);
+assert.equal(isArchived({}), false);
+
+// ---- type breakdown: real type names, never "tasks" for bugs ----
+assert.equal(typeBreakdown(by.ready.types), "2 tasks · 1 bug · 1 epic");
+assert.equal(typeBreakdown([]), "");
+assert.equal(typeBreakdown([{ type: "epic", count: 2 }]), "2 epics");
+assert.equal(
+  typeBreakdown([
+    { type: "task", count: 5 }, { type: "bug", count: 3 }, { type: "story", count: 2 },
+    { type: "chore", count: 1 }, { type: "epic", count: 1 },
+  ]),
+  "5 tasks · 3 bugs · 3 other · 1 epic",
+  "folds the long tail into 'other'",
+);
+assert.equal(
+  typeBreakdown([{ type: "task", count: 1 }, { type: "bug", count: 1 }, { type: "story", count: 2 }]),
+  "1 task · 1 bug · 2 stories",
+  "three types fit without an 'other'",
+);
+assert.equal(pluralType("story", 2), "2 stories");
+assert.equal(pluralType("survey", 2), "2 surveys");
 
 console.log("PASS: activity filters (URL, OR/AND filtering, agents, freshness, pipeline)");

@@ -48,7 +48,11 @@ const items = [
   ev("e3", "main/t-wip@host", "t-done", 40, "closed"),
   ev("e4", "Reviewer", "t-wip", 50),
   ev("e5", "ghost-agent", "t-gone", 90),
+  // An archived bead in an otherwise-Ready state: hidden from the Pipeline
+  // counts, so a Ready filter must not show its events either.
+  ev("e6", "Reviewer", "t-arch", 120),
 ];
+const ALL = items.map((i) => i.id);
 
 const browser = await chromium.launch();
 
@@ -57,10 +61,11 @@ try {
   const errors = [];
   page.setDefaultTimeout(7000);
   page.on("pageerror", (e) => errors.push(e.message));
+  let activity = items;
   await page.route("**/api/p/demo/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
     if (path.endsWith("/beads/stream")) return route.abort();
-    if (path.endsWith("/activity")) return route.fulfill({ json: { items } });
+    if (path.endsWith("/activity")) return route.fulfill({ json: { items: activity } });
     if (path.endsWith("/beads")) {
       return route.fulfill({
         json: { beads, meta: { kind: "demo", humanActor: "Reviewer", humanAllowlist: ["Reviewer"] } },
@@ -72,8 +77,10 @@ try {
   await page.goto(`${base}/p/demo?view=activity`);
   await page.getByRole("heading", { name: "Activity", exact: true }).waitFor();
 
-  const feed = () => page.locator("main ol > li [data-keyboard-bead-id]");
-  const feedIds = async () => feed().evaluateAll((els) => els.map((e) => e.getAttribute("data-keyboard-bead-id")));
+  // Compare event ids, not bead ids: a bead can carry several events from
+  // different actors, and the wrong one must not pass for the right one.
+  const feed = () => page.locator("main ol > li [data-activity-event]");
+  const feedIds = async () => feed().evaluateAll((els) => els.map((e) => e.getAttribute("data-activity-event")));
   const expectFeed = async (want, message) => {
     const deadline = Date.now() + 5000;
     let got = await feedIds();
@@ -87,7 +94,7 @@ try {
   const stage = (id) => page.locator(`[data-activity-stage="${id}"]`);
   const params = (key) => new URL(page.url()).searchParams.getAll(key);
 
-  await expectFeed(["t-wip", "t-ready", "t-done", "t-wip", "t-gone"], "unfiltered feed shows every event");
+  await expectFeed(ALL, "unfiltered feed shows every event");
 
   // Agents row: newest actor first, freshness dot from the latest event.
   const actors = await page.locator("[data-activity-actor]").evaluateAll((els) =>
@@ -117,29 +124,29 @@ try {
 
   // One actor.
   await agent("Reviewer").click();
-  await expectFeed(["t-ready", "t-wip"], "actor filter keeps only Reviewer's events");
+  await expectFeed(["e2", "e4", "e6"], "actor filter keeps only Reviewer's events");
   assert.deepEqual(params("actor"), ["Reviewer"]);
   assert.equal(await agent("Reviewer").getAttribute("aria-pressed"), "true");
 
   // A second actor ORs.
   await agent("main/t-wip@host").click();
-  await expectFeed(["t-wip", "t-ready", "t-done", "t-wip"], "two actors OR together");
+  await expectFeed(["e1", "e2", "e3", "e4", "e6"], "two actors OR together");
   assert.deepEqual(params("actor"), ["Reviewer", "main/t-wip@host"]);
 
   // A stage ANDs with the actors.
   await stage("in_progress").click();
-  await expectFeed(["t-wip", "t-wip"], "stage filter ANDs with the actor filter");
+  await expectFeed(["e1", "e4"], "stage filter ANDs with the actor filter");
   assert.deepEqual(params("stage"), ["in_progress"]);
-  await page.getByText("2 of 5 events").waitFor();
+  await page.getByText("2 of 6 events").waitFor();
 
   // Clicking the same card again toggles it off.
   await agent("main/t-wip@host").click();
-  await expectFeed(["t-wip"], "toggling an actor off removes only that actor");
+  await expectFeed(["e4"], "toggling an actor off removes only that actor");
   assert.deepEqual(params("actor"), ["Reviewer"]);
 
   // The chip bar removes one filter at a time.
   await page.getByRole("button", { name: "Remove filter In Progress" }).click();
-  await expectFeed(["t-ready", "t-wip"], "removing the stage chip keeps the actor");
+  await expectFeed(["e2", "e4", "e6"], "removing the stage chip keeps the actor");
   assert.deepEqual(params("stage"), []);
 
   // Empty state, with its own Clear.
@@ -148,17 +155,27 @@ try {
   await stage("done").click();
   await page.locator("[data-activity-empty]").waitFor();
   await page.getByRole("button", { name: "Clear filters" }).click();
-  await expectFeed(["t-wip", "t-ready", "t-done", "t-wip", "t-gone"], "Clear filters restores the feed");
+  await expectFeed(ALL, "Clear filters restores the feed");
   assert.deepEqual([...params("actor"), ...params("stage")], []);
   assert.equal(new URL(page.url()).searchParams.get("view"), "activity", "keeps the view param");
 
   // The selection survives a reload and Back undoes a toggle.
   await stage("ready").click();
-  await expectFeed(["t-ready"], "stage alone filters");
+  await expectFeed(["e2"], "Ready keeps live beads only: the archived bead's event e6 is out");
   await page.reload();
-  await expectFeed(["t-ready"], "filters survive a reload");
+  await expectFeed(["e2"], "filters survive a reload");
   await page.goBack();
-  await expectFeed(["t-wip", "t-ready", "t-done", "t-wip", "t-gone"], "Back undoes the last toggle");
+  await expectFeed(ALL, "Back undoes the last toggle");
+
+  // No activity at all: the Pipeline still shows where beads sit, the Agents
+  // row is gone, and a stage filter already in the URL can still be removed.
+  activity = [];
+  await page.goto(`${base}/p/demo?view=activity&stage=ready`);
+  await page.getByText("No activity yet.").waitFor();
+  await stage("ready").waitFor();
+  assert.equal(await page.locator("[data-activity-actor]").count(), 0, "no Agents row without actors");
+  await page.getByRole("button", { name: "Remove filter Ready" }).click();
+  await page.waitForFunction(() => !new URL(location.href).searchParams.has("stage"));
 
   assert.deepEqual(errors, [], "no page errors");
   console.log("PASS: activity agents and pipeline rows toggle stacking feed filters");
