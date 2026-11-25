@@ -65,8 +65,14 @@ export function buildEpicGraphScope(beads: Bead[], epicId: string): EpicGraphSco
 export type DependencyComponents = {
   /** Bead id to its index in `components`. */
   componentOf: Map<string, number>;
-  /** Strongly connected components, members sorted. A cycle has several members. */
+  /** Strongly connected components, members sorted. */
   components: string[][];
+  /**
+   * Whether each component is a cycle: several members, or one bead that
+   * depends on itself. Use this rather than member count, which misses
+   * self-loops.
+   */
+  cyclic: boolean[];
   /** Condensed prerequisite -> dependent edges between components. */
   componentEdges: Map<number, Set<number>>;
   /** Longest path to each component, so increasing layers read left to right. */
@@ -146,6 +152,7 @@ export function dependencyComponents(
     components.push(members);
   }
 
+  const cyclic = components.map((members) => members.length > 1);
   const componentEdges = new Map<number, Set<number>>();
   const indegree = new Array(components.length).fill(0) as number[];
   const componentLayers = new Array(components.length).fill(0) as number[];
@@ -154,6 +161,7 @@ export function dependencyComponents(
     const fromComponent = componentOf.get(from)!;
     for (const target of targets) {
       const toComponent = componentOf.get(target)!;
+      if (from === target) cyclic[fromComponent] = true;
       if (fromComponent === toComponent || componentEdges.get(fromComponent)!.has(toComponent)) continue;
       componentEdges.get(fromComponent)!.add(toComponent);
       indegree[toComponent] += 1;
@@ -182,7 +190,7 @@ export function dependencyComponents(
     }
   }
 
-  return { componentOf, components, componentEdges, componentLayers, topologicalOrder };
+  return { componentOf, components, cyclic, componentEdges, componentLayers, topologicalOrder };
 }
 
 /**
