@@ -56,6 +56,14 @@ export const BLOCKING_DEP_TYPES = [
 ] as const satisfies readonly DepType[];
 export type BlockingDepType = (typeof BLOCKING_DEP_TYPES)[number];
 
+// Blocking types that order work. Hierarchy (`parent-child`) is left out: an
+// epic does not sit "before" its children in any meaningful sequence.
+export const FLOW_DEP_TYPES = [
+  "blocks",
+  "conditional-blocks",
+  "waits-for",
+] as const satisfies readonly BlockingDepType[];
+
 export const PRIORITIES = [0, 1, 2, 3, 4] as const;
 export type Priority = (typeof PRIORITIES)[number];
 

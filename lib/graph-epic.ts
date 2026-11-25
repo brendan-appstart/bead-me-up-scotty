@@ -62,15 +62,37 @@ export function buildEpicGraphScope(beads: Bead[], epicId: string): EpicGraphSco
   };
 }
 
+export type DependencyComponents = {
+  /** Bead id to its index in `components`. */
+  componentOf: Map<string, number>;
+  /** Strongly connected components, members sorted. */
+  components: string[][];
+  /**
+   * Whether each component is a cycle: several members, or one bead that
+   * depends on itself. Use this rather than member count, which misses
+   * self-loops.
+   */
+  cyclic: boolean[];
+  /** Condensed prerequisite -> dependent edges between components. */
+  componentEdges: Map<number, Set<number>>;
+  /** Longest path to each component, so increasing layers read left to right. */
+  componentLayers: number[];
+  /** Component indexes with every prerequisite before its dependents. */
+  topologicalOrder: number[];
+};
+
 /**
- * Assign deterministic left-to-right layers from prerequisite to dependent.
- * Strongly connected components share a layer, so dependency or hierarchy
- * cycles cannot recurse forever or push a member to the wrong side of itself.
+ * Condense the dependency graph over `edgeTypes` into strongly connected
+ * components and layer them. Iterative throughout, and independent of input
+ * order, so deep chains and cycles stay deterministic.
  */
-export function graphDependencyLayers(beads: Bead[]): Map<string, number> {
+export function dependencyComponents(
+  beads: Bead[],
+  edgeTypes: readonly string[] = BLOCKING_DEP_TYPES,
+): DependencyComponents {
   const ids = [...new Set(beads.map((bead) => bead.id))].sort();
   const present = new Set(ids);
-  const blocking = new Set<string>(BLOCKING_DEP_TYPES);
+  const blocking = new Set<string>(edgeTypes);
   const outgoing = new Map(ids.map((id) => [id, new Set<string>()]));
   const incoming = new Map(ids.map((id) => [id, new Set<string>()]));
 
@@ -130,6 +152,7 @@ export function graphDependencyLayers(beads: Bead[]): Map<string, number> {
     components.push(members);
   }
 
+  const cyclic = components.map((members) => members.length > 1);
   const componentEdges = new Map<number, Set<number>>();
   const indegree = new Array(components.length).fill(0) as number[];
   const componentLayers = new Array(components.length).fill(0) as number[];
@@ -138,6 +161,7 @@ export function graphDependencyLayers(beads: Bead[]): Map<string, number> {
     const fromComponent = componentOf.get(from)!;
     for (const target of targets) {
       const toComponent = componentOf.get(target)!;
+      if (from === target) cyclic[fromComponent] = true;
       if (fromComponent === toComponent || componentEdges.get(fromComponent)!.has(toComponent)) continue;
       componentEdges.get(fromComponent)!.add(toComponent);
       indegree[toComponent] += 1;
@@ -150,8 +174,10 @@ export function graphDependencyLayers(beads: Bead[]): Map<string, number> {
     .filter(({ degree }) => degree === 0)
     .map(({ id }) => id)
     .sort((a, b) => componentKey(a).localeCompare(componentKey(b)));
+  const topologicalOrder: number[] = [];
   while (ready.length) {
     const component = ready.shift()!;
+    topologicalOrder.push(component);
     for (const target of [...componentEdges.get(component)!].sort((a, b) =>
       componentKey(a).localeCompare(componentKey(b)),
     )) {
@@ -164,5 +190,18 @@ export function graphDependencyLayers(beads: Bead[]): Map<string, number> {
     }
   }
 
-  return new Map(ids.map((id) => [id, componentLayers[componentOf.get(id)!]]));
+  return { componentOf, components, cyclic, componentEdges, componentLayers, topologicalOrder };
+}
+
+/**
+ * Assign deterministic left-to-right layers from prerequisite to dependent.
+ * Strongly connected components share a layer, so dependency or hierarchy
+ * cycles cannot recurse forever or push a member to the wrong side of itself.
+ */
+export function graphDependencyLayers(
+  beads: Bead[],
+  edgeTypes: readonly string[] = BLOCKING_DEP_TYPES,
+): Map<string, number> {
+  const { componentOf, componentLayers } = dependencyComponents(beads, edgeTypes);
+  return new Map([...componentOf.keys()].sort().map((id) => [id, componentLayers[componentOf.get(id)!]]));
 }
