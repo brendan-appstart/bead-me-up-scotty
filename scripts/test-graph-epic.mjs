@@ -29,7 +29,20 @@ const beads=[
  bead('closed-epic',{issue_type:'epic',status:'closed'}),
  bead('closed-child',{status:'closed',dependencies:[dep('closed-epic')]}),
 ];
-const {graphDependencyLayers,buildEpicGraphScope}=load('graph-epic');
+const {graphDependencyLayers,buildEpicGraphScope,graphEpicPaths}=load('graph-epic');
+const hierarchy = [
+ bead('outer-epic',{issue_type:'epic'}),
+ bead('inner-epic',{issue_type:'epic',dependencies:[dep('outer-epic')]}),
+ bead('parent',{dependencies:[dep('inner-epic')]}),
+ bead('leaf',{dependencies:[dep('parent'),dep('detour'),dep('missing')]}),
+ bead('sibling',{dependencies:[dep('parent')]}),
+ bead('detour',{dependencies:[dep('loop')]}),
+ bead('loop',{dependencies:[dep('detour')]}),
+];
+const paths=graphEpicPaths(hierarchy,'leaf');
+assert.deepEqual([...paths].map(([id,children])=>[id,[...children]]),[['inner-epic',['parent']],['parent',['leaf']]],
+ 'keep the path to the nearest epic without siblings or cycles that do not reach an epic');
+assert.equal(graphEpicPaths(hierarchy,'detour').size,0,'an ancestor cycle without an epic has no epic path');
 const deep=Array.from({length:2500},(_,i)=>bead(`chain-${i}`,{dependencies:i?[dep(`chain-${i-1}`,'blocks')]:[]}));
 assert.equal(graphDependencyLayers(deep).get('chain-2499'),2499,'deep dependency chains avoid call-stack limits');
 const cycle=[bead('a',{dependencies:[dep('b','blocks')]}),bead('b',{dependencies:[dep('a','blocks')]}),bead('c',{dependencies:[dep('a','blocks')]})];

@@ -1,3 +1,4 @@
+import type { GraphLink } from "./graph-collapse";
 import { BLOCKING_DEP_TYPES, type Bead } from "./schema";
 
 export type EpicGraphScope = {
@@ -5,6 +6,69 @@ export type EpicGraphScope = {
   insideIds: Set<string>;
   outsideIds: Set<string>;
 };
+
+/** Return the root and its recursive descendants in the supplied hierarchy. */
+export function graphSubtreeIds(beads: Iterable<Bead>, rootId: string): Set<string> {
+  const seen = new Set<string>();
+  const children = new Map<string, string[]>();
+  for (const bead of beads) {
+    if (seen.has(bead.id)) continue;
+    seen.add(bead.id);
+    for (const dependency of bead.dependencies ?? []) {
+      if (dependency.type !== "parent-child") continue;
+      const current = children.get(dependency.depends_on_id);
+      if (current) current.push(bead.id);
+      else children.set(dependency.depends_on_id, [bead.id]);
+    }
+  }
+
+  if (!seen.has(rootId)) return new Set();
+  const ids = new Set([rootId]);
+  const pending = [rootId];
+  for (let cursor = 0; cursor < pending.length; cursor += 1) {
+    for (const childId of children.get(pending[cursor]) ?? []) {
+      if (ids.has(childId)) continue;
+      ids.add(childId);
+      pending.push(childId);
+    }
+  }
+  return ids;
+}
+
+export function graphEpicPaths(beads: Bead[], rootId: string): Map<string, Set<string>> {
+  const byId = new Map<string, Bead>();
+  for (const bead of beads) if (!byId.has(bead.id)) byId.set(bead.id, bead);
+
+  const candidates = new Map<string, Set<string>>();
+  const seen = new Set([rootId]);
+  const pending = [rootId];
+  const epics: string[] = [];
+  for (let i = 0; i < pending.length; i++) {
+    const childId = pending[i];
+    for (const { depends_on_id: parentId, type } of byId.get(childId)?.dependencies ?? []) {
+      if (type !== "parent-child" || parentId === rootId || parentId === childId) continue;
+      const parent = byId.get(parentId);
+      if (!parent) continue;
+      let children = candidates.get(parentId);
+      if (!children) candidates.set(parentId, children = new Set());
+      children.add(childId);
+      if (seen.has(parentId)) continue;
+      seen.add(parentId);
+      (parent.issue_type === "epic" ? epics : pending).push(parentId);
+    }
+  }
+
+  // Keep only branches that reach an epic in the current graph scope.
+  const paths = new Map<string, Set<string>>();
+  for (let i = 0; i < epics.length; i++) {
+    const parentId = epics[i];
+    const children = candidates.get(parentId);
+    if (!children || paths.has(parentId)) continue;
+    paths.set(parentId, children);
+    for (const childId of children) epics.push(childId);
+  }
+  return paths;
+}
 
 /**
  * Select an epic, every recursive parent-child descendant, and one hop of
@@ -17,30 +81,7 @@ export function buildEpicGraphScope(beads: Bead[], epicId: string): EpicGraphSco
     if (!byId.has(bead.id)) byId.set(bead.id, bead);
   }
 
-  const children = new Map<string, string[]>();
-  for (const bead of byId.values()) {
-    for (const dependency of bead.dependencies ?? []) {
-      if (dependency.type !== "parent-child" || !byId.has(dependency.depends_on_id)) continue;
-      const current = children.get(dependency.depends_on_id);
-      if (current) current.push(bead.id);
-      else children.set(dependency.depends_on_id, [bead.id]);
-    }
-  }
-
-  const insideIds = new Set<string>();
-  const pending: string[] = [];
-  if (byId.has(epicId)) {
-    insideIds.add(epicId);
-    pending.push(epicId);
-  }
-  for (let cursor = 0; cursor < pending.length; cursor += 1) {
-    for (const childId of children.get(pending[cursor]) ?? []) {
-      if (insideIds.has(childId)) continue;
-      insideIds.add(childId);
-      pending.push(childId);
-    }
-  }
-
+  const insideIds = graphSubtreeIds(byId.values(), epicId);
   const outsideIds = new Set<string>();
   for (const bead of byId.values()) {
     for (const dependency of bead.dependencies ?? []) {
@@ -67,21 +108,26 @@ export function buildEpicGraphScope(beads: Bead[], epicId: string): EpicGraphSco
  * Strongly connected components share a layer, so dependency or hierarchy
  * cycles cannot recurse forever or push a member to the wrong side of itself.
  */
-export function graphDependencyLayers(beads: Bead[]): Map<string, number> {
+export function graphDependencyLayers(beads: Bead[], links?: readonly GraphLink[]): Map<string, number> {
   const ids = [...new Set(beads.map((bead) => bead.id))].sort();
-  const present = new Set(ids);
   const blocking = new Set<string>(BLOCKING_DEP_TYPES);
   const outgoing = new Map(ids.map((id) => [id, new Set<string>()]));
   const incoming = new Map(ids.map((id) => [id, new Set<string>()]));
 
-  for (const bead of beads) {
-    if (!present.has(bead.id)) continue;
-    for (const dependency of bead.dependencies ?? []) {
-      if (!blocking.has(dependency.type) || !present.has(dependency.depends_on_id)) continue;
-      // Dependency records are dependent -> prerequisite; layout adjacency is
-      // prerequisite -> dependent so increasing layers read left to right.
-      outgoing.get(dependency.depends_on_id)!.add(bead.id);
-      incoming.get(bead.id)!.add(dependency.depends_on_id);
+  const add = (dependent: string, prerequisite: string, type: string) => {
+    if (!blocking.has(type)) return;
+    const targets = outgoing.get(prerequisite);
+    const sources = incoming.get(dependent);
+    if (!targets || !sources) return;
+    // Layout runs prerequisite -> dependent so layers read left to right.
+    targets.add(dependent);
+    sources.add(prerequisite);
+  };
+  if (links) {
+    for (const link of links) add(link.dependentId, link.prerequisiteId, link.type);
+  } else {
+    for (const bead of beads) {
+      for (const dep of bead.dependencies ?? []) add(bead.id, dep.depends_on_id, dep.type);
     }
   }
 
