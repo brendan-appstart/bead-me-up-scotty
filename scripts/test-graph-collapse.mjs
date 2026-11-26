@@ -94,11 +94,17 @@ try {
   assert.equal(await edgeOpacity(xParent), 1);
   assert.ok(await edgeOpacity(parentY) < 0.5, "The projected d→y edge is not part of x's chain");
   await noDetails();
+  const clearSpotlight = page.locator("header").getByTitle("Clear the dependency spotlight", { exact: true });
+  assert.match(await clearSpotlight.innerText(), /^x\s+2 upstream\s+·\s+0 downstream$/,
+    "The header badge reports the menu selection and its blocking counts");
   await card("x").click();
   await page.getByRole("heading", { name: "x", exact: true }).waitFor();
   await closeDetails();
-  await choose("x", "Clear spotlight");
+  await clearSpotlight.click();
+  await clearSpotlight.waitFor({ state: "detached" });
+  assert.equal(await spotlight.isChecked(), false, "Clearing menu spotlight leaves toolbar mode off");
   assert.equal(await opacity(card("y")), 1);
+  assert.equal(await edgeOpacity(parentY), 1);
 
   await choose("z", "Spotlight dependencies");
   assert.equal(await opacity(card("w")), 1, "A real z→e→w chain still highlights both summaries and w");

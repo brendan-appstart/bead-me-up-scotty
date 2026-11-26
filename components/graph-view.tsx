@@ -474,7 +474,7 @@ export function GraphView() {
           <Icon name="target" size={15} />
           <span>Center</span>
         </button>
-        {spotlight && (
+        {(spotlight || focus) && (
           <div className="flex h-9 basis-full items-center">
             {focus && selected ? (
               <button onClick={() => setFocusId(null)} title="Clear the dependency spotlight"
