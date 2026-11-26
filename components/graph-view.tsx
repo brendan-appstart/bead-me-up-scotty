@@ -21,9 +21,9 @@ import { useApp } from "@/components/app-context";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAddDep } from "@/hooks/use-beads";
 import { catColor, typeColor, childrenOf } from "@/lib/beads-view";
-import { buildEpicGraphScope, graphDependencyLayers } from "@/lib/graph-epic";
+import { buildEpicGraphScope, graphDependencyLayers, graphEpicPaths, graphSubtreeIds } from "@/lib/graph-epic";
 import { projectGraph, type GraphLink } from "@/lib/graph-collapse";
-import { ACTIVE_BLOCKING_LINK_TYPES, graphNeighborhood } from "@/lib/graph-neighborhood";
+import { ACTIVE_BLOCKING_LINK_TYPES, graphActiveBlockingLinks, graphDirectRelationships, graphNeighborhood } from "@/lib/graph-neighborhood";
 import type { Bead } from "@/lib/schema";
 
 type BeadNodeData = {
@@ -153,13 +153,12 @@ function BeadNode({ data }: NodeProps<GraphBeadNode>) {
 const nodeTypes = { bead: BeadNode };
 
 type Projection = ReturnType<typeof projectGraph>;
-type GraphEdge = Edge<{ originalIds: string[]; lane: number }>;
+type GraphEdge = Edge<{ originalIds?: string[]; lane: number }>;
 
-function SummaryEdge(props: EdgeProps<GraphEdge>) {
+function RoutedEdge(props: EdgeProps<GraphEdge>) {
   const { id, source, target, sourceX, sourceY, targetX, targetY, data, style, label, labelStyle, labelBgStyle } = props;
   let [path, labelX, labelY] = getBezierPath(props);
   if (data?.lane) {
-    // Separate parallel summaries from each other and from the original link.
     const dx = targetX - sourceX;
     const dy = targetY - sourceY;
     const offset = 28 * data.lane * (source < target ? 1 : -1) / (Math.hypot(dx, dy) || 1);
@@ -173,7 +172,7 @@ function SummaryEdge(props: EdgeProps<GraphEdge>) {
     labelStyle={labelStyle} labelBgStyle={labelBgStyle} labelBgPadding={[4, 2]} />;
 }
 
-const edgeTypes = { summary: SummaryEdge };
+const edgeTypes = { routed: RoutedEdge };
 
 function nodeData(projection: Projection, bead: Bead): BeadNodeData {
   return { bead, expandable: projection.expandable.has(bead.id), hiddenCount: projection.hiddenCounts.get(bead.id) };
@@ -187,24 +186,29 @@ function nodeSpan({ bead, outsideEpic, hiddenCount }: BeadNodeData): number {
   return 82 + titleLines * 18 + (outsideEpic ? 24 : 0) + (hiddenCount ? 24 : 0);
 }
 
-function styledEdges(links: GraphLink[], horizontal: boolean): GraphEdge[] {
+function styledEdges(links: GraphLink[], horizontal: boolean, activeBlockingIds: ReadonlySet<string>): GraphEdge[] {
   const lanes = new Map<string, number>();
   return links.map(({ id, dependentId, prerequisiteId, type, originalIds }) => {
     const source = horizontal ? prerequisiteId : dependentId;
     const target = horizontal ? dependentId : prerequisiteId;
     const blocking = ACTIVE_BLOCKING_LINK_TYPES.has(type);
+    const active = originalIds ? originalIds.some((id) => activeBlockingIds.has(id)) : activeBlockingIds.has(id);
     const related = type === "related" || type === "relates-to";
     const style = {
       stroke: blocking ? "#ef4444" : related ? "var(--brand)" : "var(--text-3)",
       strokeWidth: blocking ? 2 : 1.6,
-      strokeDasharray: originalIds ? "2 5" : related ? "5 4" : undefined,
+      strokeDasharray: originalIds ? "2 5" : related || (blocking && !active) ? "5 4" : undefined,
     };
     const pair = JSON.stringify(source < target ? [source, target] : [target, source]);
     const lane = lanes.get(pair) ?? 0;
     lanes.set(pair, lane + 1);
-    if (!originalIds) return { id, source, target, animated: blocking, style };
+    if (!originalIds) {
+      const ariaLabel = blocking && !active ? `${dependentId} to ${prerequisiteId}: resolved ${type}` : undefined;
+      const edge = { id, source, target, animated: active, style, ariaLabel };
+      return lane ? { ...edge, type: "routed", data: { lane } } : edge;
+    }
     return {
-      id, source, target, type: "summary", style,
+      id, source, target, type: "routed", style,
       label: `Via subtasks · ${type}`,
       ariaLabel: `${source} to ${target}, via subtasks: ${type} (${originalIds.length} ${originalIds.length === 1 ? "link" : "links"})`,
       labelStyle: { fill: "var(--text-2)", fontSize: 10 },
@@ -326,6 +330,7 @@ export function GraphView() {
   const [epicId, setEpicId] = React.useState("");
   const [liveOnly, setLiveOnly] = React.useState(false);
   const [spotlight, setSpotlight] = React.useState(false);
+  const [activeBlockingOnly, setActiveBlockingOnly] = React.useState(false);
   const [focusId, setFocusId] = React.useState<string | null>(null);
   const activateNode = React.useCallback((id: string) => {
     if (spotlight) setFocusId(id);
@@ -368,23 +373,39 @@ export function GraphView() {
   }, [beads, effectiveEpicId, liveOnly]);
   const projection = React.useMemo(() => projectGraph(source, foldedIds), [source, foldedIds]);
   const nodes = React.useMemo(() => outsideIds ? epicLayout(projection, outsideIds) : layout(projection), [projection, outsideIds]);
-  const edges = React.useMemo(() => styledEdges(projection.links, !!outsideIds), [projection, outsideIds]);
+  const activeBlockingIds = React.useMemo(() => new Set(Array.from(graphActiveBlockingLinks(source), ({ id }) => id)), [source]);
+  const edges = React.useMemo(() => styledEdges(projection.links, !!outsideIds, activeBlockingIds), [projection, outsideIds, activeBlockingIds]);
   const hidden = considered - source.length;
   const selected = focusId === null ? null : projection.representative.get(focusId) ?? null;
   const focus = React.useMemo(() => {
     if (focusId === null || selected === null) return null;
-    const { representative } = projection;
-    const seeds = selected === focusId
-      ? [...representative].filter(([, rep]) => rep === focusId).map(([id]) => id)
-      : [focusId];
-    const neighborhood = graphNeighborhood(source, seeds);
-    return { ...neighborhood, active: new Set([...neighborhood.all].map((id) => representative.get(id)!)) };
-  }, [source, projection, focusId, selected]);
+    const { representative, links } = projection;
+    const subtree = activeBlockingOnly ? null : graphSubtreeIds(source, focusId);
+    const { all, up, down, edgeIds } = graphNeighborhood(source, subtree ?? [focusId]);
+    const active = new Set([...all].map((id) => representative.get(id)!));
+    const highlightedEdgeIds = new Set(edgeIds);
+    if (subtree) {
+      const epicPaths = graphEpicPaths(source, focusId);
+      const direct = graphDirectRelationships(source, subtree);
+      for (const parentId of epicPaths.keys()) active.add(representative.get(parentId)!);
+      for (const id of direct.nodeIds) active.add(representative.get(id)!);
+      for (const id of direct.edgeIds) highlightedEdgeIds.add(id);
+      for (const { id, type, dependentId, prerequisiteId } of links) {
+        if (type !== "parent-child") continue;
+        if ((subtree.has(dependentId) && subtree.has(prerequisiteId)) || epicPaths.get(prerequisiteId)?.has(dependentId)) {
+          highlightedEdgeIds.add(id);
+        }
+      }
+    }
+    return { up, down, highlightedEdgeIds, active };
+  }, [source, projection, focusId, selected, activeBlockingOnly]);
   // Styling through context keeps React Flow's measured nodes stable during spotlight.
   const nodeContext = React.useMemo(() => ({ selected, active: focus?.active ?? null, setFocusId, activateNode, toggleFold }),
     [selected, focus, activateNode, toggleFold]);
   const shownEdges = React.useMemo(() => focus ? edges.map((edge) => {
-    const lit = edge.data ? edge.data.originalIds.some((id) => focus.edgeIds.has(id)) : focus.edgeIds.has(edge.id);
+    const lit = edge.data?.originalIds
+      ? edge.data.originalIds.some((id) => focus.highlightedEdgeIds.has(id))
+      : focus.highlightedEdgeIds.has(edge.id);
     const opacity = lit ? 1 : 0.12;
     return {
       ...edge, style: { ...edge.style, opacity }, animated: lit && edge.animated,
@@ -407,6 +428,8 @@ export function GraphView() {
     [addDep, effectiveEpicId, readOnly],
   );
 
+  const spotlightScope = activeBlockingOnly ? "active blocking chains" : "dependencies and other relationships";
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <header className="flex flex-shrink-0 flex-wrap items-center gap-3 border-b border-border bg-[var(--surface)] p-[14px_22px]">
@@ -415,12 +438,12 @@ export function GraphView() {
           <span className="text-[11.5px] text-[var(--text-3)]">
             {effectiveEpicId
               ? spotlight
-                ? "Left → right: prerequisite → dependent · select to spotlight active blocking chains; double-click for details"
+                ? `Left → right: prerequisite → dependent · select to highlight ${spotlightScope}; double-click for details`
                 : readOnly
                   ? "Left → right: prerequisite → dependent · select a bead to view its details"
                   : "Left → right: prerequisite → dependent · drag a prerequisite onto its dependent"
               : spotlight
-                ? "Select a bead to highlight active blocking chains; double-click for details"
+                ? `Select a bead to highlight ${spotlightScope}; double-click for details`
                 : readOnly
                   ? "Select a bead to view its details"
                   : "Drag from a dependent to its prerequisite to add a dependency"}
@@ -458,6 +481,11 @@ export function GraphView() {
           Spotlight dependencies
         </label>
         <label className="flex cursor-pointer items-center gap-2 text-[12px] text-[var(--text-2)]">
+          <input type="checkbox" checked={activeBlockingOnly} className="accent-[var(--brand)]"
+            onChange={e => setActiveBlockingOnly(e.target.checked)} />
+          Only highlight active blocking chains
+        </label>
+        <label className="flex cursor-pointer items-center gap-2 text-[12px] text-[var(--text-2)]">
           <input
             type="checkbox"
             checked={liveOnly}
@@ -483,7 +511,7 @@ export function GraphView() {
                 <span>{focus.up} upstream · {focus.down} downstream</span>
                 <Icon name="x" size={13} />
               </button>
-            ) : <span className="text-[12px] text-[var(--text-3)]">Choose a bead to highlight its blocking chains.</span>}
+            ) : <span className="text-[12px] text-[var(--text-3)]">Choose a bead to highlight {spotlightScope}.</span>}
           </div>
         )}
       </header>

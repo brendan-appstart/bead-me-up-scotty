@@ -12,10 +12,14 @@ const bead = (id, dependencies = [], extra = {}) => ({
 const beads = [
   bead("root", [], { issue_type: "epic" }),
   bead("parent", [dep("root"), dep("y", "blocks")]),
-  bead("c", [dep("parent")]), bead("d", [dep("parent"), dep("y", "blocks"), dep("y", "related")]),
-  bead("e", [dep("parent"), dep("w", "blocks")]), bead("f", [dep("parent")]),
+  bead("c", [dep("parent")]), bead("d", [dep("parent"), dep("y", "blocks"), dep("y", "related"), dep("closed-prerequisite", "blocks")]),
+  bead("closed-prerequisite", [dep("e", "waits-for")], { status: "closed" }),
+  bead("e", [dep("d"), dep("w", "blocks")]), bead("f", [dep("closed-child")]),
   bead("closed-child", [dep("parent")], { status: "closed" }),
-  bead("x", [dep("c", "blocks"), dep("f", "blocks")]), bead("y"), bead("z", [dep("e", "blocks")]), bead("w"),
+  bead("x", [dep("c", "blocks"), dep("f", "blocks")]),
+  bead("y", [dep("unrelated", "related")]), bead("z", [dep("e", "blocks")]), bead("w"),
+  bead("tracking", [dep("d", "tracks"), dep("unrelated-blocker", "blocks")]),
+  bead("unrelated", [dep("unrelated-blocker", "blocks")]), bead("unrelated-blocker"),
 ];
 const projects = ["demo", "graph-collapse-other"];
 const writes = [];
@@ -58,6 +62,7 @@ try {
   const edgeOpacity = (edge) => opacity(edge.locator(".react-flow__edge-path"));
   const scope = page.getByLabel("Graph scope", { exact: true });
   const spotlight = page.getByRole("checkbox", { name: "Spotlight dependencies", exact: true });
+  const activeBlockingOnly = page.getByRole("checkbox", { name: "Only highlight active blocking chains", exact: true });
   const close = page.getByTitle("Close", { exact: true });
   const noDetails = async () => assert.equal(await close.count(), 0, "Graph actions must not open the detail drawer");
   const closeDetails = async () => { await close.click(); await close.waitFor({ state: "detached" }); };
@@ -67,6 +72,13 @@ try {
   await card("c").waitFor();
   await card("closed-child").waitFor();
   assert.equal(await spotlight.isChecked(), false, "Spotlight is off by default");
+  assert.equal(await activeBlockingOnly.isChecked(), false, "Spotlight includes all relationships by default");
+  await choose("parent", "Spotlight dependencies");
+  assert.equal(await edgeOpacity(direct("parent->root:parent-child")), 1, "Default Spotlight shows the epic connection");
+  assert.equal(await edgeOpacity(direct("d->closed-prerequisite:blocks")), 1, "Default Spotlight shows resolved blockers");
+  assert.equal(await edgeOpacity(direct("d->y:related")), 1, "Default Spotlight shows related links");
+  await choose("parent", "Clear spotlight");
+  await activeBlockingOnly.check();
   await card("parent").click({ button: "right" });
   await item("Collapse subtasks").click();
   await card("c").waitFor({ state: "detached" });
@@ -79,7 +91,8 @@ try {
   const parentW = summary("parent to w, via subtasks: blocks (1 link)");
   const zParent = summary("z to parent, via subtasks: blocks (1 link)");
   await xParent.getByText("Via subtasks · blocks", { exact: true }).waitFor();
-  await summary("parent to y, via subtasks: related (1 link)").waitFor();
+  const parentRelated = summary("parent to y, via subtasks: related (1 link)");
+  await parentRelated.waitFor();
   await direct("parent->y:blocks").waitFor();
   const hierarchyPath = direct("parent->root:parent-child").locator(".react-flow__edge-path");
   assert.ok(await hierarchyPath.evaluate((path) => path.getTotalLength()) > 0);
@@ -114,9 +127,37 @@ try {
   await page.locator(".react-flow__pane").click({ position: { x: 12, y: 12 } });
   assert.equal(await opacity(card("y")), 1);
   await choose("parent", "Spotlight dependencies");
-  assert.equal(await edgeOpacity(xParent), 1, "A selected folded card seeds spotlight from its represented children");
-  assert.equal(await edgeOpacity(parentW), 1);
-  await choose("parent", "Clear spotlight");
+  const parentDirect = direct("parent->y:blocks");
+  assert.equal(await edgeOpacity(parentDirect), 1, "Blocking-only Spotlight follows the folded bead's own dependencies");
+  assert.ok(await edgeOpacity(xParent) < 0.5, "Folded descendants are not seeds in blocking-only mode");
+  assert.ok(await edgeOpacity(parentW) < 0.5);
+  assert.ok(await edgeOpacity(parentRelated) < 0.5, "Blocking-only Spotlight dims non-blocking relationships");
+  const pastBlock = summary("parent to closed-prerequisite, via subtasks: blocks (1 link)");
+  const pastWait = summary("closed-prerequisite to parent, via subtasks: waits-for (1 link)");
+  assert.ok(await edgeOpacity(pastBlock) < 0.5, "Blocking-only Spotlight dims resolved blockers");
+  await activeBlockingOnly.uncheck();
+  assert.equal(await spotlight.isChecked(), false, "Including all relationships works with toolbar Spotlight off");
+  assert.equal(await opacity(card("closed-prerequisite")), 1);
+  assert.equal(await edgeOpacity(pastBlock), 1, "A folded 'was blocked by' relationship lights up");
+  assert.equal(await edgeOpacity(pastWait), 1, "An incoming resolved relationship lights up too");
+  assert.equal(await edgeOpacity(parentRelated), 1, "A folded outgoing related link lights up");
+  assert.equal(await edgeOpacity(summary("tracking to parent, via subtasks: tracks (1 link)")), 1,
+    "An incoming relationship also lights up through the fold");
+  assert.equal(await edgeOpacity(xParent), 1);
+  assert.equal(await edgeOpacity(parentY), 1);
+  assert.equal(await edgeOpacity(parentW), 1, "The folded grandchild's blocking summary lights up");
+  assert.equal(await edgeOpacity(zParent), 1);
+  await badge("parent", 5).waitFor();
+  await activeBlockingOnly.check();
+  assert.equal(await edgeOpacity(parentDirect), 1);
+  assert.ok(await edgeOpacity(parentW) < 0.5, "Toggling off restores the original menu selection without clearing it");
+  await activeBlockingOnly.uncheck();
+  await choose("x", "Spotlight dependencies");
+  assert.equal(await edgeOpacity(xParent), 1);
+  assert.ok(await edgeOpacity(parentY) < 0.5, "The fold does not add sibling dependencies to x's Spotlight");
+  assert.ok(await edgeOpacity(parentW) < 0.5);
+  await choose("x", "Clear spotlight");
+  await activeBlockingOnly.check();
   await spotlight.check();
   await card("x").click();
   await noDetails();
@@ -155,15 +196,77 @@ try {
   await card("c").waitFor();
   await noDetails();
 
+  await activeBlockingOnly.check();
+  await spotlight.check();
+  await card("parent").click();
+  for (const id of ["c", "e", "f", "w"]) {
+    assert.ok(await opacity(card(id)) < 0.5, `${id} is dimmed with subtasks off`);
+  }
+  const childLink = direct("d->parent:parent-child");
+  const grandchildLink = direct("e->d:parent-child");
+  const ancestorLink = direct("parent->root:parent-child");
+  assert.ok(await edgeOpacity(childLink) < 0.5, "Hierarchy is dimmed with subtasks off");
+  assert.ok(await edgeOpacity(ancestorLink) < 0.5, "The connection to the epic is dimmed with subtasks off");
+  await activeBlockingOnly.uncheck();
+  for (const id of ["c", "e", "f", "w"]) {
+    assert.equal(await opacity(card(id)), 1, `${id} is highlighted with subtasks on`);
+  }
+  assert.equal(await edgeOpacity(childLink), 1, "The selected parent's hierarchy is highlighted");
+  assert.equal(await edgeOpacity(grandchildLink), 1, "Nested hierarchy links are highlighted");
+  assert.equal(await opacity(card("root")), 1, "The containing epic is highlighted");
+  assert.equal(await edgeOpacity(ancestorLink), 1, "The hierarchy connects the selection to its epic");
+  const edgeColor = (edge) => edge.locator(".react-flow__edge-path").evaluate((el) => getComputedStyle(el).stroke);
+  const grandchildBlocker = direct("e->w:blocks");
+  assert.equal(await edgeOpacity(grandchildBlocker), 1, "A grandchild seeds an original blocking link");
+  assert.notEqual(await edgeColor(grandchildLink), await edgeColor(grandchildBlocker), "Hierarchy and blocking links retain distinct colors");
+  assert.equal(await opacity(card("tracking")), 1, "An otherwise unconnected task linked by tracks is highlighted");
+  assert.equal(await edgeOpacity(direct("tracking->d:tracks")), 1);
+  assert.equal(await edgeOpacity(direct("d->y:related")), 1);
+  assert.notEqual(await path(direct("d->y:related")), await path(direct("d->y:blocks")),
+    "Two direct relationship types between the same tasks must not overlap");
+  const resolved = direct("d->closed-prerequisite:blocks");
+  assert.equal(await edgeOpacity(resolved), 1);
+  assert.equal(await resolved.evaluate(el => el.classList.contains("animated")), false,
+    "A resolved blocker does not animate like an active blocker");
+  assert.ok(await opacity(card("unrelated")) < 0.5);
+  assert.ok(await edgeOpacity(direct("y->unrelated:related")) < 0.5, "Only direct related links are shown");
+  assert.ok(await edgeOpacity(direct("tracking->unrelated-blocker:blocks")) < 0.5, "Context links do not seed blocking paths");
+  await activeBlockingOnly.check();
+  assert.ok(await edgeOpacity(direct("d->y:related")) < 0.5, "Toggling off dims non-blocking relationships again");
+  assert.ok(await opacity(card("e")) < 0.5, "Toggling off restores the original toolbar selection");
+  assert.ok(await edgeOpacity(childLink) < 0.5, "Toggling off dims hierarchy links again");
+  await noDetails();
+
+  await card("e").click();
+  await activeBlockingOnly.uncheck();
+  for (const link of [grandchildLink, childLink, ancestorLink]) {
+    assert.equal(await edgeOpacity(link), 1, "A nested selection connects to the epic through its intermediate parents");
+  }
+  assert.ok(await opacity(card("c")) < 0.5, "Highlighting the epic does not include siblings");
+  assert.ok(await edgeOpacity(direct("c->parent:parent-child")) < 0.5);
+  assert.ok(await edgeOpacity(parentDirect) < 0.5, "Highlighting an ancestor does not seed its blockers");
+  await activeBlockingOnly.check();
   await choose("parent", "Collapse subtasks");
   await badge("parent", 5).waitFor();
+  assert.equal(await edgeOpacity(parentW), 1, "Folding preserves the original focused grandchild");
+  await activeBlockingOnly.uncheck();
+  assert.equal(await edgeOpacity(zParent), 1);
+  assert.equal(await edgeOpacity(ancestorLink), 1, "A folded selection still connects to the epic through its visible representative");
+  assert.ok(await edgeOpacity(xParent) < 0.5, "Including subtasks does not seed from the focused bead's representative");
+
   await page.getByRole("checkbox", { name: "Live dependencies only" }).check();
-  await badge("parent", 4).waitFor();
-  await page.getByText("1 hidden by filter", { exact: true }).waitFor();
+  await badge("parent", 3).waitFor();
+  await page.getByText("2 hidden by filter", { exact: true }).waitFor();
+  await card("closed-prerequisite").waitFor({ state: "detached" });
+  await card("parent").click();
+  assert.equal(await edgeOpacity(parentW), 1);
+  assert.ok(await opacity(card("f")) < 0.5, "A visible bead is not seeded through a filtered-out parent");
+  assert.ok(await edgeOpacity(direct("x->f:blocks")) < 0.5, "Spotlight does not walk downstream then upstream");
 
   await page.evaluate(() => localStorage.setItem("scotty.graph.folds.demo", '["parent",42]'));
   await page.reload();
   await card("c").waitFor();
+  assert.equal(await activeBlockingOnly.isChecked(), false, "Reload resets the view-local Spotlight option");
   await page.addInitScript(() => {
     for (const method of ["getItem", "setItem"]) {
       const original = Storage.prototype[method];

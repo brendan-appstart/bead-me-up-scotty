@@ -65,6 +65,7 @@ try {
   await page.getByTitle("Close", { exact: true }).waitFor();
   await closeDrawer(page);
 
+  await page.getByRole("checkbox", { name: "Only highlight active blocking chains", exact: true }).check();
   await spotlight.check();
   await expectSpotlightInstruction(page);
   await node("a").click();
