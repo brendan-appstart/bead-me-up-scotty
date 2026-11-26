@@ -1,3 +1,4 @@
+import type { GraphLink } from "./graph-collapse";
 import { BLOCKING_DEP_TYPES, type Bead } from "./schema";
 
 export type EpicGraphScope = {
@@ -67,21 +68,26 @@ export function buildEpicGraphScope(beads: Bead[], epicId: string): EpicGraphSco
  * Strongly connected components share a layer, so dependency or hierarchy
  * cycles cannot recurse forever or push a member to the wrong side of itself.
  */
-export function graphDependencyLayers(beads: Bead[]): Map<string, number> {
+export function graphDependencyLayers(beads: Bead[], links?: readonly GraphLink[]): Map<string, number> {
   const ids = [...new Set(beads.map((bead) => bead.id))].sort();
-  const present = new Set(ids);
   const blocking = new Set<string>(BLOCKING_DEP_TYPES);
   const outgoing = new Map(ids.map((id) => [id, new Set<string>()]));
   const incoming = new Map(ids.map((id) => [id, new Set<string>()]));
 
-  for (const bead of beads) {
-    if (!present.has(bead.id)) continue;
-    for (const dependency of bead.dependencies ?? []) {
-      if (!blocking.has(dependency.type) || !present.has(dependency.depends_on_id)) continue;
-      // Dependency records are dependent -> prerequisite; layout adjacency is
-      // prerequisite -> dependent so increasing layers read left to right.
-      outgoing.get(dependency.depends_on_id)!.add(bead.id);
-      incoming.get(bead.id)!.add(dependency.depends_on_id);
+  const add = (dependent: string, prerequisite: string, type: string) => {
+    if (!blocking.has(type)) return;
+    const targets = outgoing.get(prerequisite);
+    const sources = incoming.get(dependent);
+    if (!targets || !sources) return;
+    // Layout runs prerequisite -> dependent so layers read left to right.
+    targets.add(dependent);
+    sources.add(prerequisite);
+  };
+  if (links) {
+    for (const link of links) add(link.dependentId, link.prerequisiteId, link.type);
+  } else {
+    for (const bead of beads) {
+      for (const dep of bead.dependencies ?? []) add(bead.id, dep.depends_on_id, dep.type);
     }
   }
 

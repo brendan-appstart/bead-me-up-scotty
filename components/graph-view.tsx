@@ -3,11 +3,14 @@ import * as React from "react";
 import {
   ReactFlow,
   Background,
+  BaseEdge,
   Controls,
+  getBezierPath,
   Handle,
   Position,
   type Node,
   type Edge,
+  type EdgeProps,
   type Connection,
   type NodeProps,
   type ReactFlowInstance,
@@ -15,119 +18,200 @@ import {
 import "@xyflow/react/dist/style.css";
 import { Icon, typeIconName } from "@/components/icons";
 import { useApp } from "@/components/app-context";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAddDep } from "@/hooks/use-beads";
 import { catColor, typeColor, childrenOf } from "@/lib/beads-view";
 import { buildEpicGraphScope, graphDependencyLayers } from "@/lib/graph-epic";
-import { graphNeighborhood } from "@/lib/graph-neighborhood";
+import { projectGraph, type GraphLink } from "@/lib/graph-collapse";
+import { ACTIVE_BLOCKING_LINK_TYPES, graphNeighborhood } from "@/lib/graph-neighborhood";
 import type { Bead } from "@/lib/schema";
 
 type BeadNodeData = {
   bead: Bead;
-  onOpen: (id: string) => void;
   horizontal?: boolean;
   outsideEpic?: boolean;
+  expandable?: boolean;
+  hiddenCount?: number;
 };
 
-const SpotlightContext = React.createContext<{ selected: string | null; active: Set<string> | null }>({ selected: null, active: null });
+type GraphBeadNode = Node<BeadNodeData, "bead">;
 
-function BeadNode({ data }: NodeProps) {
-  const { bead, onOpen, horizontal, outsideEpic } = data as unknown as BeadNodeData;
+const GraphNodeContext = React.createContext<{
+  selected: string | null;
+  active: Set<string> | null;
+  setFocusId: (id: string | null) => void;
+  activateNode: (id: string) => void;
+  toggleFold: (id: string) => void;
+} | null>(null);
+
+function BeadNode({ data }: NodeProps<GraphBeadNode>) {
+  const { bead, horizontal, outsideEpic, expandable, hiddenCount = 0 } = data;
   const { selectedBeadId, selectBead } = useApp();
-  const spotlight = React.useContext(SpotlightContext);
+  const { selected, active, setFocusId, activateNode, toggleFold } = React.useContext(GraphNodeContext)!;
+  const [menuOpen, setMenuOpen] = React.useState(false);
+  const triggerId = React.useId();
+  const trigger = React.useRef<HTMLButtonElement>(null);
+  const focused = selected === bead.id;
+  const opacity = !active || active.has(bead.id) ? 1 : 0.2;
   return (
     <div
-      style={{
-        opacity: !spotlight.active || spotlight.active.has(bead.id) ? 1 : 0.2,
-        outline: spotlight.active && spotlight.selected === bead.id ? "2.5px solid var(--brand)" : undefined,
-        outlineOffset: 3,
+      className="relative"
+      onContextMenu={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        setMenuOpen(true);
       }}
-      role="button"
-      tabIndex={0}
-      data-keyboard-bead-id={bead.id}
-      data-epic-scope={outsideEpic ? "outside" : "inside"}
-      aria-current={selectedBeadId === bead.id ? "true" : undefined}
-      onFocus={() => selectBead(bead.id)}
-      onClick={() => {
-        selectBead(bead.id);
-        onOpen(bead.id);
-      }}
-      className={`w-[170px] cursor-pointer rounded-[11px] border bg-[var(--surface)] p-[9px_11px] shadow-[var(--shadow)] hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-lg)] focus-visible:outline-none ${
-        selectedBeadId === bead.id
-          ? "border-[var(--brand)] ring-2 ring-[var(--brand)]/30"
-          : "border-border"
-      }`}
     >
-      <Handle
-        type="target"
-        position={horizontal ? Position.Left : Position.Top}
-        style={{ background: "var(--text-3)" }}
-      />
-      <div className="mb-[5px] flex items-center gap-[6px]">
-        <span className="h-2 w-2 rounded-full" style={{ background: catColor(bead.status) }} />
-        <span className="font-mono text-[10.5px] text-[var(--text-3)]">{bead.id}</span>
-        <span className="flex-1" />
-        <Icon name={typeIconName(bead.issue_type)} size={12} style={{ color: typeColor(bead.issue_type) }} />
-      </div>
-      {outsideEpic && (
-        <div className="mb-[5px] w-fit rounded-full bg-[var(--surface-3)] px-[6px] py-[2px] text-[9px] font-[650] uppercase tracking-[.04em] text-[var(--text-3)]">
-          Outside epic
+      <div
+        style={{ opacity, outline: focused ? "2.5px solid var(--brand)" : undefined, outlineOffset: 3 }}
+        role="button"
+        tabIndex={0}
+        data-keyboard-bead-id={bead.id}
+        data-epic-scope={outsideEpic ? "outside" : "inside"}
+        aria-current={selectedBeadId === bead.id ? "true" : undefined}
+        onFocus={() => selectBead(bead.id)}
+        onClick={() => {
+          selectBead(bead.id);
+          activateNode(bead.id);
+        }}
+        className={`w-[170px] cursor-pointer rounded-[11px] border bg-[var(--surface)] p-[9px_11px] shadow-[var(--shadow)] hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-lg)] focus-visible:outline-none ${
+          selectedBeadId === bead.id ? "border-[var(--brand)] ring-2 ring-[var(--brand)]/30" : "border-border"
+        } ${hiddenCount ? "pb-[32px]" : ""}`}
+      >
+        <Handle
+          type="target"
+          position={horizontal ? Position.Left : Position.Top}
+          style={{ background: "var(--text-3)" }}
+        />
+        <div className="mb-[5px] flex items-center gap-[6px] pr-6">
+          <span className="size-2 shrink-0 rounded-full" style={{ background: catColor(bead.status) }} />
+          <span className="flex-1 truncate font-mono text-[10.5px] text-[var(--text-3)]" title={bead.id}>{bead.id}</span>
+          <Icon name={typeIconName(bead.issue_type)} size={12} style={{ color: typeColor(bead.issue_type) }} />
         </div>
-      )}
-      <div className="break-words text-[12px] font-[550] leading-[1.3] text-[var(--text)] [overflow-wrap:anywhere] [text-wrap:pretty]">
-        {bead.title.replace(/\s*\([^)]*\)\s*/, "")}
+        {outsideEpic && (
+          <div className="mb-[5px] w-fit rounded-full bg-[var(--surface-3)] px-[6px] py-[2px] text-[9px] font-[650] uppercase tracking-[.04em] text-[var(--text-3)]">
+            Outside epic
+          </div>
+        )}
+        <div className="break-words text-[12px] font-[550] leading-[1.3] text-[var(--text)] [overflow-wrap:anywhere] [text-wrap:pretty]">
+          {bead.title.replace(/\s*\([^)]*\)\s*/, "")}
+        </div>
+        <Handle
+          type="source"
+          position={horizontal ? Position.Right : Position.Bottom}
+          style={{ background: "var(--text-3)" }}
+        />
       </div>
-      <Handle
-        type="source"
-        position={horizontal ? Position.Right : Position.Bottom}
-        style={{ background: "var(--text-3)" }}
-      />
+      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen} triggerId={triggerId}>
+        <DropdownMenuTrigger
+          id={triggerId}
+          ref={trigger}
+          aria-label={`Graph actions for ${bead.id}`}
+          style={{ opacity }}
+          className="nodrag nopan absolute top-[3px] right-[5px] grid size-7 cursor-pointer place-items-center rounded-md text-[var(--text-2)] hover:bg-[var(--surface-3)] focus-visible:bg-[var(--surface-3)]"
+          onClick={(event) => event.stopPropagation()}
+          onDoubleClick={(event) => event.stopPropagation()}
+          onKeyDown={(event) => event.stopPropagation()}
+        >
+          <span aria-hidden="true">⋯</span>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-max animate-none!"
+          onClick={(event) => event.stopPropagation()}
+          onDoubleClick={(event) => event.stopPropagation()}
+          onContextMenu={(event) => { event.preventDefault(); event.stopPropagation(); }}>
+          {expandable && (
+            <DropdownMenuItem onClick={() => toggleFold(bead.id)}>
+              {hiddenCount ? "Expand subtasks" : "Collapse subtasks"}
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem onClick={() => setFocusId(focused ? null : bead.id)}>
+            {focused ? "Clear spotlight" : "Spotlight dependencies"}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {hiddenCount > 0 && (
+        <button
+          type="button"
+          className="nodrag nopan absolute bottom-[7px] left-[11px] h-5 cursor-pointer rounded-full bg-[var(--brand-weak)] px-[6px] text-[10px] font-semibold text-[var(--brand)] hover:underline"
+          aria-label={`Expand ${hiddenCount} hidden ${hiddenCount === 1 ? "subtask" : "subtasks"} of ${bead.id}`}
+          style={{ opacity }}
+          onClick={(event) => {
+            event.stopPropagation();
+            trigger.current?.focus({ preventScroll: true });
+            toggleFold(bead.id);
+          }}
+          onDoubleClick={(event) => event.stopPropagation()}
+          onKeyDown={(event) => event.stopPropagation()}
+        >
+          +{hiddenCount} hidden
+        </button>
+      )}
     </div>
   );
 }
 
 const nodeTypes = { bead: BeadNode };
 
-const FLOW_BLOCKING = new Set(["blocks", "conditional-blocks", "waits-for"]);
+type Projection = ReturnType<typeof projectGraph>;
+type GraphEdge = Edge<{ originalIds: string[]; lane: number }>;
 
-function nodeSpan(bead: Bead, outsideEpic = false): number {
+function SummaryEdge(props: EdgeProps<GraphEdge>) {
+  const { id, source, target, sourceX, sourceY, targetX, targetY, data, style, label, labelStyle, labelBgStyle } = props;
+  let [path, labelX, labelY] = getBezierPath(props);
+  if (data?.lane) {
+    // Separate parallel summaries from each other and from the original link.
+    const dx = targetX - sourceX;
+    const dy = targetY - sourceY;
+    const offset = 28 * data.lane * (source < target ? 1 : -1) / (Math.hypot(dx, dy) || 1);
+    const midX = (sourceX + targetX) / 2;
+    const midY = (sourceY + targetY) / 2;
+    labelX = midX - dy * offset;
+    labelY = midY + dx * offset;
+    path = `M ${sourceX},${sourceY} Q ${2 * labelX - midX},${2 * labelY - midY} ${targetX},${targetY}`;
+  }
+  return <BaseEdge id={id} path={path} style={style} label={label} labelX={labelX} labelY={labelY}
+    labelStyle={labelStyle} labelBgStyle={labelBgStyle} labelBgPadding={[4, 2]} />;
+}
+
+const edgeTypes = { summary: SummaryEdge };
+
+function nodeData(projection: Projection, bead: Bead): BeadNodeData {
+  return { bead, expandable: projection.expandable.has(bead.id), hiddenCount: projection.hiddenCounts.get(bead.id) };
+}
+
+function nodeSpan({ bead, outsideEpic, hiddenCount }: BeadNodeData): number {
   const title = bead.title.replace(/\s*\([^)]*\)\s*/, "");
   // At 170px wide, 16 characters per line is deliberately conservative. The
   // estimate is uncapped so unusually long titles still reserve enough room.
   const titleLines = Math.max(1, Math.ceil(title.length / 16));
-  return 82 + titleLines * 18 + (outsideEpic ? 24 : 0);
+  return 82 + titleLines * 18 + (outsideEpic ? 24 : 0) + (hiddenCount ? 24 : 0);
 }
 
-function styledEdges(beads: Bead[], horizontal: boolean): Edge[] {
-  const present = new Set(beads.map((bead) => bead.id));
-  const edgeIds = new Set<string>();
-  const edges: Edge[] = [];
-  for (const bead of beads) {
-    for (const dependency of bead.dependencies ?? []) {
-      if (!present.has(dependency.depends_on_id)) continue;
-      const id = `${bead.id}->${dependency.depends_on_id}:${dependency.type}`;
-      if (edgeIds.has(id)) continue;
-      edgeIds.add(id);
-      // Parent-child affects scoped layering, but keeps the whole graph's
-      // established neutral hierarchy styling rather than looking like a red
-      // active blocker.
-      const blocking = FLOW_BLOCKING.has(dependency.type);
-      const related = dependency.type === "related" || dependency.type === "relates-to";
-      edges.push({
-        // IDs remain canonical dependent -> prerequisite in both modes so the
-        // PR43 spotlight can compare them directly with graphNeighborhood.
-        id,
-        source: horizontal ? dependency.depends_on_id : bead.id,
-        target: horizontal ? bead.id : dependency.depends_on_id,
-        animated: blocking,
-        style: {
-          stroke: blocking ? "#ef4444" : related ? "var(--brand)" : "var(--text-3)",
-          strokeWidth: blocking ? 2 : 1.6,
-          strokeDasharray: related ? "5 4" : undefined,
-        },
-      });
-    }
-  }
-  return edges;
+function styledEdges(links: GraphLink[], horizontal: boolean): GraphEdge[] {
+  const lanes = new Map<string, number>();
+  return links.map(({ id, dependentId, prerequisiteId, type, originalIds }) => {
+    const source = horizontal ? prerequisiteId : dependentId;
+    const target = horizontal ? dependentId : prerequisiteId;
+    const blocking = ACTIVE_BLOCKING_LINK_TYPES.has(type);
+    const related = type === "related" || type === "relates-to";
+    const style = {
+      stroke: blocking ? "#ef4444" : related ? "var(--brand)" : "var(--text-3)",
+      strokeWidth: blocking ? 2 : 1.6,
+      strokeDasharray: originalIds ? "2 5" : related ? "5 4" : undefined,
+    };
+    const pair = JSON.stringify(source < target ? [source, target] : [target, source]);
+    const lane = lanes.get(pair) ?? 0;
+    lanes.set(pair, lane + 1);
+    if (!originalIds) return { id, source, target, animated: blocking, style };
+    return {
+      id, source, target, type: "summary", style,
+      label: `Via subtasks · ${type}`,
+      ariaLabel: `${source} to ${target}, via subtasks: ${type} (${originalIds.length} ${originalIds.length === 1 ? "link" : "links"})`,
+      labelStyle: { fill: "var(--text-2)", fontSize: 10 },
+      labelBgStyle: { fill: "var(--surface)" },
+      data: { originalIds, lane },
+    };
+  });
 }
 
 function liveGraphBeads(beads: Bead[], alwaysVisible = new Set<string>()): Bead[] {
@@ -153,10 +237,11 @@ function liveGraphBeads(beads: Bead[], alwaysVisible = new Set<string>()): Bead[
   );
 }
 
-function layout(beads: Bead[], onOpen: (id: string) => void): { nodes: Node[]; edges: Edge[] } {
+function layout(projection: Projection): GraphBeadNode[] {
+  const beads = projection.visible;
   const epics = beads.filter((b) => b.issue_type === "epic");
 
-  const nodes: Node[] = [];
+  const nodes: GraphBeadNode[] = [];
   const COL = 250;
 
   // React Flow keys by node id, so a bead placed twice corrupts the canvas. A
@@ -165,19 +250,19 @@ function layout(beads: Bead[], onOpen: (id: string) => void): { nodes: Node[]; e
   // which gets pushed once by its parent's iteration and again as its own
   // column. One id set covers both.
   const placedIds = new Set<string>();
-  const place = (b: Bead, x: number, y: number) => {
-    if (placedIds.has(b.id)) return;
-    placedIds.add(b.id);
-    nodes.push({ id: b.id, type: "bead", position: { x, y }, data: { bead: b, onOpen } });
+  const place = (bead: Bead, x: number, y: number) => {
+    const data = nodeData(projection, bead);
+    if (!placedIds.has(bead.id)) {
+      placedIds.add(bead.id);
+      nodes.push({ id: bead.id, type: "bead", position: { x, y }, data });
+    }
+    return nodeSpan(data);
   };
 
   epics.forEach((e, ci) => {
-    let y = 0;
-    place(e, ci * COL, y);
-    y += nodeSpan(e);
+    let y = place(e, ci * COL, 0);
     childrenOf(e.id, beads).forEach((child) => {
-      place(child, ci * COL, y);
-      y += nodeSpan(child);
+      y += place(child, ci * COL, y);
     });
   });
 
@@ -189,19 +274,16 @@ function layout(beads: Bead[], onOpen: (id: string) => void): { nodes: Node[]; e
   const looseY: number[] = [];
   loose.forEach((bead, index) => {
     const column = Math.floor(index / LOOSE_ROWS);
-    place(bead, (looseCol + column) * COL, looseY[column] ?? 0);
-    looseY[column] = (looseY[column] ?? 0) + nodeSpan(bead);
+    const y = looseY[column] ?? 0;
+    looseY[column] = y + place(bead, (looseCol + column) * COL, y);
   });
 
-  return { nodes, edges: styledEdges(beads, false) };
+  return nodes;
 }
 
-function epicLayout(
-  beads: Bead[],
-  onOpen: (id: string) => void,
-  outsideIds: Set<string>,
-): { nodes: Node[]; edges: Edge[] } {
-  const layers = graphDependencyLayers(beads);
+function epicLayout(projection: Projection, outsideIds: Set<string>): GraphBeadNode[] {
+  const beads = projection.visible;
+  const layers = graphDependencyLayers(beads, projection.links);
   const byLayer = new Map<number, Bead[]>();
   for (const bead of beads) {
     const layer = layers.get(bead.id) ?? 0;
@@ -210,28 +292,37 @@ function epicLayout(
     else byLayer.set(layer, [bead]);
   }
 
-  const nodes: Node[] = [];
+  const nodes: GraphBeadNode[] = [];
   const COL = 270;
   for (const layer of [...byLayer.keys()].sort((a, b) => a - b)) {
     let y = 0;
     const layerBeads = byLayer.get(layer)!;
     layerBeads.sort((a, b) => a.priority - b.priority || a.id.localeCompare(b.id));
     for (const bead of layerBeads) {
-      const outsideEpic = outsideIds.has(bead.id);
-      nodes.push({
-        id: bead.id,
-        type: "bead",
-        position: { x: layer * COL, y },
-        data: { bead, onOpen, horizontal: true, outsideEpic },
-      });
-      y += nodeSpan(bead, outsideEpic);
+      const data = { ...nodeData(projection, bead), horizontal: true, outsideEpic: outsideIds.has(bead.id) };
+      nodes.push({ id: bead.id, type: "bead", position: { x: layer * COL, y }, data });
+      y += nodeSpan(data);
     }
   }
-  return { nodes, edges: styledEdges(beads, true) };
+  return nodes;
+}
+
+function readFolds(key: string): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const saved: unknown = JSON.parse(window.localStorage.getItem(key) ?? "[]");
+    return Array.isArray(saved) && saved.every((id: unknown) => typeof id === "string")
+      ? new Set(saved)
+      : new Set();
+  } catch {
+    return new Set();
+  }
 }
 
 export function GraphView() {
-  const { beads, openDetail, readOnly } = useApp();
+  const { beads, openDetail, projectId, readOnly } = useApp();
+  const storageKey = `scotty.graph.folds.${projectId}`;
+  const [foldedIds, setFoldedIds] = React.useState(() => readFolds(storageKey));
   const [epicId, setEpicId] = React.useState("");
   const [liveOnly, setLiveOnly] = React.useState(false);
   const [spotlight, setSpotlight] = React.useState(false);
@@ -240,9 +331,15 @@ export function GraphView() {
     if (spotlight) setFocusId(id);
     else openDetail(id);
   }, [spotlight, openDetail]);
+  const toggleFold = React.useCallback((id: string) => {
+    const next = new Set(foldedIds);
+    if (!next.delete(id)) next.add(id);
+    setFoldedIds(next);
+    try { window.localStorage.setItem(storageKey, JSON.stringify([...next])); } catch { /* Keep the current view usable. */ }
+  }, [foldedIds, storageKey]);
   const addDep = useAddDep();
   // Recenter/fit the graph on the current nodes (bead mpe).
-  const rf = React.useRef<ReactFlowInstance | null>(null);
+  const rf = React.useRef<ReactFlowInstance<GraphBeadNode, GraphEdge> | null>(null);
   const center = React.useCallback(() => rf.current?.fitView({ padding: 0.2, minZoom: 0.02, duration: 400 }), []);
 
   const epics = React.useMemo(
@@ -259,34 +356,41 @@ export function GraphView() {
 
   // Preserve the original archive exclusion; closed and unlinked work remains
   // visible by default. Epic scope adds only direct outside neighbors.
-  const { nodes, edges, considered } = React.useMemo(() => {
+  const { source, outsideIds, considered } = React.useMemo(() => {
     const nonArchived = beads.filter((bead) => !(bead.labels ?? []).includes("archived"));
-    if (effectiveEpicId) {
-      const scope = buildEpicGraphScope(nonArchived, effectiveEpicId);
-      const visible = liveOnly
-        ? liveGraphBeads(scope.beads, new Set([effectiveEpicId]))
-        : scope.beads;
-      return {
-        ...epicLayout(visible, activateNode, scope.outsideIds),
-        considered: scope.beads.length,
-      };
-    }
-    const visible = liveOnly ? liveGraphBeads(nonArchived) : nonArchived;
-    return { ...layout(visible, activateNode), considered: nonArchived.length };
-  }, [beads, activateNode, effectiveEpicId, liveOnly]);
-  const hidden = Math.max(0, considered - nodes.length);
+    const scope = effectiveEpicId ? buildEpicGraphScope(nonArchived, effectiveEpicId) : null;
+    const scopedBeads = scope?.beads ?? nonArchived;
+    return {
+      source: liveOnly ? liveGraphBeads(scopedBeads, effectiveEpicId ? new Set([effectiveEpicId]) : undefined) : scopedBeads,
+      outsideIds: scope?.outsideIds,
+      considered: scopedBeads.length,
+    };
+  }, [beads, effectiveEpicId, liveOnly]);
+  const projection = React.useMemo(() => projectGraph(source, foldedIds), [source, foldedIds]);
+  const nodes = React.useMemo(() => outsideIds ? epicLayout(projection, outsideIds) : layout(projection), [projection, outsideIds]);
+  const edges = React.useMemo(() => styledEdges(projection.links, !!outsideIds), [projection, outsideIds]);
+  const hidden = considered - source.length;
+  const selected = focusId === null ? null : projection.representative.get(focusId) ?? null;
   const focus = React.useMemo(() => {
-    if (!spotlight || !focusId || !nodes.some(n => n.id === focusId)) return null;
-    return graphNeighborhood(beads, new Set(nodes.map(n => n.id)), focusId);
-  }, [beads, nodes, spotlight, focusId]);
-  // Keep React Flow node objects stable while highlighting. Replacing raw
-  // nodes discards their measured dimensions and briefly hides click targets.
-  const spotlightContext = React.useMemo(() => ({ selected: focusId, active: focus?.all ?? null }), [focusId, focus]);
-  const shownEdges = React.useMemo(() => focus ? edges.map(e => {
-    const lit = focus.edgeIds.has(e.id) && focus.all.has(e.source) && focus.all.has(e.target);
-    return { ...e, style: { ...e.style, opacity: lit ? 1 : 0.12 }, animated: lit && e.animated };
+    if (focusId === null || selected === null) return null;
+    const { representative } = projection;
+    const seeds = selected === focusId
+      ? [...representative].filter(([, rep]) => rep === focusId).map(([id]) => id)
+      : [focusId];
+    const neighborhood = graphNeighborhood(source, seeds);
+    return { ...neighborhood, active: new Set([...neighborhood.all].map((id) => representative.get(id)!)) };
+  }, [source, projection, focusId, selected]);
+  // Styling through context keeps React Flow's measured nodes stable during spotlight.
+  const nodeContext = React.useMemo(() => ({ selected, active: focus?.active ?? null, setFocusId, activateNode, toggleFold }),
+    [selected, focus, activateNode, toggleFold]);
+  const shownEdges = React.useMemo(() => focus ? edges.map((edge) => {
+    const lit = edge.data ? edge.data.originalIds.some((id) => focus.edgeIds.has(id)) : focus.edgeIds.has(edge.id);
+    const opacity = lit ? 1 : 0.12;
+    return {
+      ...edge, style: { ...edge.style, opacity }, animated: lit && edge.animated,
+      labelStyle: { ...edge.labelStyle, opacity }, labelBgStyle: { ...edge.labelBgStyle, opacity },
+    };
   }) : edges, [edges, focus]);
-
 
   const onConnect = React.useCallback(
     (c: Connection) => {
@@ -372,10 +476,10 @@ export function GraphView() {
         </button>
         {spotlight && (
           <div className="flex h-9 basis-full items-center">
-            {focus && focusId ? (
+            {focus && selected ? (
               <button onClick={() => setFocusId(null)} title="Clear the dependency spotlight"
                 className="flex h-9 items-center gap-2 rounded-[9px] bg-[var(--brand-weak)] px-3 text-[12px] text-[var(--brand)]">
-                <span className="font-mono">{focusId}</span>
+                <span className="font-mono">{selected}</span>
                 <span>{focus.up} upstream · {focus.down} downstream</span>
                 <Icon name="x" size={13} />
               </button>
@@ -384,7 +488,7 @@ export function GraphView() {
         )}
       </header>
       <div className="relative min-h-0 flex-1">
-        <SpotlightContext.Provider value={spotlightContext}>
+        <GraphNodeContext.Provider value={nodeContext}>
         <ReactFlow
           key={`${effectiveEpicId || "all"}:${liveOnly ? "live" : "complete"}`}
           nodes={nodes}
@@ -393,6 +497,7 @@ export function GraphView() {
           onPaneClick={() => setFocusId(null)}
           onNodeDoubleClick={(_, node) => { if (spotlight) openDetail(node.id); }}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
           nodesConnectable={!readOnly}
           onConnect={onConnect}
           onInit={(inst) => {
@@ -406,7 +511,7 @@ export function GraphView() {
           <Background gap={22} color="var(--border)" />
           <Controls fitViewOptions={{ padding: 0.2, minZoom: 0.02 }} />
         </ReactFlow>
-        </SpotlightContext.Provider>
+        </GraphNodeContext.Provider>
         {nodes.length === 0 && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
             <div className="pointer-events-auto max-w-[360px] rounded-[12px] border border-border bg-[var(--surface)] p-[16px_18px] text-center shadow-[var(--shadow)]">
